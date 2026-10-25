@@ -18,8 +18,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.8.0
-      - uses: flamingbeing/app-devkit/setup-tools@v1.8.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-tools@v1.9.2
       - run: node .devkit/tools/check.mjs
       - run: node .devkit/tools/proofread.mjs
       - run: node .devkit/tools/check-links.mjs .
@@ -54,10 +54,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.8.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.9.2
         with:
           install: 'false'
-      - uses: flamingbeing/app-devkit/setup-emulators@v1.8.0
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.9.2
         with:
           emulators: firestore
           devkit-dir: .devkit
@@ -70,9 +70,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.8.0
-      - uses: flamingbeing/app-devkit/setup-browser@v1.8.0
-      - uses: flamingbeing/app-devkit/setup-emulators@v1.8.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-browser@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.9.2
         with:
           emulators: firestore,auth
       - run: npx playwright test
@@ -90,9 +90,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.8.0
-      - uses: flamingbeing/app-devkit/setup-browser@v1.8.0
-      - uses: flamingbeing/app-devkit/setup-emulators@v1.8.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-browser@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.9.2
         with:
           emulators: firestore,auth
       - name: Fill a scratch copy
