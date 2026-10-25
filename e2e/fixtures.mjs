@@ -1,11 +1,26 @@
 // Shared steps for the specs. Every test uses its own made-up accounts and its own item texts, so tests run side by
 // side on the one shared list. A page that reports a Content-Security-Policy violation fails its test.
 import { test as base, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
 export const db = fsAdmin('demo-starter-app');
 export const APP = '/app/?emulator';
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+// SYNC_DIR: a local app-sync build (its index.js and src/) served in place of core.anawj.com/sync/<version>/, so
+// app-sync's CI can run these tests against a candidate before it is released (its consumer-test job).
+const SYNC_DIR = process.env.SYNC_DIR ? path.resolve(process.env.SYNC_DIR) : '';
+async function routeSync(context, served) {
+  await context.route(/^https:\/\/core\.anawj\.com\/sync\/[^/]+\/(.+)$/, route => {
+    const rel = new URL(route.request().url()).pathname.split('/').slice(3).join('/');
+    const file = path.join(SYNC_DIR, rel);
+    if (!file.startsWith(SYNC_DIR + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: 'not in SYNC_DIR' });
+    served.n++;
+    return route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
+  });
+}
 
 export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
@@ -17,14 +32,17 @@ export const test = base.extend({
         window.__csp = [];
         addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
       });
+      const served = { n: 0 };
+      if (SYNC_DIR) await routeSync(context, served);
       const page = await context.newPage();
-      made.push({ context, page });
+      made.push({ context, page, served });
       return page;
     });
-    for (const { context, page } of made) {
+    for (const { context, page, served } of made) {
       const v = await page.evaluate(() => window.__csp || []).catch(() => []);
       await context.close();
       expect(v, 'CSP violations').toEqual([]);
+      if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);
     }
   },
 });

@@ -1,4 +1,5 @@
-// Sign-in, roles and sync for the app, on the shared sync engine (app-sync, an exact version from core.anawj.com).
+// Sign-in, roles and sync for the app, on the shared sync engine (app-sync's createApp, an exact version from
+// core.anawj.com).
 //
 // Firestore layout (rules in firestore.app.rules):
 //   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins write it)
@@ -14,7 +15,7 @@
 import { firebaseConfig, APP } from './config.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/12.19.0/';
-export const SYNC = 'https://core.anawj.com/sync/0.5.1/index.js';
+export const SYNC = 'https://core.anawj.com/sync/0.6.0/index.js';
 const SPACE = '_';
 const COLL = 'items';
 
@@ -62,16 +63,6 @@ export function explain(err, doing = 'That') {
   return `${doing} didn’t work. Try again in a moment.`;
 }
 
-// Redirect in the installed app (a popup there can't hand back), a popup elsewhere, a redirect if popups are blocked.
-const installed = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } };
-export async function signIn() {
-  const { A, auth } = await sdk();
-  const provider = new A.GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
-  if (installed()) return A.signInWithRedirect(auth, provider);
-  try { await A.signInWithPopup(auth, provider); }
-  catch (e) { if (/popup-blocked|operation-not-supported/.test(e?.code || '')) await A.signInWithRedirect(auth, provider); else throw e; }
-}
 // Tests only (?emulator): sign in as a made-up Google account.
 export async function emulatorSignIn(email) {
   if (!emulator) throw new Error('Only with ?emulator');
@@ -86,44 +77,28 @@ export const versionOf = claims => Number.isInteger(claims?.v) ? claims.v : -1;
 export const needsClaims = (claims, doc) => versionOf(claims) < 0
   || (doc ? (Number(doc.v) || 0) > versionOf(claims) || doc.role !== roleOf(claims) : roleOf(claims) !== '');
 
-async function askForClaims(user) {
-  const r = await fetch('/api/claims', { method: 'POST', headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
-  if (!r.ok) throw Object.assign(new Error('claims ' + r.status), { code: r.status === 503 ? 'not-set-up' : 'claims-' + r.status });
-  return (await user.getIdTokenResult(true)).claims;
-}
-
 const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
 
-// One engine a page: the device copy, the outbox and the queue, wired as app-sync's README "Use" shows.
-let engine = null;
-async function sync() {
+// One engine a page: app-sync's createApp wires the device copy, the outbox, the queue, the watchdog, the status and
+// the sign-out gate. The app keeps its paths, the bin entry, the role doc and the screens.
+let engine = null, claimsStatus = 0;
+async function sync(roleDoc) {
   if (engine) return engine;
-  const { F, db } = await sdk(), S = await import(SYNC);
-  const meta = new Set();
-  const fs = S.createFirestoreBackend({
-    sdk: async () => ({ F, db }), path: (space, coll) => ['spaces', space, coll], stampMode: 'server', writeId: false,
+  const S = await import(SYNC);
+  engine = S.createApp({
+    name: APP.name, colls: [COLL], path: (space, coll) => ['spaces', space, coll],
+    sdk: async () => ({ ...(await sdk()), emulator: !!emulator }),
+    scope: () => SPACE,
     // a delete writes the item's last version to the bin in the same transaction ({ id, kind, data, deletedAt }:
     // the other devices drop the item from it, and data keeps the deleted version)
-    onCommit: ({ scope, coll, before, after, at, fields }) => !after && before
-      ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...S.leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [],
-    onSnapshotMeta: (coll, m) => { for (const fn of meta) fn(coll, m); },
+    backend: { stampMode: 'server', writeId: false,
+      onCommit: ({ scope, coll, before, after, at, fields }) => !after && before
+        ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...S.leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
+    hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
+    // roles: the role doc (read live below) against the token's claims; /api/claims writes new ones
+    claims: { url: '/api/claims', entry: () => roleDoc(), behind: (doc, claims) => needsClaims(claims, doc) },
+    fetch: async (...a) => { const r = await fetch(...a); claimsStatus = r.status; return r; },
   });
-  const stores = S.createStores({ prefix: `${APP.name}-sync:`, colls: [COLL], metaOnly: ['bin'] });
-  const outbox = S.createOutbox({ name: `${APP.name}-outbox` });
-  const registry = S.createOutboxRegistry();
-  registry.register(outbox);
-  const queue = S.createWriteQueue({
-    store: outbox, registry, getOwner: () => SPACE, online: () => navigator.onLine !== false,
-    backend: (space, kind, record, base, extra) => fs.commit(space, kind, record, base, extra),
-  });
-  const hub = S.createSyncHub({
-    openStore: stores.openStore, listen: fs.listen, fetchOne: fs.fetchOne, stampMode: 'server',
-    bin: 'bin', binKinds: { [COLL]: COLL }, unsent: (_s, coll, id) => queue.unsent(coll, id),
-    onError: e => console.warn('sync', e?.code || e?.message),
-  });
-  S.replanOnWake(hub);
-  addEventListener('online', () => queue.kick());
-  engine = { S, fs, stores, queue, hub, meta, persisted: true };
   return engine;
 }
 
@@ -135,93 +110,56 @@ async function sync() {
 export async function start({ onState, onList, onStatus, onConflicts }) {
   if (!configured) { onState({ phase: 'not-set-up' }); return null; }
   const { A, F, auth, db } = await sdk();
-  A.getRedirectResult(auth).catch(e => console.warn('redirect sign-in', e?.code));
+  let doc;   // the signed-in account's role doc as last read (undefined: not read yet)
+  const roleDoc = async () => {
+    if (doc === undefined) { const u = auth.currentUser; const s = u && await F.getDoc(F.doc(db, 'members', u.uid)).catch(() => null); doc = s?.exists() ? s.data() : null; }
+    return doc;
+  };
+  const E = await sync(roleDoc);
+  E.status$(onStatus);
+  E.queue.onChange(() => onConflicts(E.queue.entries().filter(x => x.state === 'conflict').map(x => ({ key: x.key, mine: x.record, theirs: x.remote ?? null }))));
   let session = null;
   A.onAuthStateChanged(auth, async user => {
-    session?.close(); session = null;
+    session?.close(); session = null; doc = undefined;
     if (!user) { onState({ phase: 'signed-out' }); return; }
-    session = await open(user);
+    session = open(user);
   });
 
-  async function open(user) {
-    let closed = false, offRole = null, offList = null, offQueue = null, timer = 0, heard = false, claims = (await user.getIdTokenResult()).claims;
-    const state = () => ({ user: { uid: user.uid, email: user.email || '', name: user.displayName || user.email || '' }, role: roleOf(claims) });
-    let asking = null;
-    const refresh = async doc => {
-      if (!needsClaims(claims, doc)) return;
-      if (asking) return asking;   // one request at a time (the first snapshot and the sign-in ask together)
-      try { claims = await (asking = askForClaims(user)); }
-      catch (e) { console.warn('claims', e.code); if (e.code === 'not-set-up') { onState({ phase: 'not-set-up' }); return; } }
-      finally { asking = null; }
-      if (!closed) show();
+  function open(user) {
+    let closed = false, offList = null;
+    const state = role => ({ user: { uid: user.uid, email: user.email || '', name: user.displayName || user.email || '' }, role });
+    // after any claims ask: the token as it is now decides what the page shows
+    const show = async () => {
+      if (closed) return;
+      if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
+      const role = roleOf((await user.getIdTokenResult()).claims);
+      if (closed) return;
+      if (!role) { offList?.(); offList = null; onState({ phase: 'no-access', ...state('') }); return; }
+      onState({ phase: 'ready', ...state(role) });
+      offList ??= E.watch(SPACE, COLL, list => onList(list.filter(x => !x._deleted)));
     };
     // the role doc, read live: an admin's change bumps v, and this page asks for new claims
-    offRole = F.onSnapshot(F.doc(db, 'members', user.uid), s => refresh(s.exists() ? s.data() : null), e => console.warn('role doc', e?.code));
-    if (versionOf(claims) < 0) await refresh(null);
-    let E = null;
-    async function show() {
-      const role = roleOf(claims);
-      if (!role) { stopList(); onState({ phase: 'no-access', ...state() }); return; }
-      onState({ phase: 'ready', ...state() });
-      if (!offList) await startList();
-    }
-    function tell() {
-      if (closed || !E) return;
-      const mine = E.queue.entries().filter(x => x.owner === SPACE);
-      onStatus(E.S.syncStatus({ online: navigator.onLine !== false, pending: mine.filter(x => x.state === 'pending').length,
-        attention: E.S.attentionCount(mine), persisted: E.persisted, stale: dog?.stale(), confirmed: heard, atRiskOnlyOffline: true }));
-      onConflicts(mine.filter(x => x.state === 'conflict').map(x => ({ key: x.key, mine: x.record, theirs: x.remote ?? null })));
-    }
-    let dog = null;
-    async function startList() {
-      E = await sync();
-      if (closed) return;
-      await E.queue.activate(SPACE);
-      E.S.persistGuard().then(r => { E.persisted = r.persisted || !r.supported; tell(); }, () => {});
-      dog = E.S.createWatchdog({ relisten: () => { stopWatch(); E.hub.stopAll().then(watch); }, cycle: () => {}, online: () => navigator.onLine !== false, quiet: () => E.queue.pending() === 0 });
-      const onMeta = (_c, m) => { dog.heard(m); if (!m.fromCache && !heard) { heard = true; tell(); } };
-      E.meta.add(onMeta);
-      let offWatch = null, last = null;
-      // the list as the hub has it, with this device's unsent saves laid over (again whenever the queue changes)
-      const deliver = () => { if (!closed && last) onList(E.queue.overlay(COLL, SPACE, last).filter(x => !x._deleted)); tell(); };
-      const watch = () => { offWatch = E.hub.watch(SPACE, COLL, list => { last = list; deliver(); }); };
-      const stopWatch = () => { offWatch?.(); offWatch = null; };
-      offQueue = E.queue.onChange(deliver);
-      watch(); dog.opened();
-      timer = setInterval(() => dog.check(), 3000);
-      offList = () => { stopWatch(); E.meta.delete(onMeta); offQueue?.(); clearInterval(timer); };
-      api.resume = watch;
-    }
-    function stopList() { offList?.(); offList = null; }
-    await show();
-    return { close() { closed = true; offRole?.(); stopList(); } };
+    const offRole = F.onSnapshot(F.doc(db, 'members', user.uid), s => { doc = s.exists() ? s.data() : null; E.refreshClaims().then(show); }, e => console.warn('role doc', e?.code));
+    E.refreshClaims().then(show);
+    return { close() { closed = true; offRole(); offList?.(); offList = null; } };
   }
 
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
-  const api = {
-    resume: () => {},
-    signIn, emulatorSignIn,
+  return {
+    signIn: E.signIn, emulatorSignIn,
     // base: the copy the edit started from (null for a new item)
-    add: text => engine.queue.save(COLL, SPACE, { id: id(), text }, null),
-    edit: (item, text) => engine.queue.save(COLL, SPACE, { ...item, text }, item),
-    remove: item => { void engine.hub.drop(SPACE, COLL, [item.id]); return engine.queue.save(COLL, SPACE, { id: item.id, _deleted: true }, item); },
-    keepMine: c => engine.queue.restore(COLL, SPACE, c.mine),
-    keepTheirs: c => engine.queue.archive(c.key),
+    add: text => E.save(COLL, SPACE, { id: id(), text }, null),
+    edit: (item, text) => E.save(COLL, SPACE, { ...item, text }, item),
+    remove: item => { void E.hub.drop(SPACE, COLL, [item.id]); return E.save(COLL, SPACE, { id: item.id, _deleted: true }, item); },
+    keepMine: c => E.queue.restore(COLL, SPACE, c.mine),
+    keepTheirs: c => E.queue.archive(c.key),
     // true while saves are still being sent (the update reload waits for it)
-    sending: () => !!engine && engine.queue.pending() > 0,
+    sending: () => E.queue.pending() > 0,
     // Sign-out: refuses (false) while anything is unsent; otherwise wipes this device and signs out.
     async signOut() {
-      if (!engine) { await A.signOut(auth); return true; }
-      const { S, hub, stores, queue, fs } = engine;
-      if (!(await queue.flush(4000))) return false;
-      const r = await S.forgetDevice({ hub, stores, queue, proceed: () => queue.flush(1500),
-        clearBackendCache: emulator ? null : fs.clearCache, extra: () => A.signOut(auth) });
-      if (!r.wiped) { api.resume(); return false; }
-      if (r.failed.includes('extra')) await A.signOut(auth);
-      engine = null;
-      if (!emulator) location.reload();   // the SDK was terminated by clearCache
-      return true;
+      const r = await E.signOut();
+      if (r.ok && r.reload) location.reload();   // the SDK was terminated with its cache
+      return r.ok;
     },
   };
-  return api;
 }
