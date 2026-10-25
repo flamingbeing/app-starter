@@ -54,7 +54,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
   const email = `${uniq('u')}@example.com`;
   await page.goto(path);
   await expect(page.locator('#signed-out')).toBeVisible();
-  await page.evaluate(e => import('./cloud.js').then(m => m.emulatorSignIn(e)), email);
+  await page.evaluate(e => import('./src/cloud.js').then(m => m.emulatorSignIn(e)), email);
   await expect(page.locator('#no-access')).toBeVisible();
   const uid = await page.locator('#uid').textContent();
   if (role) {
@@ -69,7 +69,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
 export async function signInAgain(page, email) {
   await page.goto(APP);
   await expect(page.locator('#signed-out')).toBeVisible();
-  await page.evaluate(e => import('./cloud.js').then(m => m.emulatorSignIn(e)), email);
+  await page.evaluate(e => import('./src/cloud.js').then(m => m.emulatorSignIn(e)), email);
   await expect(page.locator('#list-view')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
 }
