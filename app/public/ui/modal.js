@@ -19,7 +19,7 @@ export function wrapIndex(count, at, back) {
 function ask(message, { title = '', buttons }) {
   const back = /** @type {HTMLElement | null} */ (document.activeElement);
   const id = `modal-${Math.random().toString(36).slice(2, 8)}`;
-  const box = /** @type {HTMLDialogElement} */ (el('dialog', { class: 'modal', 'aria-describedby': `${id}-text`, ...(title ? { 'aria-labelledby': `${id}-title` } : {}) },
+  const box = /** @type {HTMLDialogElement} */ (el('dialog', { class: 'modal', 'aria-describedby': `${id}-text`, ...(title ? { 'aria-labelledby': `${id}-title` } : { 'aria-label': message }) },
     ...(title ? [el('h2', { id: `${id}-title` }, title)] : []),
     el('p', { id: `${id}-text` }, message)));
   const row = el('div', { class: 'row' });
@@ -33,7 +33,10 @@ function ask(message, { title = '', buttons }) {
       row.append(btn);
     }
     box.addEventListener('cancel', e => { e.preventDefault(); done(false); });
-    box.addEventListener('click', e => { if (e.target === box) done(false); });
+    box.addEventListener('click', e => {   // a click on the backdrop only: outside the box's own bounds
+      const r = box.getBoundingClientRect();
+      if (e.target === box && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) done(false);
+    });
     box.addEventListener('keydown', e => {
       if (e.key !== 'Tab') return;
       const all = [...box.querySelectorAll(FOCUSABLE)];
