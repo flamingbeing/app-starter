@@ -12,11 +12,7 @@ interface Window {
     add: (text: string) => Promise<unknown> | undefined;
     /** ?emulator only: sign in as a made-up Google account (cloud.js emulatorSignIn; works in a Vite build too). */
     signInAs: (email: string) => Promise<unknown>;
-    phase?: string;
-    role?: string | null;
-    items?: string[];
     status?: string;
-    conflicts?: number;
     [key: string]: unknown;
   };
 }

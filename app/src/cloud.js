@@ -23,13 +23,14 @@ import * as register from 'app-update/register.js';
 import { firebaseConfig, APP } from './config.js';
 import { emulator, configured, roleOf, needsClaims } from './roles.js';
 
-export { explain, usingEmulator } from './roles.js';
+export { usingEmulator } from './roles.js';
 const SPACE = '_';
-const COLL = 'items';
+export const COLL = 'items';
 
 /** @typedef {{ id: string, text: string, updatedAt?: unknown, _deleted?: boolean } & Record<string, unknown>} Item */
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
+/** @typedef {{ phase: Phase, user?: User, role?: string }} State */
 
 /** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;
@@ -74,24 +75,23 @@ function deviceName() {
 const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
 /**
  * @typedef {object} Hooks
- * @property {(s: { phase: Phase, user?: User, role?: string }) => void} onState
+ * @property {(s: State) => void} onState
  * @property {(items: Item[], changed: Set<string>) => void} onList  the list as this device has it, with its unsent saves
  *   laid over; changed: the ids whose copy changed since the last call (none the first time)
- * @property {(st: { state: string, count: number }) => void} onStatus  the sync status (app-sync syncStatus)
- * @property {(list: any[]) => void} onConflicts  only this phone's held saves (app-sync describe: each side is
- *   { value, when (SGT), by, device })
- * @property {(list: { key: string, text: string, why: string }[]) => void} onRefused  saves the server refused
- * @property {(() => boolean | Promise<boolean>) | null} [canReload]  with a service worker: the app's own "nothing open"
- *   answer for the update's reload (it also waits for unsent saves); none: no update module
  */
+/** @typedef {NonNullable<Awaited<ReturnType<typeof start>>>} Started */
 
-// start(hooks) -> the app's actions, or null when the app isn't set up.
-/** @param {Hooks} hooks */
-export async function start({ onState, onList, onStatus, onConflicts, onRefused, canReload = null }) {
-  if (!configured) { onState({ phase: 'not-set-up' }); return null; }
+// start({ canReload }) -> the modules' apis (for the UI kit) and the app's actions, or null when the app isn't set up.
+// canReload: with a service worker, the app's own "nothing open" answer for the update's reload (it also waits for
+// unsent saves); none: no update module. Nothing shows until follow(hooks).
+/** @param {{ canReload?: (() => boolean | Promise<boolean>) | null }} o */
+export async function start({ canReload = null }) {
+  if (!configured) return null;
   let claimsStatus = 0, unsent = 0;
   /** @type {() => Promise<void>} */
   let show = async () => {};
+  /** @type {Hooks | null} */
+  let hooks = null;
   const modules = [
     auth({
       // roles: the role doc, read live, against the token's claims; /api/claims writes new ones
@@ -122,13 +122,6 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
   const { auth: fa } = await sdk();
 
   app.status$((/** @type {{ unsent: number }} */ st) => { unsent = st.unsent; });
-  app.sync.status$(onStatus);
-  const tellQueue = () => {
-    onConflicts(app.sync.conflicts().map((/** @type {any} */ c) => app.sync.describe(c.key)).filter(Boolean));
-    onRefused(app.sync.queue.refused(COLL).map((/** @type {any} */ j) => ({ key: j.key, text: String(j.record?.text ?? ''), why: j.code || j.error || '' })));
-  };
-  app.sync.queue.onChange(tellQueue);
-  tellQueue();
 
   /** @type {(() => void) | null} */
   let offList = null;
@@ -141,6 +134,8 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
   const stopList = () => { offList?.(); offList = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
+    if (!hooks) return;
+    const { onState, onList } = hooks;
     const n = ++seq, u = fa.currentUser, me = app.auth.user();
     if (!u || !me || me.uid !== u.uid) { stopList(); onState({ phase: 'signed-out' }); return; }
     if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
@@ -160,14 +155,11 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
 
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
   return {
-    // -> '' (signed in, or the page is leaving to sign in), or why another account's sign-in was refused, in plain words
-    async signIn() {
-      const r = await app.auth.signIn();
-      if (r.reason === 'unsent') return `This phone still has changes from ${r.from?.email || 'the last account'} that haven’t been sent. Sign in as that account to send them, or forget this device.`;
-      if (r.reason === 'wipe') return `This phone couldn’t clear ${r.from?.email || 'the last account'}’s copy, so it stays. Try again.`;
-      return '';
-    },
-    emulatorSignIn,
+    // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
+    auth: app.auth, sync: app.sync, update: app.update || null,
+    // from now on: onState with what the page shows, onList with the list once it is shown
+    /** @param {Hooks} h */
+    follow(h) { hooks = h; void show(); },
     /** @param {string} text */
     add: text => app.sync.save(COLL, SPACE, { id: id(), text }, null),
     // base: the copy the edit started from
@@ -175,22 +167,10 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
     edit: (item, text) => app.sync.save(COLL, SPACE, { ...item, text }, item),
     /** @param {Item} item */
     remove: item => { void app.sync.hub.drop(SPACE, COLL, [item.id]); return app.sync.save(COLL, SPACE, { id: item.id, _deleted: true }, item); },
-    // choice: 'mine' | 'theirs' | { [field]: 'mine' | 'theirs' }; changes that don't clash are kept either way
-    /** @param {{ key: string }} c @param {any} choice */
-    resolve: (c, choice) => app.sync.resolve(c.key, choice),
-    /** @param {string} key */
-    retry: key => app.sync.queue.retry(key),
-    /** @param {string} key */
-    discard: key => app.sync.queue.discard(key),
     // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),
     // Sign-out keeps this device's copy and unsent saves. -> how many are still unsent (they send at the next sign-in)
     async signOut() { await app.auth.signOut(); return unsent; },
-    // Forget this device: wipes the copy and the outbox. Refused ('unsent') while anything is unsent, unless force.
-    /** @param {{ force?: boolean }} [o] @returns {Promise<{ ok: boolean, reason: string, failed: string[] }>} */
-    async forget({ force = false } = {}) { const r = await app.auth.forget({ force }); return { ok: r.ok, reason: r.reason, failed: r.failed || [] }; },
-    // the update module's api (with a service worker only), else null
-    update: app.update || null,
   };
 }
