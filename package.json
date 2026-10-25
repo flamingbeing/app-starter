@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
-    "app-sync": "git+https://github.com/flamingbeing/app-sync.git#v0.9.3",
+    "app-sync": "git+https://github.com/flamingbeing/app-sync.git#v1.0.0",
     "axe-core": "4.14.0",
     "typescript": "5.8.3",
     "vite": "6.3.5"
