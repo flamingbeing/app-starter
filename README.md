@@ -16,6 +16,10 @@ are safe from day one. Replace this first paragraph with what the app is once it
   `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
   map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).
   Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt`).
+- **UI kit** ([decision 0008](docs/decisions/0008-ui-kit-and-theme-in-the-starter.md)): `@core/ui` (sync chip with
+  overridable state words `LABELS`, sign-in sheet, conflict sheet, update prompt, refused list) and `@core/theme`
+  (custom properties, this device's theme and layout switch), v0 in `app/public/ui/` and `app/public/theme/`, each its
+  own import map entry. The screens are one file each in `app/src/screens/`; a new app replaces only those.
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
   the role doc's `v` is ahead of its token.
@@ -85,9 +89,10 @@ app-sync's CI runs these tests that way against each candidate (its consumer tes
 
 ```text
 app/        the app (served at the root of its address): index.html (import map) and
-  src/      config.js, cloud.js (wiring), app.js (screen), roles.js, boot.js, globals.d.ts (types for the check)
-  public/   sw.js, app.css, manifest, icons, vendor/firebase/<version>/: served as if beside index.html (the Worker
-            looks here on a miss), as Vite's public/ is
+  src/      config.js, cloud.js (wiring), app.js (shell), screen-switch.js, screens/ (one file per screen), dom.js,
+            roles.js, boot.js, globals.d.ts (types for the check)
+  public/   sw.js, app.css, manifest, icons, ui/ (@core/ui), theme/ (@core/theme), vendor/firebase/<version>/: served
+            as if beside index.html (the Worker looks here on a miss), as Vite's public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
 e2e/        browser tests and their server
 tools/      fill.mjs, sw-files.mjs (sw.js's file list), vendor-firebase.mjs (+ firebase.lock.json), stamp-versions.mjs
