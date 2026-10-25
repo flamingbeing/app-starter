@@ -94,11 +94,26 @@ app/        the app (served at the root of its address): index.html (import map)
   public/   sw.js, app.css, manifest, icons, ui/ (@core/ui), theme/ (@core/theme), vendor/firebase/<version>/: served
             as if beside index.html (the Worker looks here on a miss), as Vite's public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
-e2e/        browser tests and their server
+e2e/        browser tests and their server; fixtures/outside-package/ (a page that imports a vendored zod)
 tools/      fill.mjs, sw-files.mjs (sw.js's file list), vendor-firebase.mjs (+ firebase.lock.json), stamp-versions.mjs
-            (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root)
+            (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
+            vite-outside-package.mjs (the same for the outside-package fixture)
 docs/       decisions
 ```
+
+## Adding an outside package
+
+An outside ESM package (one with no dependencies of its own) plugs in the way `@core/*` does. The proof is a fixture
+page, `e2e/fixtures/outside-package/` (zod 3.23.8); the starter app imports none of it, so a new app carries only what
+it adds. An app that does not need the proof can delete that folder and `e2e/outside-package.spec.mjs`.
+
+1. **Vendor one file, exact version:** `npm pack <name>@<version>`, copy its single ESM file (and `LICENSE`) to
+   `app/public/vendor/<name>/<version>/`, plus its `.d.ts` files. A live CDN would break the offline start.
+2. **Name it in the import map** (`app/index.html`): `"<name>": "./vendor/<name>/<version>/<file>.mjs"`.
+3. **Types:** a `paths` entry in `tsconfig.json` pointing at the vendored `index.d.ts`, so `npm run typecheck` stays strict.
+4. **Offline:** `node tools/sw-files.mjs app` lists the file in `sw.js`'s SHELL (CI runs its `--check`).
+5. **Vite:** add `resolve.alias: { <name>: '<the vendored file>' }` to `vite.config.mjs` (an npm dependency of the same
+   version works too); `tools/vite-outside-package.mjs` shows the build keeps it out of pages that do not import it.
 
 ## Move an app onto 1.0
 

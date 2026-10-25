@@ -28,6 +28,7 @@ jobs:
       - name: sw.js's file list is the generated one; vendored Firebase is gstatic's, at the import map's version
         run: |
           node tools/sw-files.mjs app --check
+          node tools/sw-files.mjs e2e/fixtures/outside-package --check
           node tools/vendor-firebase.mjs --check
       - run: node .devkit/tools/build-rules.mjs app/firestore.app.rules --check
       - name: fill values and app/src/config.js are in their canonical form
