@@ -4,6 +4,9 @@
 export const THEMES = Object.freeze(['auto', 'light', 'dark']);
 export const LAYOUTS = Object.freeze(['comfortable', 'compact']);
 const KEY = 'core-theme';
+// The choice made on this page while storage refuses it, so a second pick builds on the first.
+/** @type {Choice | null} */
+let unstored = null;
 
 /** @typedef {{ theme: string, layout: string }} Choice */
 
@@ -19,6 +22,7 @@ export function parseChoice(stored) {
 
 /** @returns {Choice} */
 export function themeChoice() {
+  if (unstored) return unstored;
   try { return parseChoice(localStorage.getItem(KEY)); } catch { return parseChoice(null); }
 }
 
@@ -35,7 +39,7 @@ export function applyTheme() { show(themeChoice()); }
 /** @param {Partial<Choice>} change  -> the choice now (kept on this device when storage allows) */
 export function chooseTheme(change) {
   const next = parseChoice(JSON.stringify({ ...themeChoice(), ...change }));
-  try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* no storage: this page only */ }
+  try { localStorage.setItem(KEY, JSON.stringify(next)); unstored = null; } catch { unstored = next; }
   show(next);
   return next;
 }

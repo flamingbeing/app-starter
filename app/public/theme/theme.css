@@ -24,4 +24,5 @@
 body { font-family: var(--font); background: var(--bg); color: var(--text); }
 button, input, select { font: inherit; color: inherit; }
 button { min-height: var(--tap); padding: 0 var(--pad); cursor: pointer; border-radius: var(--radius); }
+button, select { background: var(--surface); border: 1px solid var(--line); }
 a, :focus-visible { outline-color: var(--accent); }

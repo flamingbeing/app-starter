@@ -1,4 +1,4 @@
-// Element builders shared by the kit's parts (not exported from @core/ui).
+// Element builders shared by the kit's parts (not exported from @core/ui), and plural (exported, for the page's own words).
 
 /**
  * @template {keyof HTMLElementTagNameMap} K

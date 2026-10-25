@@ -1,7 +1,7 @@
 // The page's shell: the theme, the kit's sync chip and update prompt, the account footer, and the screen switch. The
 // sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app replaces them and
 // keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
-import { syncChip, updatePrompt } from '@core/ui';
+import { syncChip, updatePrompt, plural } from '@core/ui';
 import { applyTheme, themeSwitch } from '@core/theme';
 import { start, usingEmulator, emulatorSignIn } from './cloud.js';
 import { $ } from './dom.js';
@@ -11,8 +11,6 @@ import { noAccessScreen } from './screens/no-access.js';
 import { notSetUpScreen } from './screens/not-set-up.js';
 import { listScreen } from './screens/list.js';
 
-/** @param {number} n @param {string} one */
-const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
 const typing = () => document.activeElement?.tagName === 'INPUT' && !!(/** @type {HTMLInputElement} */ (document.activeElement).value);
 const sheetOpen = () => !!document.querySelector('dialog[open]');
 
