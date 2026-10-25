@@ -12,3 +12,9 @@ accounts and item texts and checks only those; they run side by side.
 - Restore from the bin (the bin entries keep the deleted version in `data`).
 - Multi-group, email-link and passcode sign-in (app-devkit `custom-token.js`).
 - Enforce the Content-Security-Policy (decision 0003).
+
+## Held conflicts (app-sync 0.6.3)
+
+`cloud.js` sets `backend.held` and `edits: '_edits'`: a same-field clash is held on the phone that made the save and
+shown there as a side-by-side sheet (both versions, when in SGT, who and device); other phones see nothing to answer.
+Choices are `app.resolve(c, 'mine' | 'theirs' | { field: … })`. Rules allow the `_edits` map on items.

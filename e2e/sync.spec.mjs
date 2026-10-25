@@ -49,11 +49,46 @@ test('an edit that meets a change from another phone waits for a choice; keep mi
   await b.context().setOffline(false);
 
   await expect(b.locator('#attention')).toBeVisible({ timeout: 20_000 });
+  // only the phone whose save was held is asked; the other phone has nothing to answer
+  await expect(a.locator('#attention')).toBeHidden();
   await b.click('#attention');
-  await expect(b.locator('#conflict-list')).toContainText(t + ' from a');
+  // both versions side by side, each with when it changed (SGT) and who changed it
+  const sides = b.locator('#conflict-list .sides');
+  await expect(sides).toContainText(t + ' from a');
+  await expect(sides).toContainText(t + ' from b');
+  await expect(sides).toContainText(/\d\d:\d\d/);
+  await expect(sides).toContainText(email);
+  await expect(sides).toContainText('Computer');
   await b.getByRole('button', { name: 'Keep mine' }).click();
   await serverHas(t + ' from b');
   await expect(a.locator('#items')).toContainText(t + ' from b', { timeout: 15_000 });
+  await expect(b.locator('#attention')).toBeHidden();
+});
+
+test('keep theirs drops this phone’s held change and nothing else', async ({ phone }) => {
+  const a = await phone(), b = await phone();
+  const { email } = await signIn(a, 'member');
+  await signInAgain(b, email);
+  const t = uniq('theirs');
+  await add(a, t);
+  await expect(b.locator('#items')).toContainText(t, { timeout: 15_000 });
+  await synced(b);
+  await b.context().setOffline(true);
+  await b.getByRole('button', { name: t }).click();
+  await b.fill('#edit-text', t + ' from b');
+  await b.click('#edit-save');
+  await a.getByRole('button', { name: t }).click();
+  await a.fill('#edit-text', t + ' from a');
+  await a.click('#edit-save');
+  await serverHas(t + ' from a');
+  await b.context().setOffline(false);
+  await expect(b.locator('#attention')).toBeVisible({ timeout: 20_000 });
+  // an unanswered conflict stays visible in the chip
+  await expect(b.locator('#status')).toHaveAttribute('data-state', 'attention');
+  await b.click('#attention');
+  await b.getByRole('button', { name: 'Keep theirs' }).click();
+  await expect(b.locator('#items')).toContainText(t + ' from a', { timeout: 15_000 });
+  await expect(b.locator('#attention')).toBeHidden();
 });
 
 test('sign-out waits for unsent saves, then wipes the phone', async ({ phone }) => {

@@ -3,7 +3,7 @@
 //
 // Firestore layout (rules in firestore.app.rules):
 //   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins write it)
-//   spaces/_/items/{id}        { text, updatedAt, serverAt }          the list ('_' is the single group)
+//   spaces/_/items/{id}        { text, updatedAt, serverAt, _edits }  the list (_edits: who changed each field, and when) ('_' is the single group)
 //   spaces/_/bin/{coll:id}     { id, kind, data, deletedAt, … }       a deleted item's last version (delete to bin)
 //
 // Roles reach the rules as custom claims ({ g: { _: role }, v }), a cache of the role doc: the Worker's /api/claims
@@ -15,7 +15,7 @@
 import { firebaseConfig, APP } from './config.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/12.19.0/';
-export const SYNC = 'https://core.anawj.com/sync/0.6.0/index.js';
+export const SYNC = 'https://core.anawj.com/sync/0.6.3/index.js';
 const SPACE = '_';
 const COLL = 'items';
 
@@ -77,6 +77,14 @@ export const versionOf = claims => Number.isInteger(claims?.v) ? claims.v : -1;
 export const needsClaims = (claims, doc) => versionOf(claims) < 0
   || (doc ? (Number(doc.v) || 0) > versionOf(claims) || doc.role !== roleOf(claims) : roleOf(claims) !== '');
 
+// This phone's name for the popup ('Phone', 'Tablet', 'Computer'), from the browser; the app may let people set one.
+function deviceName() {
+  try {
+    const ua = navigator.userAgent || '';
+    return /iPad|Tablet/.test(ua) ? 'Tablet' : /iPhone|Android.*Mobile|Mobile/.test(ua) ? 'Phone' : 'Computer';
+  } catch { return ''; }
+}
+
 const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
 
 // One engine a page: app-sync's createApp wires the device copy, the outbox, the queue, the watchdog, the status and
@@ -91,7 +99,10 @@ async function sync(roleDoc) {
     scope: () => SPACE,
     // a delete writes the item's last version to the bin in the same transaction ({ id, kind, data, deletedAt }:
     // the other devices drop the item from it, and data keeps the deleted version)
-    backend: { stampMode: 'server', writeId: false,
+    // held: a same-field clash is kept on the phone that made the save until its person chooses (never overwritten);
+    // edits: each write records who changed each field and when, for the popup
+    device: deviceName(),
+    backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits',
       onCommit: ({ scope, coll, before, after, at, fields }) => !after && before
         ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...S.leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
     hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
@@ -106,7 +117,8 @@ async function sync(roleDoc) {
 //   onState({ phase: 'not-set-up' | 'signed-out' | 'no-access' | 'ready', user, role })
 //   onList(items)  the list as this device has it, with its unsent saves laid over
 //   onStatus({ state, count })  app-sync syncStatus
-//   onConflicts([{ key, mine, theirs }])
+//   onConflicts([{ key, deleted, fields: [{ path, mine, theirs }], mine, theirs }])  only this phone's held saves
+//     (app-sync describe: each side is { value, when (SGT), by, device })
 export async function start({ onState, onList, onStatus, onConflicts }) {
   if (!configured) { onState({ phase: 'not-set-up' }); return null; }
   const { A, F, auth, db } = await sdk();
@@ -117,7 +129,7 @@ export async function start({ onState, onList, onStatus, onConflicts }) {
   };
   const E = await sync(roleDoc);
   E.status$(onStatus);
-  E.queue.onChange(() => onConflicts(E.queue.entries().filter(x => x.state === 'conflict').map(x => ({ key: x.key, mine: x.record, theirs: x.remote ?? null }))));
+  E.queue.onChange(() => onConflicts(E.conflicts().map(c => E.describe(c.key)).filter(Boolean)));
   let session = null;
   A.onAuthStateChanged(auth, async user => {
     session?.close(); session = null; doc = undefined;
@@ -151,8 +163,8 @@ export async function start({ onState, onList, onStatus, onConflicts }) {
     add: text => E.save(COLL, SPACE, { id: id(), text }, null),
     edit: (item, text) => E.save(COLL, SPACE, { ...item, text }, item),
     remove: item => { void E.hub.drop(SPACE, COLL, [item.id]); return E.save(COLL, SPACE, { id: item.id, _deleted: true }, item); },
-    keepMine: c => E.queue.restore(COLL, SPACE, c.mine),
-    keepTheirs: c => E.queue.archive(c.key),
+    // choice: 'mine' | 'theirs' | { [field]: 'mine' | 'theirs' }; changes that don't clash are kept either way
+    resolve: (c, choice) => E.resolve(c.key, choice),
     // true while saves are still being sent (the update reload waits for it)
     sending: () => E.queue.pending() > 0,
     // Sign-out: refuses (false) while anything is unsent; otherwise wipes this device and signs out.

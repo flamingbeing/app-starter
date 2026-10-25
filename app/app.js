@@ -57,6 +57,7 @@ app = await start({
     conflicts = list;
     $('attention').hidden = !list.length;
     $('attention').textContent = `${list.length} change${list.length === 1 ? '' : 's'} met an edit from another device: choose`;
+    if (!list.length && $('conflicts').open) $('conflicts').close();
     if ($('conflicts').open) renderConflicts();
     window.starter.conflicts = list.length;
   },
@@ -99,16 +100,40 @@ $('edit-delete').addEventListener('click', async () => {
 });
 
 $('attention').addEventListener('click', () => { renderConflicts(); $('conflicts').showModal(); });
+// One conflict: both versions side by side, each with when it changed (SGT) and who changed it (name, device).
+// Choices: keep mine / keep theirs for the whole item; with several clashing fields, one choice per field as well.
+const sideText = (v, deleted) => deleted ? '(deleted)' : v && typeof v === 'object' ? String(v.text ?? '') : String(v ?? '');
+function sideBox(title, side, text) {
+  const d = document.createElement('div');
+  const h = document.createElement('h3'), q = document.createElement('p'), m = document.createElement('p');
+  h.textContent = title; q.textContent = `“${text}”`;
+  m.className = 'small';
+  m.textContent = [side.when, [side.by, side.device].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || 'time and author unknown';
+  d.append(h, q, m); return d;
+}
+function choiceButton(label, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = label; b.addEventListener('click', onClick); return b;
+}
 function renderConflicts() {
   $('conflict-list').replaceChildren(...conflicts.map(c => {
-    const li = document.createElement('li');
-    const p = document.createElement('p');
-    p.textContent = `Yours: “${c.mine?._deleted ? '(deleted)' : c.mine?.text}” · Other device: “${c.theirs ? c.theirs.text : '(deleted)'}”`;
-    const mine = document.createElement('button'), theirs = document.createElement('button');
-    mine.type = theirs.type = 'button';
-    mine.textContent = 'Keep mine'; theirs.textContent = 'Keep theirs';
-    mine.addEventListener('click', () => app.keepMine(c));
-    theirs.addEventListener('click', () => app.keepTheirs(c));
-    li.append(p, mine, theirs); return li;
+    const li = document.createElement('li'), cols = document.createElement('div'), row = document.createElement('div');
+    cols.className = 'sides'; row.className = 'row';
+    cols.append(sideBox('Yours', c.mine, sideText(c.mine.value, c.deleted.mine)), sideBox('Other device', c.theirs, sideText(c.theirs.value, c.deleted.theirs)));
+    row.append(choiceButton('Keep mine', () => app.resolve(c, 'mine')), choiceButton('Keep theirs', () => app.resolve(c, 'theirs')));
+    li.append(cols, row);
+    if (c.fields.length > 1) {
+      const picks = {}, per = document.createElement('div'), go = choiceButton('Keep these choices', () => app.resolve(c, picks));
+      go.disabled = true;
+      for (const f of c.fields) {
+        const r = document.createElement('div'), t = document.createElement('p');
+        r.className = 'row'; t.className = 'small'; t.textContent = `${f.path}: yours “${f.mine.value}” (${f.mine.when}) · theirs “${f.theirs.value}” (${f.theirs.when})`;
+        const pick = which => () => { picks[f.path] = which; go.disabled = c.fields.some(x => !picks[x.path]); };
+        r.append(t, choiceButton('Mine', pick('mine')), choiceButton('Theirs', pick('theirs')));
+        per.append(r);
+      }
+      li.append(per, go);
+    }
+    return li;
   }));
 }
