@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { roleOf, versionOf, needsClaims, configured } from '../cloud.js';
+import { firebaseConfig } from '../config.js';
 
 test('role and version from the token claims', () => {
   assert.equal(roleOf({ g: { _: 'member' }, v: 2 }), 'member');
@@ -19,6 +20,6 @@ test('new claims when the token has none, or the role doc moved on', () => {
   assert.equal(needsClaims({ v: 1 }, null), false, 'no doc and no role: nothing to do');
 });
 
-test('the unfilled template is not connected to a project', () => {
-  assert.equal(configured, false);
+test('connected to a project only once the web config has an apiKey (the unfilled template has none)', () => {
+  assert.equal(configured, !!firebaseConfig.apiKey);
 });
