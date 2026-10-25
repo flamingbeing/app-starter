@@ -17,22 +17,22 @@ const SHELL = [
   'manifest.webmanifest',
   'icons/icon.svg',
   'https://core.anawj.com/update/0.2.0/register.js',
-  'https://core.anawj.com/sync/0.6.0/index.js',
-  'https://core.anawj.com/sync/0.6.0/src/app.js',
-  'https://core.anawj.com/sync/0.6.0/src/conflict.js',
-  'https://core.anawj.com/sync/0.6.0/src/firestore.js',
-  'https://core.anawj.com/sync/0.6.0/src/forget.js',
-  'https://core.anawj.com/sync/0.6.0/src/outbox.js',
-  'https://core.anawj.com/sync/0.6.0/src/persist.js',
-  'https://core.anawj.com/sync/0.6.0/src/registry.js',
-  'https://core.anawj.com/sync/0.6.0/src/report.js',
-  'https://core.anawj.com/sync/0.6.0/src/status.js',
-  'https://core.anawj.com/sync/0.6.0/src/store.js',
-  'https://core.anawj.com/sync/0.6.0/src/sync.js',
-  'https://core.anawj.com/sync/0.6.0/src/watchdog.js',
-  'https://core.anawj.com/sync/0.6.0/src/writes.js',
+  'https://core.anawj.com/sync/0.6.3/index.js',
+  'https://core.anawj.com/sync/0.6.3/src/app.js',
+  'https://core.anawj.com/sync/0.6.3/src/conflict.js',
+  'https://core.anawj.com/sync/0.6.3/src/firestore.js',
+  'https://core.anawj.com/sync/0.6.3/src/forget.js',
+  'https://core.anawj.com/sync/0.6.3/src/outbox.js',
+  'https://core.anawj.com/sync/0.6.3/src/persist.js',
+  'https://core.anawj.com/sync/0.6.3/src/registry.js',
+  'https://core.anawj.com/sync/0.6.3/src/report.js',
+  'https://core.anawj.com/sync/0.6.3/src/status.js',
+  'https://core.anawj.com/sync/0.6.3/src/store.js',
+  'https://core.anawj.com/sync/0.6.3/src/sync.js',
+  'https://core.anawj.com/sync/0.6.3/src/watchdog.js',
+  'https://core.anawj.com/sync/0.6.3/src/writes.js',
 ];
-const MANIFEST = {};
+const MANIFEST = {"./":"a5ad1f9b07c5","boot.js":"70938813723d","app.js":"29418b2e2d37","cloud.js":"0927df4d710c","config.js":"f7867272b28a","app.css":"52007f9ef543","manifest.webmanifest":"7c9dea3772c2","icons/icon.svg":"4d4741fb5d81","https://core.anawj.com/update/0.2.0/register.js":"pinned","https://core.anawj.com/sync/0.6.3/index.js":"pinned","https://core.anawj.com/sync/0.6.3/src/app.js":"pinned","https://core.anawj.com/sync/0.6.3/src/conflict.js":"pinned","https://core.anawj.com/sync/0.6.3/src/firestore.js":"pinned","https://core.anawj.com/sync/0.6.3/src/forget.js":"pinned","https://core.anawj.com/sync/0.6.3/src/outbox.js":"pinned","https://core.anawj.com/sync/0.6.3/src/persist.js":"pinned","https://core.anawj.com/sync/0.6.3/src/registry.js":"pinned","https://core.anawj.com/sync/0.6.3/src/report.js":"pinned","https://core.anawj.com/sync/0.6.3/src/status.js":"pinned","https://core.anawj.com/sync/0.6.3/src/store.js":"pinned","https://core.anawj.com/sync/0.6.3/src/sync.js":"pinned","https://core.anawj.com/sync/0.6.3/src/watchdog.js":"pinned","https://core.anawj.com/sync/0.6.3/src/writes.js":"pinned"};
 
 importScripts('https://core.anawj.com/update/0.2.0/sw-core.js');
 AppUpdate.init({
