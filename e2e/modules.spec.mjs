@@ -68,9 +68,15 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   const { email } = await signIn(a, 'member');
   await signInAgain(b, email);
   const t = uniq('live');
+  // the watch says what changed: note every item marked so (other tests share the list, and their saves move the mark)
+  await b.evaluate(() => {
+    const seen = window.changedSeen = /** @type {string[]} */ ([]);
+    new MutationObserver(() => document.querySelectorAll('#items li.changed').forEach(li => seen.push(li.textContent || '')))
+      .observe(document.getElementById('items'), { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  });
   await add(a, t);
   await expect(b.locator('#items')).toContainText(t);
-  await expect(b.locator('#items li.changed')).toContainText(t);   // the watch says what changed
+  await expect.poll(() => b.evaluate(t => window.changedSeen.some(x => x.includes(t)), t)).toBe(true);
   await b.getByRole('button', { name: t }).click();
   const itemId = await itemIdOf(t);
   const doc = await db.get(`spaces/_/items/${itemId}`);
