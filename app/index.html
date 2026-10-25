@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Starter app</title>
+  <script src="boot.js"></script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <h1>Starter app</h1>
+    <span id="status" class="chip" role="status" aria-live="polite">Starting…</span>
+  </header>
+  <main>
+    <section id="signed-out" hidden>
+      <p>Sign in to see the list.</p>
+      <button id="sign-in" type="button">Sign in with Google</button>
+      <p id="sign-in-error" class="error" role="alert"></p>
+    </section>
+    <section id="no-access" hidden>
+      <p>This account has no access yet. Ask an admin to add it.</p>
+      <p class="small">Account id: <code id="uid"></code></p>
+    </section>
+    <section id="not-set-up" hidden>
+      <p>This app isn't connected to its Firebase project yet (see README, "Fill").</p>
+    </section>
+    <section id="list-view" hidden>
+      <button id="attention" class="attention" type="button" hidden></button>
+      <form id="add" autocomplete="off">
+        <label for="new-text">New item</label>
+        <div class="row">
+          <input id="new-text" name="text" maxlength="500" required>
+          <button type="submit">Add</button>
+        </div>
+      </form>
+      <ul id="items" aria-label="Items"></ul>
+      <p id="empty" class="small" hidden>Nothing here yet.</p>
+    </section>
+  </main>
+  <footer>
+    <span id="who"></span>
+    <button id="sign-out" type="button" hidden>Sign out</button>
+    <p id="sign-out-msg" class="error" role="alert"></p>
+    <p class="small">Version <span id="version">…</span></p>
+  </footer>
+
+  <dialog id="edit" aria-labelledby="edit-title">
+    <form method="dialog" id="edit-form">
+      <h2 id="edit-title">Edit item</h2>
+      <label for="edit-text">Text</label>
+      <input id="edit-text" maxlength="500" required>
+      <div class="row">
+        <button id="edit-save" value="save">Save</button>
+        <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>
+        <button value="cancel" formnovalidate>Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="conflicts" aria-labelledby="conflicts-title">
+    <h2 id="conflicts-title">Changed on another device</h2>
+    <p class="small">Choose which version to keep. Nothing is lost until you choose.</p>
+    <ul id="conflict-list"></ul>
+    <form method="dialog"><button>Close</button></form>
+  </dialog>
+</body>
+</html>

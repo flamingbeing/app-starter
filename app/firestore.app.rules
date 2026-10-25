@@ -1,0 +1,36 @@
+rules_version = '2';
+// The app's rules. Edit this file, then build: node .devkit/tools/build-rules.mjs app/firestore.app.rules
+// (writes firestore.rules, which is what deploys and the emulator use; CI fails when it is stale).
+// Roles come from custom claims (app-devkit rules kit): { g: { _: role }, x, v, m }; '_' is the single group.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // devkit:common
+
+    // The role docs: each person reads their own (the page watches its v); only admins write.
+    match /members/{uid} {
+      allow read: if (isSignedIn() && request.auth.uid == uid) || can('_', ['admin']);
+      allow create, update: if can('_', ['admin'])
+        && request.resource.data.keys().hasOnly(['role', 'v', 'name'])
+        && request.resource.data.role in ['admin', 'member', 'viewer']
+        && request.resource.data.v is int;
+      allow delete: if can('_', ['admin']);
+    }
+
+    match /spaces/{g}/items/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped()
+        && request.resource.data.keys().hasOnly(['text', 'updatedAt', 'serverAt'])
+        && request.resource.data.text is string && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.updatedAt is number;
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
+    // A deleted item's last version, written in the delete's own transaction (cloud.js onCommit).
+    match /spaces/{g}/bin/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped()
+        && request.resource.data.keys().hasOnly(['id', 'kind', 'data', 'deletedAt', 'updatedAt', 'serverAt']);
+    }
+  }
+}

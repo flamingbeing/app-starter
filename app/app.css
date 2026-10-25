@@ -1,0 +1,18 @@
+/* Layout only; colours and type come from the design kit's tokens (KIT in config.js), with plain fallbacks. */
+:root { color-scheme: light dark; }
+body { margin: 0 auto; max-width: 40rem; padding: 0 1rem 2rem; font-family: var(--font, system-ui, sans-serif);
+  background: var(--bg, Canvas); color: var(--text, CanvasText); }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+h1 { font-size: 1.4rem; }
+.chip { font-size: .85rem; padding: .2rem .6rem; border-radius: .4rem; border: 1px solid currentColor; }
+.chip[data-state="attention"], .error { color: var(--danger, #b3261e); }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+input { font: inherit; padding: .5rem; flex: 1; min-width: 10rem; }
+button { font: inherit; min-height: 44px; padding: 0 1rem; cursor: pointer; }
+.danger { color: var(--danger, #b3261e); }
+.attention { width: 100%; margin: .5rem 0; }
+#items { list-style: none; padding: 0; }
+#items li button { width: 100%; text-align: left; margin: .25rem 0; }
+.small { font-size: .85rem; opacity: .8; }
+footer { margin-top: 2rem; }
+dialog { max-width: 30rem; width: calc(100% - 2rem); }
