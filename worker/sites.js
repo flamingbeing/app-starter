@@ -3,7 +3,7 @@
 // (claims.js from app-devkit, roles from members.js) and passes Firebase's sign-in helper pages on to the project.
 // wrangler.jsonc: "run_worker_first" sends every request here; FIREBASE_PROJECT is a var there, the service account
 // (SA_EMAIL, SA_KEY) are Worker secrets.
-import { resolve } from './routes.js';
+import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
 import { admin, handleClaims } from './claims.js';
 import { loadClaims } from './members.js';
@@ -33,6 +33,10 @@ export default {
     let file = r.file;
     if (file === '' || file.endsWith('/')) file += 'index.html';
     let res = await asset(env, url, file);
+    if (res.status === 404 && publicFile(file)) {
+      const pub = await asset(env, url, publicFile(file));
+      if (pub.status !== 404) { res = pub; file = publicFile(file); }
+    }
     if (res.status === 404 && !/\.[^/]+$/.test(file)) {
       // no such file, but a folder of that name: send the browser to the address with a "/" (as GitHub Pages does)
       const dir = await asset(env, url, file + '/index.html');

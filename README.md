@@ -11,7 +11,7 @@ are safe from day one. Replace this first paragraph with what the app is once it
   (`/__/auth/`, `/__/firebase/`) on to the project, so sign-in stays on the app's address.
 - **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a status chip, Google sign-in,
   sign-out that wipes the device, and the version line. Sync is [app-sync](https://github.com/flamingbeing/app-sync)
-  (exact version from `core.anawj.com/sync/`, wired with its `createApp` in `app/cloud.js`); updates are app-update with
+  (exact version from `core.anawj.com/sync/`, wired with its `createApp` in `app/src/cloud.js`); updates are app-update with
   `canReload` (no reload while someone types, a sheet is open or saves are sending). Installable, never prompted
   (`boot.js` cancels `beforeinstallprompt`).
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
@@ -33,7 +33,7 @@ node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs
   [--title "<Title>"] [--web-config sdkconfig.json] [--commit <template sha>]
 ```
 
-It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/config.js` (with the web
+It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/src/config.js` (with the web
 app's `apiKey` and `appId` from `firebase apps:sdkconfig WEB` output) and sets `wrangler.jsonc`'s `FIREBASE_PROJECT`.
 Running it again changes nothing; `--check` exits 1 when a run would change something. The emulator project becomes
 `demo-<name>`; tests never touch the live project.

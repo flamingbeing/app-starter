@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { csp, securityHeaders, KIT } from '../headers.js';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { csp, securityHeaders, KIT, IMPORT_MAP } from '../headers.js';
 
 const parse = s => Object.fromEntries(s.split('; ').map(d => { const [k, ...v] = d.split(' '); return [k, v]; }));
 
@@ -24,4 +26,12 @@ test('report-only until enforced; HSTS off on localhost', () => {
   assert.ok(names(securityHeaders({ enforce: false })).includes('Content-Security-Policy-Report-Only'));
   assert.ok(names(securityHeaders({ enforce: true })).includes('Content-Security-Policy'));
   assert.ok(!names(securityHeaders({ local: true })).includes('Strict-Transport-Security'));
+});
+
+test('CSP: the page\'s one import map is allowed by its hash (change the map, and this says the new hash)', () => {
+  const html = fs.readFileSync(new URL('../../app/index.html', import.meta.url), 'utf8');
+  const maps = [...html.matchAll(/<script type="importmap">([\s\S]*?)<\/script>/g)];
+  assert.equal(maps.length, 1);
+  assert.equal(IMPORT_MAP, `'sha256-${crypto.createHash('sha256').update(maps[0][1]).digest('base64')}'`);
+  assert.ok(parse(csp())['script-src'].includes(IMPORT_MAP));
 });

@@ -1,8 +1,8 @@
-// cloud.js's pure parts: roles from claims, and when new claims are needed. node --test app/test/cloud.unit.test.mjs
+// cloud.js's pure parts (src/roles.js): roles from claims, and when new claims are needed. node --test app/test/cloud.unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { roleOf, versionOf, needsClaims, configured } from '../cloud.js';
-import { firebaseConfig } from '../config.js';
+import { roleOf, versionOf, needsClaims, configured } from '../src/roles.js';
+import { firebaseConfig } from '../src/config.js';
 
 test('role and version from the token claims', () => {
   assert.equal(roleOf({ g: { _: 'member' }, v: 2 }), 'member');

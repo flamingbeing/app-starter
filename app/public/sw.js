@@ -1,4 +1,6 @@
 // Offline support, on the shared update module (app-update 0.2.0: sw-core.js does the work; its README has the rules).
+// SHELL: the page, its own files (src/, and public/ as served at the folder's root) and every app-sync file the import
+// map's @core/* entries load (the entries and what they import).
 // The deploy stamps VERSION and MANIFEST (tools/stamp-versions.mjs app): never change them by hand. Change the v<N>
 // only when this file's own logic changes.
 //
@@ -9,30 +11,38 @@
 const VERSION = 'app-v1';
 const SHELL = [
   './',
-  'boot.js',
-  'app.js',
-  'cloud.js',
-  'config.js',
+  'src/boot.js',
+  'src/app.js',
+  'src/cloud.js',
+  'src/roles.js',
+  'src/config.js',
   'app.css',
   'manifest.webmanifest',
   'icons/icon.svg',
   'https://core.anawj.com/update/0.2.0/register.js',
-  'https://core.anawj.com/sync/0.6.3/index.js',
-  'https://core.anawj.com/sync/0.6.3/src/app.js',
-  'https://core.anawj.com/sync/0.6.3/src/conflict.js',
-  'https://core.anawj.com/sync/0.6.3/src/firestore.js',
-  'https://core.anawj.com/sync/0.6.3/src/forget.js',
-  'https://core.anawj.com/sync/0.6.3/src/outbox.js',
-  'https://core.anawj.com/sync/0.6.3/src/persist.js',
-  'https://core.anawj.com/sync/0.6.3/src/registry.js',
-  'https://core.anawj.com/sync/0.6.3/src/report.js',
-  'https://core.anawj.com/sync/0.6.3/src/status.js',
-  'https://core.anawj.com/sync/0.6.3/src/store.js',
-  'https://core.anawj.com/sync/0.6.3/src/sync.js',
-  'https://core.anawj.com/sync/0.6.3/src/watchdog.js',
-  'https://core.anawj.com/sync/0.6.3/src/writes.js',
+  'https://core.anawj.com/sync/0.9.2/app.js',
+  'https://core.anawj.com/sync/0.9.2/auth.js',
+  'https://core.anawj.com/sync/0.9.2/sync.js',
+  'https://core.anawj.com/sync/0.9.2/update.js',
+  'https://core.anawj.com/sync/0.9.2/src/auth.js',
+  'https://core.anawj.com/sync/0.9.2/src/conflict.js',
+  'https://core.anawj.com/sync/0.9.2/src/core.js',
+  'https://core.anawj.com/sync/0.9.2/src/firestore.js',
+  'https://core.anawj.com/sync/0.9.2/src/forget.js',
+  'https://core.anawj.com/sync/0.9.2/src/module-sync.js',
+  'https://core.anawj.com/sync/0.9.2/src/module-update.js',
+  'https://core.anawj.com/sync/0.9.2/src/outbox.js',
+  'https://core.anawj.com/sync/0.9.2/src/persist.js',
+  'https://core.anawj.com/sync/0.9.2/src/registry.js',
+  'https://core.anawj.com/sync/0.9.2/src/runner.js',
+  'https://core.anawj.com/sync/0.9.2/src/status.js',
+  'https://core.anawj.com/sync/0.9.2/src/store.js',
+  'https://core.anawj.com/sync/0.9.2/src/sync.js',
+  'https://core.anawj.com/sync/0.9.2/src/user.js',
+  'https://core.anawj.com/sync/0.9.2/src/watchdog.js',
+  'https://core.anawj.com/sync/0.9.2/src/writes.js',
 ];
-const MANIFEST = {"./":"a5ad1f9b07c5","boot.js":"70938813723d","app.js":"29418b2e2d37","cloud.js":"0927df4d710c","config.js":"f7867272b28a","app.css":"52007f9ef543","manifest.webmanifest":"7c9dea3772c2","icons/icon.svg":"4d4741fb5d81","https://core.anawj.com/update/0.2.0/register.js":"pinned","https://core.anawj.com/sync/0.6.3/index.js":"pinned","https://core.anawj.com/sync/0.6.3/src/app.js":"pinned","https://core.anawj.com/sync/0.6.3/src/conflict.js":"pinned","https://core.anawj.com/sync/0.6.3/src/firestore.js":"pinned","https://core.anawj.com/sync/0.6.3/src/forget.js":"pinned","https://core.anawj.com/sync/0.6.3/src/outbox.js":"pinned","https://core.anawj.com/sync/0.6.3/src/persist.js":"pinned","https://core.anawj.com/sync/0.6.3/src/registry.js":"pinned","https://core.anawj.com/sync/0.6.3/src/report.js":"pinned","https://core.anawj.com/sync/0.6.3/src/status.js":"pinned","https://core.anawj.com/sync/0.6.3/src/store.js":"pinned","https://core.anawj.com/sync/0.6.3/src/sync.js":"pinned","https://core.anawj.com/sync/0.6.3/src/watchdog.js":"pinned","https://core.anawj.com/sync/0.6.3/src/writes.js":"pinned"};
+const MANIFEST = {};
 
 importScripts('https://core.anawj.com/update/0.2.0/sw-core.js');
 AppUpdate.init({

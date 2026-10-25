@@ -5,12 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <title>Starter app</title>
-  <script src="boot.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "@core/app": "https://core.anawj.com/sync/0.9.2/app.js",
+    "@core/auth": "https://core.anawj.com/sync/0.9.2/auth.js",
+    "@core/sync": "https://core.anawj.com/sync/0.9.2/sync.js",
+    "@core/update": "https://core.anawj.com/sync/0.9.2/update.js",
+    "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
+    "firebase/app": "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js"
+  }
+}
+  </script>
+  <script type="module" src="src/boot.js"></script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
   <link rel="stylesheet" href="app.css">
-  <script type="module" src="app.js"></script>
+  <script type="module" src="src/app.js"></script>
 </head>
 <body>
   <header class="bar">
@@ -22,6 +36,10 @@
       <p>Sign in to see the list.</p>
       <button id="sign-in" type="button">Sign in with Google</button>
       <p id="sign-in-error" class="error" role="alert"></p>
+      <p class="small">Signing out keeps this phone’s copy and unsent changes for the next sign-in. To clear them:</p>
+      <button id="forget" type="button" class="danger">Forget this device</button>
+      <button id="forget-force" type="button" class="danger" hidden>Forget anyway, losing the unsent changes</button>
+      <p id="forget-msg" role="status"></p>
     </section>
     <section id="no-access" hidden>
       <p>This account has no access yet. Ask an admin to add it.</p>
@@ -32,6 +50,11 @@
     </section>
     <section id="list-view" hidden>
       <button id="attention" class="attention" type="button" hidden></button>
+      <section id="refused-box" hidden aria-labelledby="refused-title">
+        <h2 id="refused-title">Not saved: the server refused these</h2>
+        <ul id="refused"></ul>
+      </section>
+      <p id="edit-msg" class="small" role="status"></p>
       <form id="add" autocomplete="off">
         <label for="new-text">New item</label>
         <div class="row">
@@ -47,7 +70,8 @@
     <span id="who"></span>
     <button id="sign-out" type="button" hidden>Sign out</button>
     <p id="sign-out-msg" class="error" role="alert"></p>
-    <p class="small">Version <span id="version">…</span></p>
+    <p class="small">Version <span id="version">…</span> <button id="check-update" type="button" hidden>Check for updates</button></p>
+    <p id="update-msg" class="small" role="status"></p>
   </footer>
 
   <dialog id="edit" aria-labelledby="edit-title">
@@ -55,6 +79,7 @@
       <h2 id="edit-title">Edit item</h2>
       <label for="edit-text">Text</label>
       <input id="edit-text" maxlength="500" required>
+      <p id="edit-live" class="small" role="status"></p>
       <div class="row">
         <button id="edit-save" value="save">Save</button>
         <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>

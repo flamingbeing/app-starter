@@ -73,7 +73,8 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   await expect(b.locator('#items li.changed')).toContainText(t);   // the watch says what changed
   await b.getByRole('button', { name: t }).click();
   const [doc] = (await db.list('spaces/_/items')).filter(d => d.text === t);
-  await db.put(`spaces/_/items/${doc.id}`, { ...doc, text: t + '-2', updatedAt: Date.now() });
+  const noNulls = JSON.parse(JSON.stringify(doc, (k, v) => v === null ? undefined : v));   // (the admin helper can't write null)
+  await db.put(`spaces/_/items/${doc.id}`, { ...noNulls, text: t + '-2', updatedAt: Date.now() });
   await expect(b.locator('#edit-live')).toContainText(t + '-2');
   await db.del(`spaces/_/items/${doc.id}`);
   await expect(b.locator('#edit')).not.toBeVisible();

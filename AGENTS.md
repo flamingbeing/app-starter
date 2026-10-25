@@ -13,7 +13,7 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 
 ## Rules that bite
 
-- Every save goes through the write queue (`app/cloud.js`); never write to Firestore around it, or sign-out can't
+- Every save goes through the write queue (`app/src/cloud.js`); never write to Firestore around it, or sign-out can't
   tell what is unsent.
 - Roles come from claims, cached from `members/{uid}`. Bump the doc's `v` on every role change. No email in rules.
 - Edit `app/firestore.app.rules`, then rebuild `app/firestore.rules` (`node .devkit/tools/build-rules.mjs

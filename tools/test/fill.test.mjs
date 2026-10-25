@@ -20,13 +20,13 @@ const ARGS = { name: 'pet-log', host: 'pets.example.org', kit: 'nuhs', project: 
 test('fills name, host, kit and project everywhere', () => {
   const dir = copy();
   const { changed } = fill({ dir, ...ARGS });
-  assert.ok(changed.includes('app/config.js') && changed.includes('wrangler.jsonc') && changed.includes('worker/routes.js'));
+  assert.ok(changed.includes('app/src/config.js') && changed.includes('wrangler.jsonc') && changed.includes('worker/routes.js'));
   assert.match(read(dir, 'worker/routes.js'), /'pets\.example\.org': \{ root: 'app\/' \}/);
   const w = read(dir, 'wrangler.jsonc');
   assert.match(w, /"name": "pet-log"/);
   assert.match(w, /"FIREBASE_PROJECT": "pet-log-app"/);
   assert.match(w, /"pattern": "pets\.example\.org"/);
-  const cfg = read(dir, 'app/config.js');
+  const cfg = read(dir, 'app/src/config.js');
   assert.match(cfg, /"projectId": "pet-log-app"/);
   assert.match(cfg, /"authDomain": "pets\.example\.org"/);
   assert.match(cfg, /KIT = 'https:\/\/design\.anawj\.com\/v1\/'/);
@@ -35,7 +35,7 @@ test('fills name, host, kit and project everywhere', () => {
   // the emulator project follows the name, and stays a demo- one
   assert.match(read(dir, 'playwright.config.mjs'), /demo-pet-log/);
   assert.match(read(dir, 'app/test/rules.test.mjs'), /project: 'demo-pet-log'/);
-  for (const f of ['app/index.html', 'app/sw.js', 'worker/routes.js', 'wrangler.jsonc', 'package.json'])
+  for (const f of ['app/index.html', 'app/public/sw.js', 'worker/routes.js', 'wrangler.jsonc', 'package.json'])
     assert.doesNotMatch(read(dir, f), /starter-app|app\.example\.com|design\.flamingbeing\.com/, f);
   assert.deepEqual(JSON.parse(read(dir, '.starter.json')).app, { ...ARGS, title: 'Pet log' });
   for (const f of ['worker/claims.js', 'worker/custom-token.js']) assert.equal(read(dir, f), read(ROOT, f), `${f} is app-devkit's`);
@@ -53,11 +53,11 @@ test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   const web = path.join(dir, 'web.json');
   fs.writeFileSync(web, JSON.stringify({ sdkConfig: { projectId: 'pet-log-app', apiKey: 'AIzaFAKE', appId: '1:2:web:3', authDomain: 'pet-log-app.firebaseapp.com' } }));
   fill({ dir, ...ARGS, 'web-config': web });
-  const cfg = read(dir, 'app/config.js');
+  const cfg = read(dir, 'app/src/config.js');
   assert.match(cfg, /"apiKey": "AIzaFAKE"/);
   assert.match(cfg, /"authDomain": "pets\.example\.org"/, 'sign-in stays on the app address');
   fill({ dir, ...ARGS, title: 'Pets' });
-  assert.match(read(dir, 'app/config.js'), /"apiKey": "AIzaFAKE"/);
+  assert.match(read(dir, 'app/src/config.js'), /"apiKey": "AIzaFAKE"/);
   assert.match(read(dir, 'app/index.html'), /<title>Pets<\/title>/);
 });
 
@@ -74,7 +74,7 @@ test('bad values are refused before anything changes', () => {
   assert.throws(() => fill({ dir, ...ARGS, host: 'not a host' }), /--host/);
   assert.throws(() => fill({ dir, ...ARGS, kit: 'other' }), /--kit/);
   assert.throws(() => fill({ dir, ...ARGS, title: '<b>' }), /--title/);
-  assert.equal(read(dir, 'app/config.js'), read(ROOT, 'app/config.js'));
+  assert.equal(read(dir, 'app/src/config.js'), read(ROOT, 'app/src/config.js'));
 });
 
 test('arguments', () => {

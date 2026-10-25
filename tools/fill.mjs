@@ -4,7 +4,7 @@
 //                       [--title "<Title>"] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
 //
 // The values in use now are in .starter.json ("app"); each is replaced by the new one in every text file (the emulator
-// project demo-<name>, the kit's address, the host, the name, the title), app/config.js is written afresh (with the
+// project demo-<name>, the kit's address, the host, the name, the title), app/src/config.js is written afresh (with the
 // web app's apiKey and appId from --web-config: the JSON `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's
 // FIREBASE_PROJECT is set. Running it again with the same values changes nothing. --check changes nothing and exits 1
 // when a run would. Prints the files it changed.
@@ -84,7 +84,7 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
   if (/["\\<>\n]/.test(app.title) || !app.title.trim()) throw new Error('--title: plain text, no quotes or angle brackets');
 
   // the web config: kept from config.js unless --web-config gives a new one (or the project changed)
-  const cfgPath = path.join(dir, 'app/config.js');
+  const cfgPath = path.join(dir, 'app/src/config.js');
   const before = fs.readFileSync(cfgPath, 'utf8');
   const kept = JSON.parse(before.match(/export const firebaseConfig = (\{[\s\S]*?\});/)?.[1] || '{}');
   let web = { projectId: app.project, authDomain: app.host, apiKey: '', appId: '' };
@@ -104,13 +104,13 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     if (!check) fs.writeFileSync(p, text);
   };
   for (const rel of files(dir)) {
-    if (rel === 'app/config.js' || rel === '.starter.json') continue;
+    if (rel === 'app/src/config.js' || rel === '.starter.json') continue;
     let text = fs.readFileSync(path.join(dir, rel), 'utf8');
     for (const [re, to] of swaps) text = text.replace(re, to);
     text = fixup(rel, text, app);
     write(rel, text);
   }
-  write('app/config.js', configJs(app, web));
+  write('app/src/config.js', configJs(app, web));
   const commit = opts.commit ?? meta.commit;   // the template commit this app started from (the new-app job passes it)
   write('.starter.json', JSON.stringify({ ...meta, commit, app }, null, 2) + '\n');
   return { changed, app };

@@ -8,6 +8,9 @@
 export const KIT = 'https://design.flamingbeing.com';
 export const CSP_ENFORCE = false;
 
+// The page's import map (app/index.html), the one inline script, allowed by its hash (worker/test/headers.test.mjs
+// says the new one when the map changes).
+export const IMPORT_MAP = "'sha256-5G7iE8FZ+iQmrXZYA5qZ6ZZscV52jFgplzpW+a+crgc='";
 // Shared modules (app-sync, app-update) are served at exact versions from here.
 const CORE = 'https://core.anawj.com';
 // Firebase: the SDK (gstatic, versioned), Google sign-in, Firestore and Auth APIs.
@@ -22,7 +25,7 @@ export function csp({ kit = KIT, project = '', local = false } = {}) {
   const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : [])];
   const d = {
     'default-src': ["'self'"],
-    'script-src': ["'self'", CORE, SDK, GOOGLE_API, kit],
+    'script-src': ["'self'", IMPORT_MAP, CORE, SDK, GOOGLE_API, kit],
     'style-src': ["'self'", kit, FONTS_CSS],
     'font-src': ["'self'", kit, FONTS],
     'img-src': ["'self'", 'data:', 'blob:', kit, 'https://lh3.googleusercontent.com', 'https://www.google.com'],   // (the SDK's connectivity ping)

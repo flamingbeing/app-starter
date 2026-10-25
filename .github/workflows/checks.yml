@@ -27,7 +27,7 @@ jobs:
       - run: node .devkit/tools/check-links.mjs .
       - run: node tools/stamp-versions.mjs app --check
       - run: node .devkit/tools/build-rules.mjs app/firestore.app.rules --check
-      - name: fill values and app/config.js are in their canonical form
+      - name: fill values and app/src/config.js are in their canonical form
         run: node tools/fill.mjs --check
       - name: Unit tests (Worker, app, tools; claims.js and custom-token.js equal the pinned devkit's)
         run: node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
