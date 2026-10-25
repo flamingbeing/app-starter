@@ -11,8 +11,9 @@ are safe from day one. Replace this first paragraph with what the app is once it
   (`/__/auth/`, `/__/firebase/`) on to the project, so sign-in stays on the app's address.
 - **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a status chip, Google sign-in,
   sign-out that wipes the device, and the version line. Sync is [app-sync](https://github.com/flamingbeing/app-sync)
-  (exact version from `core.anawj.com/sync/`); updates are app-update with `canReload` (no reload while someone types,
-  a sheet is open or saves are sending). Installable, never prompted (`boot.js` cancels `beforeinstallprompt`).
+  (exact version from `core.anawj.com/sync/`, wired with its `createApp` in `app/cloud.js`); updates are app-update with
+  `canReload` (no reload while someone types, a sheet is open or saves are sending). Installable, never prompted
+  (`boot.js` cancels `beforeinstallprompt`).
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
   the role doc's `v` is ahead of its token.
