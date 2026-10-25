@@ -10,11 +10,11 @@ export const CSP_ENFORCE = false;
 
 // The page's import map (app/index.html), the one inline script, allowed by its hash (worker/test/headers.test.mjs
 // says the new one when the map changes).
-export const IMPORT_MAP = "'sha256-zLTOLVoNxGFK3n8T6EOrtrJTdovuOW/Lt6YYpi8uztA='";
+export const IMPORT_MAP = "'sha256-JTSflDI+FSo0J3kQb46AwSInJpSQyqMN5LxHDWe/jP8='";
 // Shared modules (app-sync, app-update) are served at exact versions from here.
 const CORE = 'https://core.anawj.com';
-// Firebase: the SDK (gstatic, versioned), Google sign-in, Firestore and Auth APIs.
-const SDK = 'https://www.gstatic.com';
+// Firebase: the SDK is vendored (app/public/vendor/firebase/<ver>/, served as 'self'); Google sign-in, Firestore and
+// Auth APIs.
 const GOOGLE_API = 'https://apis.google.com';
 const FONTS_CSS = 'https://fonts.googleapis.com';
 const FONTS = 'https://fonts.gstatic.com';
@@ -25,11 +25,11 @@ export function csp({ kit = KIT, project = '', local = false } = {}) {
   const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : [])];
   const d = {
     'default-src': ["'self'"],
-    'script-src': ["'self'", IMPORT_MAP, CORE, SDK, GOOGLE_API, kit],
+    'script-src': ["'self'", IMPORT_MAP, CORE, GOOGLE_API, kit],
     'style-src': ["'self'", kit, FONTS_CSS],
     'font-src': ["'self'", kit, FONTS],
     'img-src': ["'self'", 'data:', 'blob:', kit, 'https://lh3.googleusercontent.com', 'https://www.google.com'],   // (the SDK's connectivity ping)
-    'connect-src': ["'self'", CORE, SDK, kit, FONTS_CSS, FONTS, 'https://*.googleapis.com', GOOGLE_API, ...emulators],
+    'connect-src': ["'self'", CORE, kit, FONTS_CSS, FONTS, 'https://*.googleapis.com', GOOGLE_API, ...emulators],
     'frame-src': frames,
     'worker-src': ["'self'"],
     'manifest-src': ["'self'"],

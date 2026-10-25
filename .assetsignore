@@ -20,3 +20,5 @@ wrangler.jsonc
 package.json
 package-lock.json
 playwright.config.mjs
+dist
+vite.config.mjs

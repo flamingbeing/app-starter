@@ -17,6 +17,12 @@ test('CSP: self by default, no inline script, kit and core allowed, no framing',
   assert.ok(!d['connect-src'].some(s => s.startsWith('http://')));
 });
 
+test('CSP: Firebase is vendored (app/public/vendor/firebase/), so the page loads no script from gstatic', () => {
+  const d = parse(csp({ project: 'p1' }));
+  assert.ok(!d['script-src'].some(s => s.includes('www.gstatic.com')));
+  assert.ok(!d['connect-src'].some(s => s.includes('www.gstatic.com')));
+});
+
 test('CSP: the emulators only for local pages', () => {
   assert.ok(parse(csp({ local: true }))['connect-src'].includes('http://127.0.0.1:*'));
 });
