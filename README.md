@@ -58,6 +58,9 @@ npm run e2e       # browser tests (emulators and the e2e server start by themsel
 `.devkit/` holds app-devkit's `playwright/`, `rules/`, `tools/` and `worker/` at the pinned version (CI's setup
 blocks put it there; locally, copy those folders from an app-devkit checkout at the same tag).
 
+`SYNC_DIR=<app-sync checkout> npm run e2e` serves that app-sync build in place of `core.anawj.com/sync/<version>/`:
+app-sync's CI runs these tests that way against each candidate (its consumer test) before a release.
+
 ## Layout
 
 ```text
