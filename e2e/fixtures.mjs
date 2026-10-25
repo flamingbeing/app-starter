@@ -81,3 +81,10 @@ export async function add(page, text) {
 }
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
+// The id of the shared item with this text (db.list leaves document ids out).
+export async function itemIdOf(text) {
+  const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+  const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/items?pageSize=300`, { headers: { Authorization: 'Bearer owner' } });
+  const d = ((await r.json()).documents || []).find(x => x.fields?.text?.stringValue === text);
+  return d?.name.split('/').pop();
+}

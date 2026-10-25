@@ -1,6 +1,6 @@
 // The 1.0 engine features the starter shows: sign-out keeps this device's data, forget wipes it, refused saves wait
 // in a list, the edit sheet follows its item live (watchDoc), the list marks what changed, and "Check for updates".
-import { test, expect, signIn, signInAgain, add, synced, serverHas, uniq, db, APP } from './fixtures.mjs';
+import { test, expect, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP } from './fixtures.mjs';
 
 const kept = page => page.evaluate(async () => {
   let n = 0;
@@ -72,11 +72,12 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   await expect(b.locator('#items')).toContainText(t);
   await expect(b.locator('#items li.changed')).toContainText(t);   // the watch says what changed
   await b.getByRole('button', { name: t }).click();
-  const [doc] = (await db.list('spaces/_/items')).filter(d => d.text === t);
+  const itemId = await itemIdOf(t);
+  const doc = await db.get(`spaces/_/items/${itemId}`);
   const noNulls = JSON.parse(JSON.stringify(doc, (k, v) => v === null ? undefined : v));   // (the admin helper can't write null)
-  await db.put(`spaces/_/items/${doc.id}`, { ...noNulls, text: t + '-2', updatedAt: Date.now() });
+  await db.put(`spaces/_/items/${itemId}`, { ...noNulls, text: t + '-2', updatedAt: Date.now() });
   await expect(b.locator('#edit-live')).toContainText(t + '-2');
-  await db.del(`spaces/_/items/${doc.id}`);
+  await db.del(`spaces/_/items/${itemId}`);
   await expect(b.locator('#edit')).not.toBeVisible();
   await expect(b.locator('#edit-msg')).toContainText('deleted on another device');
 });
