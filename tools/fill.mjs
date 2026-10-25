@@ -40,7 +40,7 @@ export function parseArgs(argv) {
   return out;
 }
 
-function files(dir, rel = '') {
+export function files(dir, rel = '') {
   const out = [];
   for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
     const r = rel ? `${rel}/${e.name}` : e.name;
@@ -49,6 +49,21 @@ function files(dir, rel = '') {
   }
   return out;
 }
+
+// The replacements that turn one app's values into another's, in order (the demo- project first, so the bare name
+// never splits it). Also used by app-devkit's starter-drift report, so the two never disagree.
+export function swapsFor(old, app) {
+  return [
+    [new RegExp(`(?<![A-Za-z0-9-])demo-${esc(old.name)}(?![A-Za-z0-9])`, 'g'), `demo-${app.name}`],
+    [new RegExp(esc(KITS[old.kit]), 'g'), KITS[app.kit]],
+    [new RegExp(`(?<![A-Za-z0-9.-])${esc(old.host)}(?![A-Za-z0-9-])`, 'g'), app.host],
+    [wordRe(old.name), app.name],
+    [new RegExp(`(?<![A-Za-z0-9])${esc(old.title)}(?![A-Za-z0-9])`, 'g'), app.title],
+  ];
+}
+export const KEEP_FILES = KEEP;
+// per-file settings that are not a plain swap (also used by the drift report)
+export const fixup = (rel, text, app) => rel === 'wrangler.jsonc' ? text.replace(/("FIREBASE_PROJECT":\s*")[^"]*(")/, `$1${app.project}$2`) : text;
 
 const configJs = (app, web) => `// The app's settings. tools/fill.mjs writes the name, host, kit and Firebase project here; --web-config adds the web
 // app's apiKey and appId (\`firebase apps:sdkconfig WEB\`). A public client config, not a secret: the Firestore rules
@@ -80,13 +95,7 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     web = { ...web, ...pick(sdk, ['apiKey', 'appId', 'storageBucket', 'messagingSenderId']) };
   } else if (kept.projectId === app.project) web = { ...web, ...pick(kept, ['apiKey', 'appId', 'storageBucket', 'messagingSenderId']) };
 
-  const swaps = [
-    [new RegExp(`(?<![A-Za-z0-9-])demo-${esc(old.name)}(?![A-Za-z0-9])`, 'g'), `demo-${app.name}`],
-    [new RegExp(esc(KITS[old.kit]), 'g'), KITS[app.kit]],
-    [new RegExp(`(?<![A-Za-z0-9.-])${esc(old.host)}(?![A-Za-z0-9-])`, 'g'), app.host],
-    [wordRe(old.name), app.name],
-    [new RegExp(`(?<![A-Za-z0-9])${esc(old.title)}(?![A-Za-z0-9])`, 'g'), app.title],
-  ];
+  const swaps = swapsFor(old, app);
   const changed = [];
   const write = (rel, text) => {
     const p = path.join(dir, rel);
@@ -98,7 +107,7 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     if (rel === 'app/config.js' || rel === '.starter.json') continue;
     let text = fs.readFileSync(path.join(dir, rel), 'utf8');
     for (const [re, to] of swaps) text = text.replace(re, to);
-    if (rel === 'wrangler.jsonc') text = text.replace(/("FIREBASE_PROJECT":\s*")[^"]*(")/, `$1${app.project}$2`);
+    text = fixup(rel, text, app);
     write(rel, text);
   }
   write('app/config.js', configJs(app, web));
