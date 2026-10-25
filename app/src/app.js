@@ -1,7 +1,7 @@
 // The sample screen: a list with add, edit (the sheet follows its item live), delete (to the bin), a conflict sheet, a
 // list of saves the server refused, a status chip, sign-in, sign-out (which keeps this device's data), "Forget this
 // device", the version line and "Check for updates". Replace it with the real app; keep the wiring in cloud.js.
-import { start, explain, usingEmulator } from './cloud.js';
+import { start, explain, usingEmulator, emulatorSignIn } from './cloud.js';
 
 /** @param {string} id @returns {HTMLElement} */
 const $ = id => { const el = document.getElementById(id); if (!el) throw new Error(`#${id} is missing`); return el; };
@@ -36,7 +36,7 @@ const canWrite = () => role === 'admin' || role === 'member';
 // sheet is open or saves are unsent. (Off in the emulator tests unless ?sw is given.)
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
-window.starter = { ready: false, add: text => app?.add(text) };   // for the tests
+window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn };   // for the tests
 app = await start({
   canReload: withSW ? () => !typing() && !sheetOpen() : null,
   onState(s) {

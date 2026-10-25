@@ -1,6 +1,7 @@
 # Checks on every PR and push to main (README, "Tests"): repo checks, unit tests and the type check, secret scan, the
-# rules in the Firestore emulator, and the browser tests (the real Worker in Node, the emulators, made-up accounts). In the template
-# repo only, the "fill" job also fills a scratch copy as a new app and runs the tests there. Jobs run side by side.
+# rules in the Firestore emulator, the browser tests (the real Worker in Node, the emulators, made-up accounts) and the
+# same browser tests on a Vite build ("vite"). In the template repo only, the "fill" job also fills a scratch copy as a
+# new app and runs the tests there. Jobs run side by side.
 # app-devkit blocks are pinned to an exact version; other actions by commit SHA (Dependabot bumps both).
 name: Checks
 on:
@@ -24,6 +25,10 @@ jobs:
       - run: node .devkit/tools/proofread.mjs
       - run: node .devkit/tools/check-links.mjs .
       - run: node tools/stamp-versions.mjs app --check
+      - name: sw.js's file list is the generated one; vendored Firebase is gstatic's, at the import map's version
+        run: |
+          node tools/sw-files.mjs app --check
+          node tools/vendor-firebase.mjs --check
       - run: node .devkit/tools/build-rules.mjs app/firestore.app.rules --check
       - name: fill values and app/src/config.js are in their canonical form
         run: node tools/fill.mjs --check
@@ -83,6 +88,30 @@ jobs:
           path: test-results
           if-no-files-found: ignore
 
+  vite:
+    # Vite as a check only (README, "Switch to Vite in one PR"): build app/ into dist/ with core, Firebase and
+    # register.js kept external, then run the whole browser suite on the built page. Nothing ships from dist/.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: flamingbeing/app-devkit/setup-node@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-browser@v1.9.2
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.9.2
+        with:
+          emulators: firestore,auth
+      - run: npm run vite
+      - name: Browser tests on the Vite build
+        run: npx playwright test
+        env:
+          APP_DIR: dist
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: e2e-vite-results
+          path: test-results
+          if-no-files-found: ignore
+
   fill:
     # the template only: fill a scratch copy as a new app, then run its checks, rules and browser tests there
     if: github.repository == 'flamingbeing/app-starter'
@@ -108,6 +137,7 @@ jobs:
         run: |
           node .devkit/tools/check.mjs
           node tools/stamp-versions.mjs app --check
+          node tools/sw-files.mjs app --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'
           npm run typecheck
       - name: Rules on the filled app

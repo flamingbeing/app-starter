@@ -31,7 +31,7 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
   await page.context().setOffline(false);
-  await page.evaluate(e => import('./src/cloud.js').then(m => m.emulatorSignIn(e)), email);
+  await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#list-view')).toBeVisible();
   await expect(page.locator('#items')).toContainText(t);
   await serverHas(t);

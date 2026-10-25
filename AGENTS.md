@@ -23,6 +23,9 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
   tests pass. No moving `@v1` pins.
 - app-sync's version is named twice, bumped together: `app/index.html`'s import map and the `app-sync` devDependency
   tag in `package.json` (its `.d.ts` are what `npm run typecheck` checks `app/src` against, under `strict`).
+- `app/public/sw.js`'s SHELL list is generated: after adding or removing a file the page loads, or bumping app-sync,
+  run `node tools/sw-files.mjs app`. Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
+  (never edit `app/public/vendor/`). Both have a `--check` in CI ([decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
 - Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt`). No install buttons.
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports
   ([decision 0003](docs/decisions/0003-csp-report-only-first.md)); the browser tests already fail on any report.
@@ -33,6 +36,7 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 node .devkit/tools/check.mjs
 node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
 npm run rules && npm run e2e
+npm run vite && APP_DIR=dist npm run e2e
 ```
 
 ## Working with the owner
