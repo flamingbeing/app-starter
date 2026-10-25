@@ -1,5 +1,5 @@
-# Checks on every PR and push to main (README, "Tests"): repo checks and unit tests, secret scan, the rules in the
-# Firestore emulator, and the browser tests (the real Worker in Node, the emulators, made-up accounts). In the template
+# Checks on every PR and push to main (README, "Tests"): repo checks, unit tests and the type check, secret scan, the
+# rules in the Firestore emulator, and the browser tests (the real Worker in Node, the emulators, made-up accounts). In the template
 # repo only, the "fill" job also fills a scratch copy as a new app and runs the tests there. Jobs run side by side.
 # app-devkit blocks are pinned to an exact version; other actions by commit SHA (Dependabot bumps both).
 name: Checks
@@ -19,8 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: flamingbeing/app-devkit/setup-node@v1.8.0
-        with:
-          install: 'false'
       - uses: flamingbeing/app-devkit/setup-tools@v1.8.0
       - run: node .devkit/tools/check.mjs
       - run: node .devkit/tools/proofread.mjs
@@ -31,6 +29,8 @@ jobs:
         run: node tools/fill.mjs --check
       - name: Unit tests (Worker, app, tools; claims.js and custom-token.js equal the pinned devkit's)
         run: node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
+      - name: Type check (app/src under strict, against the pinned app-sync's .d.ts)
+        run: npm run typecheck
 
   secrets:
     runs-on: ubuntu-24.04
@@ -109,6 +109,7 @@ jobs:
           node .devkit/tools/check.mjs
           node tools/stamp-versions.mjs app --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'
+          npm run typecheck
       - name: Rules on the filled app
         working-directory: ${{ runner.temp }}/new-app/app
         run: npx -y firebase-tools@13.29.1 emulators:exec --only firestore --project demo-fill-check "node --test test/rules.test.mjs"

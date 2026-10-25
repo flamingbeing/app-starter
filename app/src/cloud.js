@@ -31,7 +31,7 @@ const COLL = 'items';
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
 
-/** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: import('firebase/auth').Auth, db: import('firebase/firestore').Firestore, emulator: boolean }> | null} */
+/** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;
 // The Firebase SDK, loaded once for every module (the import map names its version).
 export function sdk() {

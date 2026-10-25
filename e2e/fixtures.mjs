@@ -9,7 +9,7 @@ export const db = fsAdmin('demo-starter-app');
 export const APP = '/app/?emulator';
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-// SYNC_DIR: a local app-sync build (its index.js and src/) served in place of core.anawj.com/sync/<version>/, so
+// SYNC_DIR: a local app-sync build (its entry files and src/) served in place of core.anawj.com/sync/<version>/, so
 // app-sync's CI can run these tests against a candidate before it is released (its consumer-test job).
 const SYNC_DIR = process.env.SYNC_DIR ? path.resolve(process.env.SYNC_DIR) : '';
 async function routeSync(context, served) {
