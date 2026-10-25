@@ -11,7 +11,7 @@ permissions:
 jobs:
   deploy:
     if: github.repository != 'flamingbeing/app-starter'
-    uses: flamingbeing/app-devkit/.github/workflows/deploy-worker.yml@v1.8.0
+    uses: flamingbeing/app-devkit/.github/workflows/deploy-worker.yml@v1.9.2
     with:
       stamp-command: node tools/stamp-versions.mjs app
     secrets: inherit

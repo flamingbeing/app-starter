@@ -56,3 +56,10 @@ function route(host, pathname) {
   }
   return { notFound: true };
 }
+
+// A file its folder doesn't have is looked for in that folder's public/ (the Vite layout: index.html and src/ at the
+// folder's root, the files served as they are in public/), so the same tree runs with no build. -> the path, or null.
+export function publicFile(file) {
+  const m = /^([^/]+)\/(?!public\/)(.*[^/])$/.exec(file);
+  return m ? `${m[1]}/public/${m[2]}` : null;
+}

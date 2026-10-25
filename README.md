@@ -9,11 +9,13 @@ are safe from day one. Replace this first paragraph with what the app is once it
   Referrer-Policy, frame-ancestors, Permissions-Policy, and a Content-Security-Policy that starts as Report-Only),
   answers `/api/claims` (app-devkit `claims.js`, roles from `members.js`) and passes Firebase's sign-in helper pages
   (`/__/auth/`, `/__/firebase/`) on to the project, so sign-in stays on the app's address.
-- **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a status chip, Google sign-in,
-  sign-out that wipes the device, and the version line. Sync is [app-sync](https://github.com/flamingbeing/app-sync)
-  (exact version from `core.anawj.com/sync/`, wired with its `createApp` in `app/cloud.js`); updates are app-update with
-  `canReload` (no reload while someone types, a sheet is open or saves are sending). Installable, never prompted
-  (`boot.js` cancels `beforeinstallprompt`).
+- **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a list of saves the server
+  refused, a status chip, Google sign-in, sign-out that keeps the device copy (forget wipes it, once nothing is
+  unsent), an edit sheet that follows its item, "check for updates" and the version line. Sync is
+  [app-sync](https://github.com/flamingbeing/app-sync)'s modules (`createApp` with `auth`, `sync` and `update`, in
+  `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
+  map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).
+  Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt`).
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
   the role doc's `v` is ahead of its token.
@@ -33,7 +35,7 @@ node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs
   [--title "<Title>"] [--web-config sdkconfig.json] [--commit <template sha>]
 ```
 
-It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/config.js` (with the web
+It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/src/config.js` (with the web
 app's `apiKey` and `appId` from `firebase apps:sdkconfig WEB` output) and sets `wrangler.jsonc`'s `FIREBASE_PROJECT`.
 Running it again changes nothing; `--check` exits 1 when a run would change something. The emulator project becomes
 `demo-<name>`; tests never touch the live project.
@@ -51,6 +53,7 @@ app with the template and never changes it.
 ```bash
 npm ci
 node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'   # no network
+npm run typecheck # app/src under strict, against the pinned app-sync's .d.ts (tsconfig.json)
 npm run rules     # rules in the Firestore emulator (needs Java and .devkit/)
 npm run e2e       # browser tests (emulators and the e2e server start by themselves)
 ```
@@ -64,7 +67,10 @@ app-sync's CI runs these tests that way against each candidate (its consumer tes
 ## Layout
 
 ```text
-app/        the app (served at the root of its address); config.js, cloud.js (wiring), app.js (screen), sw.js
+app/        the app (served at the root of its address): index.html (import map) and
+  src/      config.js, cloud.js (wiring), app.js (screen), roles.js, boot.js, globals.d.ts (types for the check)
+  public/   sw.js, app.css, manifest, icons: served as if beside index.html (the Worker looks here on a miss), as Vite's
+            public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
 e2e/        browser tests and their server
 tools/      fill.mjs, stamp-versions.mjs (deploy stamp for sw.js)

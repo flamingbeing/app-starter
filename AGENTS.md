@@ -13,7 +13,7 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 
 ## Rules that bite
 
-- Every save goes through the write queue (`app/cloud.js`); never write to Firestore around it, or sign-out can't
+- Every save goes through the write queue (`app/src/cloud.js`); never write to Firestore around it, or sign-out can't
   tell what is unsent.
 - Roles come from claims, cached from `members/{uid}`. Bump the doc's `v` on every role change. No email in rules.
 - Edit `app/firestore.app.rules`, then rebuild `app/firestore.rules` (`node .devkit/tools/build-rules.mjs
@@ -21,7 +21,9 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - `worker/claims.js` and `worker/custom-token.js` are app-devkit's: never edit them here (CI compares them).
 - Shared modules (app-sync, app-update) and app-devkit blocks are pinned to exact versions; bump on purpose, after the
   tests pass. No moving `@v1` pins.
-- Installable, never prompted: keep `boot.js` (cancels `beforeinstallprompt`). No install buttons.
+- app-sync's version is named twice, bumped together: `app/index.html`'s import map and the `app-sync` devDependency
+  tag in `package.json` (its `.d.ts` are what `npm run typecheck` checks `app/src` against, under `strict`).
+- Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt`). No install buttons.
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports
   ([decision 0003](docs/decisions/0003-csp-report-only-first.md)); the browser tests already fail on any report.
 

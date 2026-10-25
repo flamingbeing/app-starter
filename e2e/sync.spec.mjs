@@ -1,4 +1,4 @@
-// Offline saves, two phones, conflicts, and sign-out wiping the phone.
+// Offline saves, two phones and conflicts (sign-out and forget: modules.spec.mjs).
 import { test, expect, signIn, signInAgain, add, synced, serverHas, uniq, APP } from './fixtures.mjs';
 
 test('a save made offline is kept on the phone and sent once back online, even after closing the page', async ({ phone }) => {
@@ -89,35 +89,4 @@ test('keep theirs drops this phone’s held change and nothing else', async ({ p
   await b.getByRole('button', { name: 'Keep theirs' }).click();
   await expect(b.locator('#items')).toContainText(t + ' from a', { timeout: 15_000 });
   await expect(b.locator('#attention')).toBeHidden();
-});
-
-test('sign-out waits for unsent saves, then wipes the phone', async ({ phone }) => {
-  const page = await phone();
-  await signIn(page, 'member');
-  await synced(page);
-  const t = uniq('wipe');
-  await page.context().setOffline(true);
-  await add(page, t);
-  await page.click('#sign-out');
-  await expect(page.locator('#sign-out-msg')).toContainText('haven’t reached');
-  await expect(page.locator('#list-view')).toBeVisible();
-
-  await page.context().setOffline(false);
-  await serverHas(t);
-  await synced(page);
-  await page.click('#sign-out');
-  await expect(page.locator('#signed-out')).toBeVisible();
-  const left = await page.evaluate(async () => (await indexedDB.databases()).map(d => d.name).filter(n => /starter-app/.test(n || '')));
-  for (const name of left) {
-    const records = await page.evaluate(n => new Promise(res => {
-      const r = indexedDB.open(n);
-      r.onsuccess = async () => {
-        const db = r.result; let count = 0;
-        for (const s of db.objectStoreNames) count += await new Promise(ok => { const q = db.transaction(s).objectStore(s).count(); q.onsuccess = () => ok(q.result); q.onerror = () => ok(0); });
-        db.close(); res(count);
-      };
-      r.onerror = () => res(0);
-    }), name);
-    expect(records, `${name} still holds records`).toBe(0);
-  }
 });

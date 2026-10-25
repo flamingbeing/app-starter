@@ -20,3 +20,7 @@ dialog { max-width: 30rem; width: calc(100% - 2rem); }
 .sides h3 { font-size: 1rem; margin: 0 0 .25rem; }
 #conflict-list { list-style: none; padding: 0; }
 #conflict-list li { margin: 0 0 1rem; padding-bottom: 1rem; border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+
+/* an item changed (here or on another device) since the list last showed */
+#items li.changed button { border-inline-start: 3px solid var(--accent, currentColor); }
+#refused li { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
