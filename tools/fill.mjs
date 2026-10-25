@@ -1,13 +1,13 @@
 // Turns a copy of this template into one app: its name, address, design kit and Firebase project.
 //
 //   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs --project <firebase-project-id>
-//                       [--title "<Title>"] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
+//                       [--title "<Title>"] [--accent '#rrggbb'] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
 //
 // The values in use now are in .starter.json ("app"); each is replaced by the new one in every text file (the emulator
 // project demo-<name>, the kit's address, the host, the name, the title), app/src/config.js is written afresh (with the
-// web app's apiKey and appId from --web-config: the JSON `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's
-// FIREBASE_PROJECT is set. Running it again with the same values changes nothing. --check changes nothing and exits 1
-// when a run would. Prints the files it changed.
+// default look's colour from --accent, else kept, and the web app's apiKey and appId from --web-config: the JSON
+// `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's FIREBASE_PROJECT is set. Running it again with the same
+// values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +34,7 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--check') out.check = true;
-    else if (/^--(name|host|kit|project|title|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
+    else if (/^--(name|host|kit|project|title|accent|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
     else throw new Error(`unknown argument ${a}`);
   }
   return out;
@@ -65,10 +65,13 @@ export const KEEP_FILES = KEEP;
 // per-file settings that are not a plain swap (also used by the drift report)
 export const fixup = (rel, text, app) => rel === 'wrangler.jsonc' ? text.replace(/("FIREBASE_PROJECT":\s*")[^"]*(")/, `$1${app.project}$2`) : text;
 
-const configJs = (app, web) => `// The app's settings. tools/fill.mjs writes the name, host, kit and Firebase project here; --web-config adds the web
+// the default look's colour (@core/theme) when --accent names none and config.js has none yet
+export const ACCENT = '#3a6390';
+const configJs = (app, web, accent) => `// The app's settings. tools/fill.mjs writes the name, host, kit and Firebase project here; --web-config adds the web
 // app's apiKey and appId (\`firebase apps:sdkconfig WEB\`). A public client config, not a secret: the Firestore rules
 // decide who sees what. Until apiKey is set the app runs only against the local emulators (?emulator on localhost).
-export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: app.host })};
+// accent: the default look's colour (@core/theme; boot.js), set with --accent.
+export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: app.host, accent })};
 export const KIT = '${KITS[app.kit]}/v1/';
 export const firebaseConfig = ${JSON.stringify(web, null, 2)};
 `;
@@ -87,6 +90,8 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
   const cfgPath = path.join(dir, 'app/src/config.js');
   const before = fs.readFileSync(cfgPath, 'utf8');
   const kept = JSON.parse(before.match(/export const firebaseConfig = (\{[\s\S]*?\});/)?.[1] || '{}');
+  const accent = (opts.accent ?? JSON.parse(before.match(/export const APP = (\{.*\});/)?.[1] || '{}').accent ?? ACCENT).toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(accent)) throw new Error(`--accent '${accent}': a colour like #3a6390`);
   let web = { projectId: app.project, authDomain: app.host, apiKey: '', appId: '' };
   if (opts['web-config']) {
     const w = JSON.parse(fs.readFileSync(opts['web-config'], 'utf8'));
@@ -110,7 +115,7 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     text = fixup(rel, text, app);
     write(rel, text);
   }
-  write('app/src/config.js', configJs(app, web));
+  write('app/src/config.js', configJs(app, web, accent));
   const commit = opts.commit ?? meta.commit;   // the template commit this app started from (the new-app job passes it)
   write('.starter.json', JSON.stringify({ ...meta, commit, app }, null, 2) + '\n');
   return { changed, app };

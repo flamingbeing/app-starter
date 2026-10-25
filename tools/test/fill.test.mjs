@@ -61,6 +61,18 @@ test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   assert.match(read(dir, 'app/index.html'), /<title>Pets<\/title>/);
 });
 
+test("--accent sets the default look's colour, kept on a re-run; a bad one is refused", () => {
+  const dir = copy();
+  fill({ dir, ...ARGS });
+  assert.match(read(dir, 'app/src/config.js'), /"accent":"#3a6390"/, "the template's colour by default");
+  fill({ dir, ...ARGS, accent: '#0F766E' });
+  assert.match(read(dir, 'app/src/config.js'), /"accent":"#0f766e"/);
+  fill({ dir, ...ARGS, title: 'Pets' });
+  assert.match(read(dir, 'app/src/config.js'), /"accent":"#0f766e"/);
+  assert.throws(() => fill({ dir, ...ARGS, accent: 'teal' }), /--accent 'teal'/);
+  assert.deepEqual(parseArgs(['--accent', '#123456']), { accent: '#123456' });
+});
+
 test('a web config for another project is refused', () => {
   const dir = copy();
   const web = path.join(dir, 'web.json');

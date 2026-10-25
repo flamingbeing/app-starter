@@ -2,7 +2,7 @@
 // sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app replaces them and
 // keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
 import { syncChip, updatePrompt, plural } from '@core/ui';
-import { applyTheme, themeSwitch } from '@core/theme';
+import { themeSwitch } from '@core/theme';
 import { start, usingEmulator, emulatorSignIn } from './cloud.js';
 import { $ } from './dom.js';
 import { screenSwitch } from './screen-switch.js';
@@ -18,7 +18,6 @@ const sheetOpen = () => !!document.querySelector('dialog[open]');
 // sheet is open or saves are unsent. (Off in the emulator tests unless ?sw is given.)
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
-applyTheme();
 themeSwitch($('theme-switch'));
 window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn };   // for the tests
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
