@@ -1,16 +1,17 @@
 # Status
 
 ## Now
--
+
+- Made from app-starter; not filled yet.
 
 ## Waiting on the owner
--
 
-## Next (in order)
-1.
+- <nothing>
 
-## Recently done
--
+## Next
 
-## Decisions (dated, one line each)
--
+- Fill (README, "Fill"), then replace the sample screen with the app.
+
+## Decisions (dated)
+
+- <date>: <decision>
