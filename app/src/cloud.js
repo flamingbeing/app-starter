@@ -17,7 +17,7 @@
 // and "Forget this device" wipes them on purpose.
 import { createApp } from '@core/app';
 import { auth } from '@core/auth';
-import { sync } from '@core/sync';
+import { sync, leaveEntry } from '@core/sync';
 import { update } from '@core/update';
 import * as register from 'app-update/register.js';
 import { firebaseConfig, APP } from './config.js';
@@ -72,15 +72,6 @@ function deviceName() {
 
 /** @param {Record<string, unknown>} rec */
 const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
-const timeOf = (/** @type {unknown} */ t) => typeof t === 'number' ? t : typeof t === 'string' ? Date.parse(t) || 0 : 0;
-// The bin entry the other devices read to drop a deleted item (app-sync's leaveEntry, which @core/sync exports from
-// 0.9.3; then this goes).
-/** @param {string} kind @param {Item} record @param {number | string} at */
-const leaveEntry = (kind, record, at) => {
-  const t = Math.max(timeOf(at), timeOf(record.updatedAt) + 1);
-  return { id: kind + ':' + record.id, kind, data: { id: String(record.id), updatedAt: record.updatedAt }, deletedAt: typeof at === 'string' ? new Date(t).toISOString() : t };
-};
-
 /**
  * @typedef {object} Hooks
  * @property {(s: { phase: Phase, user?: User, role?: string }) => void} onState
@@ -191,8 +182,8 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
     // Sign-out keeps this device's copy and unsent saves. -> how many are still unsent (they send at the next sign-in)
     async signOut() { await app.auth.signOut(); return unsent; },
     // Forget this device: wipes the copy and the outbox. Refused ('unsent') while anything is unsent, unless force.
-    /** @param {{ force?: boolean }} [o] @returns {Promise<{ ok: boolean, reason: string }>} */
-    async forget({ force = false } = {}) { const r = await app.auth.forget({ force }); return { ok: r.ok, reason: r.reason }; },
+    /** @param {{ force?: boolean }} [o] @returns {Promise<{ ok: boolean, reason: string, failed: string[] }>} */
+    async forget({ force = false } = {}) { const r = await app.auth.forget({ force }); return { ok: r.ok, reason: r.reason, failed: r.failed || [] }; },
     // the update module's api (with a service worker only), else null
     update: app.update || null,
   };

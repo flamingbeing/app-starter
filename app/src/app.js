@@ -23,6 +23,7 @@ let app = null;
 let role = '';
 /** @type {Item | null} */
 let editing = null;
+let editingGone = false;   // the item being edited was deleted elsewhere while the person had typed a change
 /** @type {(() => void) | null} */
 let stopLive = null;
 /** @type {any[]} */
@@ -118,7 +119,9 @@ async function forget(force) {
   $('forget-msg').textContent = '';
   const r = await app.forget({ force });
   $('forget-force').hidden = r.ok || r.reason !== 'unsent';
-  $('forget-msg').textContent = r.ok ? 'Forgotten: this device holds nothing of this app now.'
+  $('forget-msg').textContent = r.ok && r.failed.length
+    ? `Signed out, but some of this app's data could not be cleared (${r.failed.join(', ')}). Close every tab of this app and forget again.`
+    : r.ok ? 'Forgotten: this device holds nothing of this app now.'
     : 'Some changes on this device are not sent yet. Sign in to send them, or forget anyway and lose them.';
   if (r.ok) $('sign-out-msg').textContent = '';
 }
@@ -133,7 +136,8 @@ $('add').addEventListener('submit', async e => {
 });
 
 // The edit sheet follows its item on the server: a change made elsewhere shows under the field, and a delete made
-// elsewhere closes the sheet and says so. (An item not on the server yet is only "gone" once it was seen there.)
+// elsewhere closes the sheet and says so, unless the person has typed a change: then the sheet stays open, says so,
+// and Save adds their text back as a new item. (An item not on the server yet is only "gone" once it was seen there.)
 /** @param {Item} item */
 function openEdit(item) {
   if (!app) return;
@@ -141,12 +145,16 @@ function openEdit(item) {
   input('edit-text').value = item.text;
   $('edit-live').textContent = ''; $('edit-msg').textContent = '';
   let seen = false;
+  editingGone = false;
   stopLive?.();
   stopLive = app.watchItem(item.id, doc => {
     if (editing?.id !== item.id) return;
     if (doc) {
       seen = true;
       $('edit-live').textContent = doc.text !== item.text ? `Changed on another device: “${doc.text}”` : '';
+    } else if (seen && input('edit-text').value.trim() !== item.text) {
+      editingGone = true;
+      $('edit-live').textContent = 'This item was deleted on another device. Save adds your text back as a new item.';
     } else if (seen) {
       editing = null;
       dialog('edit').close('gone');
@@ -160,13 +168,14 @@ $('edit').addEventListener('close', async () => {
   const item = editing; editing = null;
   if (dialog('edit').returnValue === 'save' && item && app) {
     const text = input('edit-text').value.trim();
-    if (text && text !== item.text) await app.edit(item, text);
+    if (text && editingGone) await app.add(text);
+    else if (text && text !== item.text) await app.edit(item, text);
   }
 });
 $('edit-delete').addEventListener('click', async () => {
   const item = editing; editing = null;
   dialog('edit').close('delete');
-  if (item && app) await app.remove(item);
+  if (item && app && !editingGone) await app.remove(item);
 });
 
 $('attention').addEventListener('click', () => { renderConflicts(); dialog('conflicts').showModal(); });

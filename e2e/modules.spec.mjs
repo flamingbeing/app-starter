@@ -82,6 +82,23 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   await expect(b.locator('#edit-msg')).toContainText('deleted on another device');
 });
 
+test('a delete elsewhere keeps a draft in the edit sheet; saving it adds it back', async ({ phone }) => {
+  const a = await phone(), b = await phone();
+  const { email } = await signIn(a, 'member');
+  await signInAgain(b, email);
+  const t = uniq('draft');
+  await add(a, t);
+  await expect(b.locator('#items')).toContainText(t);
+  await b.getByRole('button', { name: t }).click();
+  await b.fill('#edit-text', t + '-typed');
+  await db.del(`spaces/_/items/${await itemIdOf(t)}`);
+  await expect(b.locator('#edit-live')).toContainText('deleted on another device');
+  await expect(b.locator('#edit')).toBeVisible();
+  await b.click('#edit-save');
+  await expect(b.locator('#items')).toContainText(t + '-typed');
+  await serverHas(t + '-typed');
+});
+
 test('check for updates: a new version takes over at once', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP + '&sw');
