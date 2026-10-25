@@ -105,7 +105,9 @@ docs/       decisions
 
 An outside ESM package (one with no dependencies of its own) plugs in the way `@core/*` does. The proof is a fixture
 page, `e2e/fixtures/outside-package/` (zod 3.23.8); the starter app imports none of it, so a new app carries only what
-it adds. An app that does not need the proof can delete that folder and `e2e/outside-package.spec.mjs`.
+it adds. An app that does not need the proof deletes that folder, `e2e/outside-package.spec.mjs`, `tools/vite-outside-package.mjs`,
+its `&& node tools/vite-outside-package.mjs` in the `vite` script, the `sw-files` line in `checks.yml` and the `zod` and
+fixture entries in `tsconfig.json`.
 
 1. **Vendor one file, exact version:** `npm pack <name>@<version>`, copy its single ESM file (and `LICENSE`) to
    `app/public/vendor/<name>/<version>/`, plus its `.d.ts` files. A live CDN would break the offline start.
