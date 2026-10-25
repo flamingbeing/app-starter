@@ -1,6 +1,6 @@
 {
-  // Type check only (npm run typecheck; CI): the app's own JS under strict, against app-sync's .d.ts for the pinned
-  // version (devDependency app-sync, the same tag as the import map). Nothing is emitted; the browser runs the files as is.
+  // Type check only (npm run typecheck; CI): the app's own JS and the UI kit (app/public/ui, app/public/theme) under
+  // strict, against app-sync's .d.ts for the pinned version (devDependency app-sync, the same tag as the import map). Nothing is emitted; the browser runs the files as is.
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
@@ -12,7 +12,11 @@
     "lib": ["es2022", "dom", "dom.iterable"],
     "types": [],
     "skipLibCheck": true,
-    "paths": { "@core/*": ["./node_modules/app-sync/types/*.d.ts"] }
+    "paths": {
+      "@core/ui": ["./app/public/ui/index.js"],
+      "@core/theme": ["./app/public/theme/index.js"],
+      "@core/*": ["./node_modules/app-sync/types/*.d.ts"]
+    }
   },
-  "include": ["app/src/**/*.js", "app/src/**/*.d.ts"]
+  "include": ["app/src/**/*.js", "app/src/**/*.d.ts", "app/public/ui/*", "app/public/theme/*.js"]
 }

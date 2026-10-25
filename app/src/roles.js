@@ -28,14 +28,3 @@ export const versionOf = claims => Number.isInteger(claims?.v) ? Number(claims?.
 /** @param {Claims | null | undefined} claims @param {RoleDoc | undefined} doc @returns {boolean} */
 export const needsClaims = (claims, doc) => versionOf(claims) < 0
   || (doc ? (Number(doc.v) || 0) > versionOf(claims) || doc.role !== roleOf(claims) : roleOf(claims) !== '');
-
-// Plain words for anything that goes wrong (never the raw error text).
-/** @param {unknown} err @param {string} [doing] @returns {string} */
-export function explain(err, doing = 'That') {
-  const code = String(/** @type {{ code?: unknown } | null} */ (err)?.code || '');
-  if (/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(code)) return 'Sign-in was cancelled.';
-  if (/network-request-failed|unavailable|deadline-exceeded/.test(code)) return 'No signal, so that didn’t work. Try again when you’re online.';
-  if (/unauthorized-domain|operation-not-allowed/.test(code)) return 'Sign-in isn’t switched on for this address yet.';
-  if (/permission-denied/.test(code)) return 'This account isn’t allowed to do that.';
-  return `${doing} didn’t work. Try again in a moment.`;
-}

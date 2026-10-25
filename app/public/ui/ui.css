@@ -1,0 +1,19 @@
+/* @core/ui v0: the kit parts' look, on @core/theme's custom properties (theme/theme.css loads first). */
+.chip { font-size: .85rem; padding: .2rem .6rem; border-radius: var(--radius); border: 1px solid currentColor; }
+.chip[data-state="attention"], .error, .danger { color: var(--danger); }
+.small { font-size: .85rem; color: var(--muted); }
+.row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center; }
+
+dialog { max-width: 30rem; width: calc(100% - 2rem); background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius); }
+dialog::backdrop { background: var(--backdrop); }
+
+/* conflict sheet */
+.attention { width: 100%; margin: var(--gap) 0; }
+.sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pad); }
+.sides h3 { font-size: 1rem; margin: 0 0 .25rem; }
+#conflict-list { list-style: none; padding: 0; }
+#conflict-list li { margin: 0 0 var(--pad); padding-bottom: var(--pad); border-bottom: 1px solid var(--line); }
+
+/* refused list */
+#refused li { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }

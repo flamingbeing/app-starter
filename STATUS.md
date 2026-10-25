@@ -10,7 +10,7 @@
 
 ## Next
 
-- Fill (README, "Fill"), then replace the sample screen with the app.
+- Fill (README, "Fill"), then replace the sample screens (`app/src/screens/`) with the app.
 
 ## Decisions (dated)
 

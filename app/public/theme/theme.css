@@ -1,0 +1,28 @@
+/* @core/theme v0: the custom properties every kit part and app screen draws with. Light values come from the home
+   design tokens (tokens.css, light only) with plain fallbacks; dark ones are the kit's own. The theme follows the device
+   (Auto) unless one was chosen on this device (data-theme on <html>); the layout is Comfortable unless Compact was. */
+:root {
+  color-scheme: light dark;
+  --font: var(--home-font, system-ui, sans-serif);
+  --bg: light-dark(var(--home-bg, #f5f5f7), #1c1c1e);
+  --surface: light-dark(var(--home-surface, #ffffff), #2c2c2e);
+  --text: light-dark(var(--home-ink, #1d1d1f), #f2f2f7);
+  --muted: light-dark(var(--home-muted, #636368), #aeaeb2);
+  --line: light-dark(var(--home-control, #8a8a91), #8e8e93);
+  --accent: light-dark(var(--home-accent, #3a6390), #8fb4e0);
+  --danger: light-dark(var(--home-bad, #b3261e), #ff8a80);
+  --backdrop: rgb(0 0 0 / .4);
+  --radius: .4rem;
+  --gap: .5rem;
+  --pad: 1rem;
+  --tap: 44px;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-layout="compact"] { --gap: .25rem; --pad: .5rem; font-size: 93.75%; }
+
+body { font-family: var(--font); background: var(--bg); color: var(--text); }
+button, input, select { font: inherit; color: inherit; }
+button { min-height: var(--tap); padding: 0 var(--pad); cursor: pointer; border-radius: var(--radius); }
+button, select { background: var(--surface); border: 1px solid var(--line); }
+a, :focus-visible { outline-color: var(--accent); }

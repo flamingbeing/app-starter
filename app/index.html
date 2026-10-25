@@ -12,6 +12,8 @@
     "@core/auth": "https://core.anawj.com/sync/1.0.0/auth.js",
     "@core/sync": "https://core.anawj.com/sync/1.0.0/sync.js",
     "@core/update": "https://core.anawj.com/sync/1.0.0/update.js",
+    "@core/ui": "./ui/index.js",
+    "@core/theme": "./theme/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -23,23 +25,20 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
+  <link rel="stylesheet" href="theme/theme.css">
+  <link rel="stylesheet" href="ui/ui.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="src/app.js"></script>
 </head>
 <body>
   <header class="bar">
     <h1>Starter app</h1>
-    <span id="status" class="chip" role="status" aria-live="polite">Starting…</span>
+    <span id="sync-chip"></span>
   </header>
   <main>
     <section id="signed-out" hidden>
       <p>Sign in to see the list.</p>
-      <button id="sign-in" type="button">Sign in with Google</button>
-      <p id="sign-in-error" class="error" role="alert"></p>
-      <p class="small">Signing out keeps this phone’s copy and unsent changes for the next sign-in. To clear them:</p>
-      <button id="forget" type="button" class="danger">Forget this device</button>
-      <button id="forget-force" type="button" class="danger" hidden>Forget anyway, losing the unsent changes</button>
-      <p id="forget-msg" role="status"></p>
+      <div id="sign-in-sheet"></div>
     </section>
     <section id="no-access" hidden>
       <p>This account has no access yet. Ask an admin to add it.</p>
@@ -49,11 +48,8 @@
       <p>This app isn't connected to its Firebase project yet (see README, "Fill").</p>
     </section>
     <section id="list-view" hidden>
-      <button id="attention" class="attention" type="button" hidden></button>
-      <section id="refused-box" hidden aria-labelledby="refused-title">
-        <h2 id="refused-title">Not saved: the server refused these</h2>
-        <ul id="refused"></ul>
-      </section>
+      <div id="conflict-sheet"></div>
+      <div id="refused-list"></div>
       <p id="edit-msg" class="small" role="status"></p>
       <form id="add" autocomplete="off">
         <label for="new-text">New item</label>
@@ -70,8 +66,8 @@
     <span id="who"></span>
     <button id="sign-out" type="button" hidden>Sign out</button>
     <p id="sign-out-msg" class="error" role="alert"></p>
-    <p class="small">Version <span id="version">…</span> <button id="check-update" type="button" hidden>Check for updates</button></p>
-    <p id="update-msg" class="small" role="status"></p>
+    <div id="update-prompt"></div>
+    <div id="theme-switch"></div>
   </footer>
 
   <dialog id="edit" aria-labelledby="edit-title">
@@ -86,13 +82,6 @@
         <button value="cancel" formnovalidate>Cancel</button>
       </div>
     </form>
-  </dialog>
-
-  <dialog id="conflicts" aria-labelledby="conflicts-title">
-    <h2 id="conflicts-title">Changed on another device</h2>
-    <p class="small">Choose which version to keep. Nothing is lost until you choose.</p>
-    <ul id="conflict-list"></ul>
-    <form method="dialog"><button>Close</button></form>
   </dialog>
 </body>
 </html>
