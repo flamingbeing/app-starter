@@ -133,14 +133,20 @@ export async function start({ onState, onList, onStatus, onConflicts, onRefused,
   /** @type {(() => void) | null} */
   let offList = null;
   let seq = 0;
+  // the token Firestore has been told about: its own token listener (added when the SDK started, so before this one)
+  // runs in the same notification and restarts its connection with the new token. A list listen sent before that goes
+  // out with the old token, the rules refuse it, and the engine doesn't listen again; so the list waits for this.
+  let tokenSeen = '';
+  fa.onIdTokenChanged(async (/** @type {any} */ u) => { tokenSeen = u ? await u.getIdToken().catch(() => '') : ''; void show(); });
   const stopList = () => { offList?.(); offList = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
     const n = ++seq, u = fa.currentUser, me = app.auth.user();
     if (!u || !me || me.uid !== u.uid) { stopList(); onState({ phase: 'signed-out' }); return; }
     if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
-    const role = roleOf((await u.getIdTokenResult()).claims);
+    const t = await u.getIdTokenResult(), role = roleOf(t.claims);
     if (n !== seq) return;
+    if (role && t.token !== tokenSeen) return;   // a new token Firestore hasn't seen yet: onIdTokenChanged calls back
     const user = { uid: me.uid, email: me.email, name: me.name };
     if (!role) { stopList(); onState({ phase: 'no-access', user, role: '' }); return; }
     onState({ phase: 'ready', user, role });
