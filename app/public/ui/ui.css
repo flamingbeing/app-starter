@@ -17,3 +17,17 @@ dialog::backdrop { background: var(--backdrop); }
 
 /* refused list */
 #refused li { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+
+/* modal (alert / confirm) */
+dialog.modal p { margin: 0 0 var(--pad); }
+
+/* toasts */
+.toasts { position: fixed; inset: auto var(--pad) var(--pad) var(--pad); display: grid; gap: var(--gap); justify-items: center; pointer-events: none; z-index: 10; }
+.toast { pointer-events: auto; display: flex; gap: var(--gap); align-items: center; max-width: 30rem; padding: var(--gap) var(--pad);
+  background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); }
+.toast button { min-width: var(--tap); padding: 0; border: 0; background: none; }
+
+/* empty state */
+.empty-state { text-align: center; padding: calc(var(--pad) * 2) var(--pad); }
+.empty-state[hidden] { display: none; }
+.empty-title { font-weight: 600; margin: 0 0 var(--gap); }

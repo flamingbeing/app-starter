@@ -1,6 +1,6 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
 // list of saves the server refused.
-import { conflictSheet, refusedList } from '@core/ui';
+import { conflictSheet, refusedList, toaster, emptyState } from '@core/ui';
 import { COLL } from '../cloud.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
@@ -13,7 +13,9 @@ const itemText = record => String(/** @type {{ text?: unknown } | null} */ (reco
 /** @param {import('../cloud.js').Started} app */
 export function listScreen(app) {
   let canWrite = false;
-  const openItem = itemSheet(app);
+  const toast = toaster($('toasts')).show;
+  const openItem = itemSheet(app, toast);
+  const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
   conflictSheet($('conflict-sheet'), { sync: app.sync, text: itemText });
   refusedList($('refused-list'), { sync: app.sync, kind: COLL, text: itemText });
   $('add').addEventListener('submit', async e => {
@@ -22,6 +24,7 @@ export function listScreen(app) {
     if (!text) return;
     await app.add(text);
     input('new-text').value = '';
+    toast('Added');
   });
 
   const screen = sectionScreen('list-view', s => {
@@ -40,7 +43,7 @@ export function listScreen(app) {
         li.append(b);
         return li;
       }));
-      $('empty').hidden = items.length > 0;
+      empty.show(items.length === 0 && canWrite);
     },
   };
 }
