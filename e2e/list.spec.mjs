@@ -33,6 +33,7 @@ test('a member adds, edits and deletes; the delete lands in the bin', async ({ p
 
   await page.getByRole('button', { name: t + ' edited' }).click();
   await page.click('#edit-delete');
+  await page.getByRole('button', { name: 'Delete', exact: true }).last().click();   // the confirm
   await expect(page.locator('#items')).not.toContainText(t);
   await expect.poll(async () => (await db.list('spaces/_/bin')).some(b => b.data?.text === t + ' edited'), { timeout: 15_000 }).toBe(true);
   await expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === t + ' edited')).toBe(false);

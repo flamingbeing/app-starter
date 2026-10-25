@@ -2,15 +2,17 @@
 // field, and a delete made elsewhere closes the sheet and says so, unless the person has typed a change: then the sheet
 // stays open, says so, and Save adds their text back as a new item. (An item not on the server yet is only "gone" once
 // it was seen there.)
+import { confirmModal } from '@core/ui';
 import { $, input, dialog } from '../dom.js';
 
 /** @typedef {import('../cloud.js').Item} Item */
 
 /**
  * @param {import('../cloud.js').Started} app
+ * @param {(message: string) => unknown} toast  a short note (the kit's toaster)
  * @returns {(item: Item) => void} open the sheet on an item
  */
-export function itemSheet(app) {
+export function itemSheet(app, toast) {
   const sheet = dialog('edit');
   /** @type {Item | null} */
   let editing = null;
@@ -24,13 +26,14 @@ export function itemSheet(app) {
     if (sheet.returnValue === 'save' && item) {
       const text = input('edit-text').value.trim();
       if (text && editingGone) await app.add(text);
-      else if (text && text !== item.text) await app.edit(item, text);
+      else if (text && text !== item.text) { await app.edit(item, text); toast('Saved'); }
     }
   });
   $('edit-delete').addEventListener('click', async () => {
+    if (!await confirmModal('Delete this item? It goes to the bin.', { title: 'Delete item', danger: true, yes: 'Delete' })) return;
     const item = editing; editing = null;
     sheet.close('delete');
-    if (item && !editingGone) await app.remove(item);
+    if (item && !editingGone) { await app.remove(item); toast('Deleted'); }
   });
 
   return item => {
