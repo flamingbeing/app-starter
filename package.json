@@ -9,9 +9,9 @@
     "typecheck": "tsc -p ."
   },
   "devDependencies": {
-    "@playwright/test": "1.56.1",
+    "@playwright/test": "1.64.1",
     "app-sync": "git+https://github.com/flamingbeing/app-sync.git#v0.9.3",
     "axe-core": "4.14.0",
-    "typescript": "5.8.3"
+    "typescript": "7.0.2"
   }
 }
