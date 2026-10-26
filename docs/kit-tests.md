@@ -39,6 +39,7 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Keyboard | Ctrl/Cmd+K focuses the search; typing filters; Esc clears, then leaves; arrows and Enter work the list | |
 | Pointer | right-click opens the row menu; Ctrl/Cmd-click adds; Shift-click takes a range; the detail summarises a multi-selection; Esc leaves select mode | |
 | Sheets | a side panel at 1280 px, a bottom sheet below; Back and Esc close it | open |
+| Tab bar | 390 px: the picked section (`?tab=`) is marked in both bars; shrunk on scroll, its tab stays and Tab reaches it | |
 | Delete | removing from the detail shows an Undo toast; Undo puts the row back | |
 | Resize | the layout follows the width when the window crosses a size class | |
 | Other pages | `startGestures()` on a page without the shell markup starts nothing | |
