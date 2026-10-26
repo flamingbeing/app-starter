@@ -24,7 +24,22 @@ Gotchas found:
 - Measure the hold menu after its layer opens: a closed layer is `display: none`, so the menu measures 0 and lands off
   screen near the bottom.
 
-## For K2 (looks and tokens)
+## K2: looks + density + glass guard (done)
+
+- Looks A/B/C are data in `theme/looks/` (token set + variants header/menu/glass/tick/tabbar), shown as `data-*` marks
+  on `<html>`; every part in `ui.css`, `ui/gestures.css` and `glass.css` styles from the tokens and marks. How to add
+  one: [ui-kit.md](ui-kit.md#adding-a-look). No component forks; the bottom-sheet hold menu is a class on the same menu.
+- Density (`comfortable` 60 / `regular` 50 / `compact` 44 px rows) replaces v0's layout (`compact` migrates).
+- Glass guard in `theme/guard.js`; material `always` ("Glass, even here") overrides it, Solid wins.
+- Look and density switchers in Settings and the gallery (`?look=`, `?density=` preview without keeping; `?guard=again`).
+- Tests: `e2e/looks.spec.mjs` (each look × 390/820/1280, screenshots in the test output), `app/test/looks.unit.test.mjs`.
+
+Gotchas found:
+- The e2e fixtures seed the guard's verdict as fast; a test of the guard needs its own context.
+- With glass off, Chromium drew a dark box round the hold menu's lifted preview; `will-change: transform` on it fixed it.
+- Measure the bottom-sheet menu after its rise animation settles.
+
+## For K2 (looks and tokens, notes K1 left)
 
 - Every colour, radius and timing in `ui/gestures.css` is a theme token; restyle there. Glass is for floating chrome
   only (bars, tab bar, menus, sheets, action bar).

@@ -66,15 +66,15 @@ test('accent: a picked colour is kept on this device, Reset goes back to the loo
   await page.goto(APP);
   const reset = page.getByRole('button', { name: 'Reset colour' });
   await expect(reset).toBeHidden();
-  await expect(page.getByLabel('Colour')).toHaveValue('#3a6390');   // the app's (config.js)
-  await page.getByLabel('Colour').fill('#c2417a');
+  await expect(page.locator('#accent-pick')).toHaveValue('#3a6390');   // the app's (config.js)
+  await page.locator('#accent-pick').fill('#c2417a');
   await expect(reset).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Colour')).toHaveValue('#c24179');   // (snapped to 6 bits a channel)
+  await expect(page.locator('#accent-pick')).toHaveValue('#c24179');   // (snapped to 6 bits a channel)
   expect(await cssVar(page, '--accent')).not.toBe('');
   await page.getByRole('button', { name: 'Reset colour' }).click();
   await expect(reset).toBeHidden();
-  await expect(page.getByLabel('Colour')).toHaveValue('#3a6390');
+  await expect(page.locator('#accent-pick')).toHaveValue('#3a6390');
 });
 
 test('every look passes axe in light, dark and OLED', async ({ phone }) => {
