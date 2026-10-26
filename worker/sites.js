@@ -63,7 +63,25 @@ function adminFor(env, local, project) {
 }
 function claims(request, env, url, local, project) {
   const adm = adminFor(env, local, project);
-  return handleClaims(request, { admin: adm, loadClaims, origin: url.origin, limit: env.CLAIMS_LIMIT, emulator: !!(local && env.EMULATOR) });
+  return settledClaims(a => handleClaims(request, { admin: a, loadClaims, origin: url.origin, limit: env.CLAIMS_LIMIT, emulator: !!(local && env.EMULATOR) }), adm);
+}
+
+// Two asks for one person at once (a page's first, sent before its role doc exists, and the one the new doc sets off)
+// each read the doc, then write the claims, so the older read could be written last: the account loses its role and
+// the page, already answered, never asks again. An answer is final only when the docs it read are unchanged after its
+// write; otherwise it is asked again (at most twice more, so a doc changing all the time can't hold the request).
+/** @param {(adm: any) => Promise<Response>} ask @param {any} adm @returns {Promise<Response>} */
+export async function settledClaims(ask, adm, tries = 3) {
+  for (let i = 1; ; i++) {
+    /** @type {Map<string, string>} */
+    const seen = new Map();
+    const watched = adm && { ...adm, getDoc: async (/** @type {string} */ p) => { const d = await adm.getDoc(p); seen.set(p, JSON.stringify(d)); return d; } };
+    const res = await ask(watched);
+    if (!res.ok || i >= tries) return res;
+    let same = true;
+    for (const [p, j] of seen) if (JSON.stringify(await adm.getDoc(p)) !== j) same = false;
+    if (same) return res;
+  }
 }
 
 // The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set), and the

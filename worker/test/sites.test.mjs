@@ -1,7 +1,9 @@
 // worker/sites.js with a stand-in for the static assets. Run: node --test 'worker/test/*.test.mjs'
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../sites.js';
+import worker, { settledClaims } from '../sites.js';
+import { handleClaims } from '../claims.js';
+import { loadClaims } from '../members.js';
 import { SITES } from '../routes.js';
 
 const HOST = Object.keys(SITES)[0];
@@ -59,4 +61,30 @@ test('emulator claims only on localhost', async () => {
   assert.equal(r.status, 503);   // a real host ignores EMULATOR: no service account, not set up
   const l = await worker.fetch(new Request('http://localhost/api/claims', { method: 'POST' }), e);
   assert.equal(l.status, 401);   // set up (emulator), but no token
+});
+
+test('/api/claims: of two asks at once, the one that read the doc before it existed cannot leave the role off', async () => {
+  // A (the page's first ask, before the role doc exists) reads, then is slow to write; B (set off by the new doc)
+  // reads and writes in between. A's stale empty claims must not be the last word.
+  const store = new Map();
+  let release = () => {};
+  const held = new Promise(r => { release = r; });
+  const written = [];
+  let writes = 0;
+  const adm = {
+    project: 'demo-x',
+    getDoc: async p => store.get(p) ?? null,
+    setClaims: async (uid, claims) => { if (writes++ === 0) await held; written.push(claims); },
+    clearRevoked: async () => {},
+  };
+  const verify = async () => ({ sub: 'u1', firebase: { sign_in_provider: 'google.com' } });
+  const ask = () => settledClaims(a => handleClaims(new Request('https://x/api/claims', { method: 'POST', headers: { Authorization: 'Bearer t' } }),
+    { admin: a, loadClaims, verify }), adm);
+  const a = ask();
+  await new Promise(r => setTimeout(r, 10));   // A has read (no doc) and waits to write
+  store.set('members/u1', { role: 'member', v: 1 });
+  assert.equal((await ask()).status, 200);   // B: read the doc, wrote the role
+  release();
+  assert.equal((await a).status, 200);
+  assert.equal(written.at(-1)?.g?._, 'member');
 });
