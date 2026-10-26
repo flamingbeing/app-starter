@@ -126,3 +126,40 @@ test('sites.js routes /api/files/: 503 without a bucket, then the emulator token
   r = await worker.fetch(new Request('https://app.example.com/api/files/_/a', { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${tok}`, 'Content-Length': '1' } }), { ...env, FILES });
   assert.equal(r.status, 401, 'unsigned tokens only on localhost');
 });
+
+test('a bucket that fails answers 503 in JSON, not an uncaught error', async () => {
+  const broken = { get: async () => { throw new Error('r2 down'); }, put: async () => { throw new Error('r2 down'); }, delete: async () => { throw new Error('r2 down'); } };
+  for (const [method, body] of [['GET'], ['PUT', 'x'], ['DELETE']]) {
+    const r = await call(broken, method, '/api/files/ann/a1', { who: 'ann', body });
+    assert.equal(r.status, 503, method);
+    assert.equal((await r.json()).error, 'Try again later.');
+  }
+});
+
+test('sites.js: one service-account token for many /api/files calls, not an exchange per call', async () => {
+  const { generateKeyPairSync, createSign } = await import('node:crypto');
+  const sa = generateKeyPairSync('rsa', { modulusLength: 2048 }), idk = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const t = Math.floor(Date.now() / 1000);
+  const unsigned = `${b64({ alg: 'RS256', kid: 'k1' })}.${b64({ aud: 'proj-x', iss: 'https://securetoken.google.com/proj-x', sub: 'u1', exp: t + 3600, iat: t, auth_time: t })}`;
+  const idToken = unsigned + '.' + createSign('RSA-SHA256').update(unsigned).sign(idk.privateKey).toString('base64url');
+  let exchanges = 0;
+  const real = globalThis.fetch;
+  globalThis.fetch = async u => {
+    u = String(u.url ?? u);
+    if (u.includes('jwk/securetoken')) return Response.json({ keys: [{ ...idk.publicKey.export({ format: 'jwk' }), kid: 'k1' }] }, { headers: { 'cache-control': 'max-age=3600' } });
+    if (u.startsWith('https://oauth2')) { exchanges++; return Response.json({ access_token: 't', expires_in: 3600 }); }
+    if (u.includes('firestore')) return new Response('{}', { status: 404 });
+    throw new Error('unexpected ' + u);
+  };
+  try {
+    const bucket = memoryBucket();
+    await bucket.put('u1/a1', 'x');
+    const env = { FIREBASE_PROJECT: 'proj-x', SA_EMAIL: 'sa@example.com', SA_KEY: sa.privateKey.export({ type: 'pkcs8', format: 'pem' }), FILES: bucket };
+    for (let i = 0; i < 3; i++) {
+      const r = await worker.fetch(new Request(`${ORIGIN}/api/files/u1/a1`, { headers: { Authorization: 'Bearer ' + idToken } }), env);
+      assert.equal(r.status, 200);
+    }
+    assert.equal(exchanges, 1);
+  } finally { globalThis.fetch = real; }
+});
