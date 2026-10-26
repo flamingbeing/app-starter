@@ -3,13 +3,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseChoice, chooseTheme, themeChoice, THEMES, LAYOUTS } from '../public/theme/choice.js';
-import { cleanChoice, DARK_STYLES, PRESET_IDS, SURFACE_IDS } from '../public/theme/schema.js';
-import { contrast, cleanHex, mix, nudge, lightPalette, darkPalette, floor, checkPalette } from '../public/theme/colour.js';
-import { palettes, paletteCss, shapeTokens, accentOf, DEFAULT_ACCENT } from '../public/theme/palette-css.js';
+import { cleanChoice, DARK_STYLES, PRESET_IDS, SURFACE_IDS, MATERIALS } from '../public/theme/schema.js';
+import { contrast, cleanHex, mix, nudge, lightPalette, darkPalette, floor, checkPalette, pairs, glassSamples, frostAlpha, glassStrengths, BACKDROP } from '../public/theme/colour.js';
+import { palettes, paletteCss, shapeTokens, accentOf, glassTokens, DEFAULT_ACCENT } from '../public/theme/palette-css.js';
 import { PRESETS, SURFACES } from '../public/theme/presets.js';
 import { GRID, HUES, SHADES, gridIndex, snap } from '../public/theme/grid.js';
 
-const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', layout: 'comfortable' };
+const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', layout: 'comfortable', material: 'glass' };
 
 test('nothing stored: the defaults, so new options stay off until picked', () => {
   assert.deepEqual(parseChoice(null), DEFAULTS);
@@ -26,7 +26,7 @@ test("v0's stored { theme, layout } still reads as it did", () => {
 });
 
 test('a stored choice is kept, hex lower-cased', () => {
-  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', layout: 'compact' };
+  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', layout: 'compact', material: 'solid' };
   assert.deepEqual(parseChoice(JSON.stringify(all)), { ...all, accent: '#abcdef' });
 });
 
@@ -42,14 +42,20 @@ test('unknown values or unreadable storage: the defaults', () => {
 test('storage refused: picks on this page still build on each other', () => {
   const refuse = () => { throw new Error('storage refused'); };
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: refuse, setItem: refuse } });
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { documentElement: { dataset: {} } } });
+  const classes = new Set(['glass']);
+  const classList = { toggle: (/** @type {string} */ c, /** @type {boolean} */ on) => { if (on) classes.add(c); else classes.delete(c); } };
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { documentElement: { dataset: {}, classList } } });
   chooseTheme({ theme: 'dark' });
   chooseTheme({ layout: 'compact' });
   chooseTheme({ dark: 'oled', preset: 'eye' });
   assert.deepEqual(themeChoice(), { ...DEFAULTS, theme: 'dark', layout: 'compact', dark: 'oled', preset: 'eye' });
   assert.deepEqual(document.documentElement.dataset, { theme: 'dark', layout: 'compact', dark: 'oled', preset: 'eye' });
-  chooseTheme({ theme: 'auto', dark: 'dark', preset: 'default', layout: 'comfortable' });
+  assert.ok(classes.has('glass'), 'glass by default');
+  chooseTheme({ material: 'solid' });
+  assert.ok(!classes.has('glass'), 'Solid takes the glass class off');
+  chooseTheme({ theme: 'auto', dark: 'dark', preset: 'default', layout: 'comfortable', material: 'glass' });
   assert.deepEqual(document.documentElement.dataset, {});
+  assert.ok(classes.has('glass'));
 });
 
 test('contrast maths', () => {
@@ -144,7 +150,7 @@ test('paletteCss: light on :root, dark for a dark device (unless Light) and for 
   assert.match(dark, /^:root\[data-theme="dark"\] \{ .*--bg: #000000;/);
   const names = new Set([...css.matchAll(/--([a-z-]+):/g)].map(m => m[1]));
   const allowed = ['bg', 'surface', 'text', 'muted', 'line', 'accent', 'on-accent', 'danger', 'ok', 'warn', 'fill', 'on-fill', 'link', 'focus', 'selection',
-    'radius-s', 'radius', 'radius-l', 'border', 'shadow', 'font-head', 'leading'];
+    'radius-s', 'radius', 'radius-l', 'border', 'shadow', 'font-head', 'leading', 'glass', 'glass-thick', 'glass-clear'];
   assert.deepEqual([...names].sort(), allowed.sort());
   assert.ok(!paletteCss({ accent: '</style><script>', surface: '} body {' }).includes('<'), 'only cleaned values reach the CSS');
 });
@@ -157,4 +163,59 @@ test('the accent grid: 13 rows of 8, named cells, snap to 6 bits a channel', () 
   for (const x of GRID) assert.equal(snap(x.c), x.c, `${x.name} is already snapped`);
   assert.equal(snap('#3a6390'), '#396192');
   assert.equal(snap('nope'), null);
+});
+
+test('Solid: a per-device choice, glass unless picked; unknown values are glass', () => {
+  assert.deepEqual(MATERIALS, ['glass', 'solid']);
+  assert.equal(cleanChoice({}).material, 'glass');
+  assert.equal(cleanChoice({ material: 'solid' }).material, 'solid');
+  assert.equal(cleanChoice({ material: 'frosted' }).material, 'glass');
+  assert.equal(parseChoice(JSON.stringify({ theme: 'dark', layout: 'compact' })).material, 'glass', 'v0 choices get glass');
+});
+
+// Text on glass: the glass is the card colour at strength a over whatever shows through it, so every pair that sits
+// on a card must pass on mix(sample, surface, a) for every sample, at the strength the palette names.
+/** @param {Record<string, string>} p @param {string[]} samples @param {number} a @param {boolean} strong */
+const glassMisses = (p, samples, a, strong) => pairs(strong).filter(([, on]) => on.includes('surface'))
+  .flatMap(([fg, , need]) => samples.map(s => [fg, s, need, contrast(p[fg], mix(s, p.surface, a))]))
+  .filter(([, , need, ratio]) => ratio < need - 1e-9)
+  .map(([fg, s, need, ratio]) => `${fg} over ${s}: ${Number(ratio).toFixed(2)}:1 (needs ${need}:1)`);
+
+test('text on glass: every look x light/dark/OLED keeps its floor over the page, cards, fill and blurred text', () => {
+  for (const preset of PRESET_IDS) for (const dark of DARK_STYLES) {
+    const strong = !!PRESETS.find(p => p.id === preset)?.strong;
+    const both = palettes({ preset, dark });
+    for (const [mode, p] of Object.entries(both)) {
+      const at = glassStrengths(p, { strong }), where = `${preset} ${dark} ${mode}`;
+      assert.deepEqual(glassMisses(p, glassSamples(p), at.glass, strong), [], `${where}: glass`);
+      assert.deepEqual(glassMisses(p, glassSamples(p, true), at.thick, strong), [], `${where}: thick glass over the backdrop`);
+      // see-through on every look (no palette change needed): never the solid card colour
+      for (const [tier, a] of Object.entries(at)) assert.ok(a >= 0.5 && a < 1, `${where}: ${tier} ${a}`);
+      assert.ok(at.thick >= 0.88 && at.glass >= 0.72, `${where}: the least strength of each tier`);
+    }
+  }
+});
+
+test('frostAlpha (from logbook): the lowest passing strength, never under least, 1 when nothing short of solid passes', () => {
+  const p = floor(lightPalette('#3a6390'));
+  const a = frostAlpha(glassSamples(p), p);
+  assert.ok(a > 0 && a < 1);
+  assert.deepEqual(glassMisses(p, glassSamples(p), a, false), []);
+  assert.notDeepEqual(glassMisses(p, glassSamples(p), a - 0.01, false), [], 'one step less fails');
+  assert.equal(frostAlpha(glassSamples(p), p, { least: 0.95 }), 0.95);
+  // a text colour that only just passes on the card: nothing see-through keeps it
+  const tight = { ...p, muted: '#767676' };   // 4.54:1 on white, under 4.5:1 once any black shows through
+  assert.equal(frostAlpha(['#000000'], tight), 1);
+  // under a sheet the samples are shaded by the backdrop
+  assert.equal(glassSamples(p, true)[1], mix(p.surface, '#000000', BACKDROP));
+});
+
+test('glass tokens: the card colour see-through at the palette strengths', () => {
+  const p = palettes({}).light, at = glassStrengths(p);
+  assert.deepEqual(glassTokens(p, {}), {
+    glass: `color-mix(in srgb, var(--surface) ${Math.round(at.glass * 100)}%, transparent)`,
+    'glass-thick': `color-mix(in srgb, var(--surface) ${Math.round(at.thick * 100)}%, transparent)`,
+    'glass-clear': `color-mix(in srgb, var(--surface) ${Math.round(at.clear * 100)}%, transparent)`,
+  });
+  assert.match(paletteCss({}), /--glass: color-mix\(in srgb, var\(--surface\) \d+%, transparent\);/);
 });

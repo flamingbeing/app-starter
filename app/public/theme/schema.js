@@ -10,9 +10,12 @@ export const PRESET_IDS = Object.freeze(PRESETS.map(p => p.id));
 // '' = the preset's own ground
 export const SURFACE_IDS = Object.freeze(['', ...Object.keys(SURFACES)]);
 export const LAYOUTS = Object.freeze(['comfortable', 'compact']);
+// glass bars and sheets (glass.css), or solid ones: the per-device off-switch
+export const MATERIALS = Object.freeze(['glass', 'solid']);
 
 /**
- * @typedef {{ theme: string, dark: string, preset: string, accent: string, surface: string, layout: string }} Choice
+ * @typedef {{ theme: string, dark: string, preset: string, accent: string, surface: string, layout: string,
+ *   material: string }} Choice
  * accent: '' = the preset's (or the app's) colour, else a six-digit hex
  */
 
@@ -29,5 +32,6 @@ export function cleanChoice(raw) {
     accent: cleanHex(r.accent) ?? '',
     surface: oneOf(SURFACE_IDS, r.surface),
     layout: oneOf(LAYOUTS, r.layout),
+    material: oneOf(MATERIALS, r.material),
   };
 }

@@ -70,8 +70,11 @@ export function listScreen(app) {
   });
 
   const screen = sectionScreen('list-view', s => {
+    const could = canWrite;
     canWrite = s.role === 'admin' || s.role === 'member';
     $('add').hidden = !canWrite;
+    // (a screen change is a view transition, so the list can be drawn before the role arrives)
+    if (canWrite !== could) draw(shown, new Set());
   });
   /** @param {Item[]} items @param {Set<string>} changed */
   const draw = (items, changed) => {

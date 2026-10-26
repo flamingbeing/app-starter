@@ -1,19 +1,19 @@
-// The theme switch: labelled selects for this device's theme, dark style, look (preset), ground and layout, and a
-// colour well for the accent with a reset to the look's own colour (choice.js).
+// The theme switch: labelled selects for this device's theme, dark style, look (preset), ground, layout and glass or
+// Solid bars and sheets, and a colour well for the accent with a reset to the look's own colour (choice.js).
 import { THEMES, LAYOUTS, themeChoice, chooseTheme, pickedAccent } from './choice.js';
-import { DARK_STYLES, PRESET_IDS, SURFACE_IDS } from './schema.js';
+import { DARK_STYLES, PRESET_IDS, SURFACE_IDS, MATERIALS } from './schema.js';
 import { PRESETS, SURFACES } from './presets.js';
 import { GRID, SHADES, snap } from './grid.js';
 
 /** @type {Record<string, string>} */
 const WORDS = {
-  auto: 'Auto', light: 'Light', dark: 'Dark', oled: 'OLED black', comfortable: 'Comfortable', compact: 'Compact', '': "The look's own",
+  auto: 'Auto', light: 'Light', dark: 'Dark', oled: 'OLED black', comfortable: 'Comfortable', compact: 'Compact', glass: 'Glass', solid: 'Solid', '': "The look's own",
   ...Object.fromEntries(PRESETS.map(p => [p.id, p.name])),
   ...Object.fromEntries(Object.entries(SURFACES).map(([id, s]) => [id, s.label])),
 };
 
 /**
- * @param {'theme' | 'dark' | 'preset' | 'surface' | 'layout'} key @param {string} label @param {readonly string[]} values
+ * @param {'theme' | 'dark' | 'preset' | 'surface' | 'layout' | 'material'} key @param {string} label @param {readonly string[]} values
  * @param {() => void} after  runs after a pick (the colour well follows the look)
  * @returns {HTMLLabelElement}
  */
@@ -62,6 +62,7 @@ export function themeSwitch(host) {
     picker('theme', 'Theme', THEMES, accent.sync), picker('dark', 'Dark style', DARK_STYLES, accent.sync),
     picker('preset', 'Look', PRESET_IDS, accent.sync), picker('surface', 'Ground', SURFACE_IDS, accent.sync),
     ...accent.parts, picker('layout', 'Layout', LAYOUTS, accent.sync),
+    picker('material', 'Bars and sheets', MATERIALS, accent.sync),
   );
   host.append(box);
   return () => box.remove();

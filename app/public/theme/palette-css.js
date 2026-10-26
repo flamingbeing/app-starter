@@ -1,7 +1,8 @@
 // A theme choice -> the page's custom properties: the preset's look, the accent (the choice's, else the preset's, else
 // the app's), the ground, then the light palette and the dark one (OLED when picked), each brought up to its contrast
-// floor (colour.js). choice.js puts the text in the page; the tests read the same palettes. Pure, no DOM.
-import { lightPalette, darkPalette, floor } from './colour.js';
+// floor (colour.js), with the glass strengths that keep text on glass at that floor. choice.js puts the text in the
+// page; the tests read the same palettes. Pure, no DOM.
+import { lightPalette, darkPalette, floor, glassStrengths } from './colour.js';
 import { PRESETS, SURFACES } from './presets.js';
 import { cleanChoice } from './schema.js';
 
@@ -47,6 +48,19 @@ export function shapeTokens(choice) {
   };
 }
 
+/** @param {number} a  0 to 1 */
+const cardAt = a => `color-mix(in srgb, var(--surface) ${Math.round(a * 100)}%, transparent)`;
+
+/**
+ * The glass colours for a palette (glass.css): the card colour at the strengths that keep its text readable over
+ * anything scrolling under it (colour.js glassStrengths).
+ * @param {Palette} p @param {Partial<Choice>} choice @returns {Record<string, string>}
+ */
+export function glassTokens(p, choice) {
+  const { glass, thick, clear } = glassStrengths(p, { strong: !!presetOf(cleanChoice(choice)).strong });
+  return { glass: cardAt(glass), 'glass-thick': cardAt(thick), 'glass-clear': cardAt(clear) };
+}
+
 /** @param {Record<string, string>} t */
 const decl = t => Object.entries(t).map(([k, v]) => `--${k}: ${v};`).join(' ');
 
@@ -56,9 +70,10 @@ const decl = t => Object.entries(t).map(([k, v]) => `--${k}: ${v};`).join(' ');
  */
 export function paletteCss(choice, app = {}) {
   const { light, dark } = palettes(choice, app);
+  const l = decl({ ...light, ...glassTokens(light, choice) }), d = decl({ ...dark, ...glassTokens(dark, choice) });
   return [
-    `:root { ${decl(shapeTokens(choice))} ${decl(light)} }`,
-    `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${decl(dark)} } }`,
-    `:root[data-theme="dark"] { ${decl(dark)} }`,
+    `:root { ${decl(shapeTokens(choice))} ${l} }`,
+    `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${d} } }`,
+    `:root[data-theme="dark"] { ${d} }`,
   ].join('\n');
 }
