@@ -113,3 +113,51 @@ export function checkPalette(p, { strong = false } = {}) {
     .filter(([, , need, ratio]) => ratio < need)
     .map(([fg, bg, need, ratio]) => `${fg} on ${bg}: ${Number(ratio).toFixed(2)}:1 (needs ${need}:1)`);
 }
+
+// Glass (glass.css): floating bars, toasts and sheets are the card colour laid over whatever scrolls under them, so
+// text on glass needs the card colour strong enough that every pair still passes over every colour that can show
+// through (ported from logbook's frostAlpha). The blur spreads text into its ground, so a text sample is half ink.
+const INK_SPREAD = 0.5;
+// theme.css --backdrop: black at 40%, the shade a sheet (a modal dialog) sits over
+export const BACKDROP = 0.4;
+
+/**
+ * The colours that can show through glass: the page and card grounds, the fill (a filled button), and text as the blur
+ * spreads it; `shaded` puts them under the backdrop first (a sheet).
+ * @param {Palette} p @param {boolean} [shaded] @returns {string[]}
+ */
+export function glassSamples(p, shaded = false) {
+  const under = [p.bg, p.surface, p.fill ?? p.accent, mix(p.bg, p.text, INK_SPREAD), mix(p.surface, p.text, INK_SPREAD)];
+  return shaded ? under.map(c => mix(c, '#000000', BACKDROP)) : under;
+}
+
+/**
+ * How much card colour the glass needs (0 to 1, in 0.01 steps, never under `least`): the lowest strength at which
+ * every pair that sits on the page or a card (text, status, lines: pairs) reaches its floor over every sample. Always
+ * reached by 1 (the solid card colour), which floor() already brought up to every pair. linesOnly: only lines and the
+ * focus ring count (glass that carries no text).
+ * @param {string[]} samples @param {Palette} p @param {{ strong?: boolean, least?: number, linesOnly?: boolean }} [opts]
+ * @returns {number}
+ */
+export function frostAlpha(samples, p, { strong = false, least = 0, linesOnly = false } = {}) {
+  const onCards = pairs(strong).filter(([fg, on]) => on.includes('surface') && (!linesOnly || fg === 'line' || fg === 'focus'));
+  const ok = (/** @type {number} */ a) => samples.every(s => {
+    const glass = mix(s, p.surface, a);
+    return onCards.every(([fg, , ratio]) => contrast(p[fg], glass) >= ratio - 1e-9);
+  });
+  for (let i = Math.ceil(least * 100); i < 100; i++) if (ok(i / 100)) return i / 100;
+  return 1;
+}
+
+/**
+ * The glass strengths for a palette: glass (bars, toasts), thick (sheets, over the backdrop) and clear (icon-only
+ * controls: lines and the focus ring only, no text).
+ * @param {Palette} p @param {{ strong?: boolean }} [opts] @returns {{ glass: number, thick: number, clear: number }}
+ */
+export function glassStrengths(p, { strong = false } = {}) {
+  return {
+    glass: frostAlpha(glassSamples(p), p, { strong, least: 0.72 }),
+    thick: frostAlpha(glassSamples(p, true), p, { strong, least: 0.88 }),
+    clear: frostAlpha(glassSamples(p), p, { strong, least: 0.5, linesOnly: true }),
+  };
+}
