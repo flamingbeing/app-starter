@@ -41,8 +41,8 @@ be saved. Where values live (change these only with a migration; `settings.unit.
 `createSearch({ fields, boost, store, operators, newest })` (`app/public/search/`) is an in-memory index over vendored
 MiniSearch 7.2.0 (`app/public/vendor/minisearch/7.2.0/`, ESM build, types and LICENSE; its `package.json` only says
 `"sideEffects": false` so a page that imports `parseQuery` alone carries none of MiniSearch). It holds no storage and
-no module: build it at start, `feed` the list, and keep it current from the list watch (the sample list feeds only what
-changed). Nothing is saved, so there is no format to migrate.
+no module: build it at start, `feed` the list, and keep it current from the list watch (the sample list feeds only records whose
+text changed). Nothing is saved, so there is no format to migrate.
 
 - Query syntax (`query.js`, ported from a working parser): words (all must match, prefix + fuzzy 0.2), `field:value`,
   `"phrase"`, `-word` / `-field:value`, `a OR b` / `a | b`. Operators the app names (`is:`, `has:`, `after:`) are

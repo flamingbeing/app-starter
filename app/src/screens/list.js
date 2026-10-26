@@ -14,7 +14,7 @@ const itemText = record => String(/** @type {{ text?: unknown } | null} */ (reco
 /** @param {import('../cloud.js').Started} app */
 export function listScreen(app) {
   let canWrite = false;
-  // search over the list: kept current from each draw (only what changed is fed), so a long list is not re-indexed
+  // search over the list: kept current from each draw (only records whose text changed are fed)
   const search = createSearch({
     fields: ['text'],
     operators: {
@@ -24,13 +24,15 @@ export function listScreen(app) {
   });
   /** @type {Item[]} */
   let all = [];
-  const known = new Set();
-  /** @param {Item[]} items @param {Set<string>} changed */
-  const feed = (items, changed) => {
+  /** @type {Map<string, string>} id -> the text as indexed (a new subscription starts with no "changed" ids, so compare) */
+  const known = new Map();
+  /** @param {Item[]} items */
+  const feed = items => {
     const now = new Set(items.map(i => i.id));
-    for (const id of known) if (!now.has(id)) { search.remove(id); known.delete(id); }
-    search.feed(items.filter(i => !known.has(i.id) || changed.has(i.id)));
-    for (const id of now) known.add(id);
+    for (const id of known.keys()) if (!now.has(id)) { search.remove(id); known.delete(id); }
+    const stale = items.filter(i => known.get(i.id) !== itemText(i));
+    search.feed(stale);
+    for (const i of stale) known.set(i.id, itemText(i));
   };
   /** the items the box leaves in, in the order to show them */
   const shown = () => {
@@ -71,7 +73,7 @@ export function listScreen(app) {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
     draw(items, changed) {
-      all = items; feed(items, changed);
+      all = items; feed(items);
       const list = shown();
       $('items').replaceChildren(...list.map(item => {
         const li = document.createElement('li'), b = document.createElement('button');
