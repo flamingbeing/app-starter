@@ -43,7 +43,8 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
 test('"/" focuses the search box; axe passes with a query typed', async ({ phone }) => {
   const a = await phone();
   await signIn(a, 'member');
-  await add(a, uniq('axe'));
+  // (the "Added" toast springs in once the form clears: wait for that, so axe's wait for animations covers it)
+  await addOne(a, uniq('axe'));
   await a.locator('body').press('/');
   await expect(a.locator('#q')).toBeFocused();
   await a.fill('#q', 'is:long');
