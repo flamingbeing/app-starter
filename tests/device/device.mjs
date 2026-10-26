@@ -74,6 +74,7 @@ const synced = page => until(() => page.evaluate(() => window.starter?.status ==
 const add = async (page, text) => { await page.fill('#new-text', text); await page.click('#add button[type=submit]'); await page.locator('#items', { hasText: text }).waitFor(); };
 // Click that survives the phone's soft keyboard resizing the viewport after a filled field (Android: the dialog's
 // button is then reported not visible): drop focus, bring it into view, and fall back to a DOM click.
+// (the confirm dialog's Delete button also matches the sheet's own #edit-delete: callers take .last(), the one on top)
 const tap = async loc => {
   await loc.page().evaluate(() => document.activeElement?.blur?.()).catch(() => {});
   await loc.scrollIntoViewIfNeeded().catch(() => {});
@@ -103,7 +104,7 @@ async function cleanup(page) {
     if (!(await row.count())) return;
     await row.click();
     await tap(page.locator('#edit-delete'));
-    await tap(page.getByRole('button', { name: 'Delete', exact: true }));
+    await tap(page.getByRole('button', { name: 'Delete', exact: true }).last());
     await sleep(500);
   }
 }
@@ -157,7 +158,7 @@ try {
       await b.locator('#items', { hasText: t2 }).waitFor({ timeout: 30_000 });
       await a.getByRole('button', { name: t2 }).click();
       await tap(a.locator('#edit-delete'));
-      await tap(a.getByRole('button', { name: 'Delete', exact: true }));
+      await tap(a.getByRole('button', { name: 'Delete', exact: true }).last());
       await synced(a);
       await until(async () => !(await b.locator('#items').innerText()).includes(t2), 'delete seen on the other device', 30_000);
       await shot(b, '2-two-devices');
