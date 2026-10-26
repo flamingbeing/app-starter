@@ -24,6 +24,8 @@ const RULES = {
   project: [/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/, 'a Firebase project id (6-30 lowercase letters, digits, hyphens)'],
   kit: [new RegExp(`^(${Object.keys(KITS).join('|')})$`), Object.keys(KITS).join(' or ')],
 };
+// the name as a secret-name prefix: pantry -> PANTRY, my-app -> MY_APP
+const keyOf = name => name.toUpperCase().replace(/-/g, '_');
 const titleOf = name => name.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // the name as a whole word: not inside a longer name (my-starter-app) or the demo- project (handled first)
@@ -54,6 +56,8 @@ export function files(dir, rel = '') {
 // never splits it). Also used by app-devkit's starter-drift report, so the two never disagree.
 export function swapsFor(old, app) {
   return [
+    // the live smoke test's repo secrets: STARTER_APP_TEST_EMAIL -> <NAME>_TEST_EMAIL
+    [new RegExp(`(?<![A-Za-z0-9_])${keyOf(old.name)}_TEST_`, 'g'), `${keyOf(app.name)}_TEST_`],
     [new RegExp(`(?<![A-Za-z0-9-])demo-${esc(old.name)}(?![A-Za-z0-9])`, 'g'), `demo-${app.name}`],
     [new RegExp(esc(KITS[old.kit]), 'g'), KITS[app.kit]],
     [new RegExp(`(?<![A-Za-z0-9.-])${esc(old.host)}(?![A-Za-z0-9-])`, 'g'), app.host],

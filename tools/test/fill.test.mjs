@@ -17,6 +17,16 @@ function copy() {
 const read = (dir, f) => fs.readFileSync(path.join(dir, f), 'utf8');
 const ARGS = { name: 'pet-log', host: 'pets.example.org', kit: 'nuhs', project: 'pet-log-app' };
 
+test('the live smoke test\'s secret names follow the app name', () => {
+  const dir = copy();
+  fill({ dir, ...ARGS });
+  const w = read(dir, '.github/workflows/live-smoke.yml');
+  assert.match(w, /secrets\.PET_LOG_TEST_EMAIL/);
+  assert.match(w, /secrets\.PET_LOG_TEST_PASSWORD/);
+  assert.doesNotMatch(w, /STARTER_APP/);
+  assert.match(w, /site-url: https:\/\/pets\.example\.org/);
+});
+
 test('fills name, host, kit and project everywhere', () => {
   const dir = copy();
   const { changed } = fill({ dir, ...ARGS });
