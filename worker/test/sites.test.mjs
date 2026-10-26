@@ -40,6 +40,13 @@ test('folder without a slash redirects; missing files 404; unknown hosts 404', a
   assert.equal((await get(`https://${HOST}/kit`)).status, 301, 'a page folder in public/ too');
   assert.equal(await (await get(`https://${HOST}/kit/`)).text(), 'kit');
   assert.equal((await get(`https://${HOST}/nope.js`)).status, 404);
+  for (const path of ['//list', '///list']) {   // never a redirect to another host ("//list/" reads as https://list/)
+    // an asset store that, like many static servers, merges repeated slashes
+    const merging = { ...env, ASSETS: { fetch: req => env.ASSETS.fetch(new Request(req.url.replace(/(?<!:)\/{2,}/g, '/'))) } };
+    const r = await worker.fetch(new Request(`https://${HOST}${path}`), merging);
+    const to = r.headers.get('location');
+    if (to) assert.equal(new URL(to, `https://${HOST}/`).host, HOST, path);
+  }
   assert.equal((await get('https://x.workers.dev/')).status, 404);
 });
 

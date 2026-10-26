@@ -52,27 +52,32 @@ export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTE
   }
 
   const key = `${scope}/${id}${thumb || ''}`;
-  if (method === 'GET') {
-    const obj = await bucket.get(key);
-    if (!obj) return json({ error: 'Not found.' }, 404);
-    const type = obj.httpMetadata?.contentType || 'application/octet-stream';
-    const headers = { 'Content-Type': type, 'Cache-Control': 'private', 'X-Content-Type-Options': 'nosniff' };
-    // only pictures show in the page; anything else downloads, so a file can never run as a page of this address
-    if (!/^image\/(png|jpeg|webp|gif|avif)$/.test(type)) headers['Content-Disposition'] = 'attachment';
-    if (obj.size != null) headers['Content-Length'] = String(obj.size);
-    return new Response(obj.body, { status: 200, headers });
+  // the bucket failing (R2 down) is "try again", in JSON with the usual headers, not the Worker's own error page
+  try { return await serve(); } catch (e) { return json({ error: 'Try again later.', why: e?.message }, 503); }
+
+  async function serve() {
+    if (method === 'GET') {
+      const obj = await bucket.get(key);
+      if (!obj) return json({ error: 'Not found.' }, 404);
+      const type = obj.httpMetadata?.contentType || 'application/octet-stream';
+      const headers = { 'Content-Type': type, 'Cache-Control': 'private', 'X-Content-Type-Options': 'nosniff' };
+      // only pictures show in the page; anything else downloads, so a file can never run as a page of this address
+      if (!/^image\/(png|jpeg|webp|gif|avif)$/.test(type)) headers['Content-Disposition'] = 'attachment';
+      if (obj.size != null) headers['Content-Length'] = String(obj.size);
+      return new Response(obj.body, { status: 200, headers });
+    }
+    if (method === 'DELETE') {
+      await bucket.delete([key, key + '.thumb']);
+      return new Response(null, { status: 204 });
+    }
+    const size = Number(request.headers.get('Content-Length'));
+    if (!request.headers.has('Content-Length') || !Number.isInteger(size) || size < 0) return json({ error: 'Content-Length needed.' }, 411);
+    if (size > maxBytes) return json({ error: 'Too big.', max: maxBytes }, 413);
+    const raw = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+    const contentType = TYPE.test(raw) ? raw : 'application/octet-stream';
+    await bucket.put(key, request.body, { httpMetadata: { contentType }, customMetadata: { by: token.sub } });
+    return json({ ok: true, key }, 201);
   }
-  if (method === 'DELETE') {
-    await bucket.delete([key, key + '.thumb']);
-    return new Response(null, { status: 204 });
-  }
-  const size = Number(request.headers.get('Content-Length'));
-  if (!request.headers.has('Content-Length') || !Number.isInteger(size) || size < 0) return json({ error: 'Content-Length needed.' }, 411);
-  if (size > maxBytes) return json({ error: 'Too big.', max: maxBytes }, 413);
-  const raw = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
-  const contentType = TYPE.test(raw) ? raw : 'application/octet-stream';
-  await bucket.put(key, request.body, { httpMetadata: { contentType }, customMetadata: { by: token.sub } });
-  return json({ ok: true, key }, 201);
 }
 
 function json(body, status, extra = {}) {

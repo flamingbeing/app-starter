@@ -44,11 +44,12 @@ export function parseQuery(q, { fields = [] } = {}) {
     if (!neg && !field && phrase == null && (word === 'OR' || word === '|')) { tokens.push({ or: true }); continue; }
     if (!neg && !field && phrase == null && (word === 'AND' || word === '&')) continue;   // a space does the same
     /** @type {string | null} */
-    let f = field ? field.toLowerCase() : null;
+    // a field as the app names it (ownerName), whatever the case typed
+    let f = field ? fields.find(x => x.toLowerCase() === field.toLowerCase()) ?? field.toLowerCase() : null;
     if (f && !fields.includes(f)) {
       // not a field: the whole thing is text ("GA:ETT"); a near miss of one is reported
       const name = f;
-      const near = fields.find(x => name.length >= 3 && editDistance(name, x, 2) <= 2);
+      const near = fields.find(x => name.length >= 3 && editDistance(name, x.toLowerCase(), 2) <= 2);
       if (near) unknown.push({ op: field + ':', suggest: near + ':' });
       word = field + ':' + (phrase != null ? phrase : word || ''); phrase = /** @type {any} */ (undefined); f = null;
     }
