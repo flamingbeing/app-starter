@@ -16,9 +16,10 @@
       "@core/ui": ["./app/public/ui/index.js"],
       "@core/theme": ["./app/public/theme/index.js"],
       "@core/settings": ["./app/public/settings/index.js"],
+      "@core/search": ["./app/public/search/index.js"],
       "@core/*": ["./node_modules/app-sync/types/*.d.ts"],
       "zod": ["./e2e/fixtures/outside-package/vendor/zod/3.23.8/index.d.ts"]
     }
   },
-  "include": ["app/src/**/*.js", "app/src/**/*.d.ts", "app/public/ui/*", "app/public/theme/*.js", "app/public/settings/*.js", "app/public/settings/*.d.ts", "e2e/fixtures/outside-package/src/*.js"]
+  "include": ["app/src/**/*.js", "app/src/**/*.d.ts", "app/public/ui/*", "app/public/theme/*.js", "app/public/settings/*.js", "app/public/settings/*.d.ts", "app/public/search/*.js", "app/public/search/*.d.ts", "e2e/fixtures/outside-package/src/*.js"]
 }
