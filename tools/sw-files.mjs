@@ -2,10 +2,12 @@
 //   - the page ('./') and every file of the app folder the page can load: src/ (or a build's assets/), and public/ as
 //     served at the folder's root (vendored Firebase included); never tests, rules, types or sw.js itself
 //   - every file each @core/* entry in the page's import map loads: the entry and its static imports, read from the
-//     app-sync package at the same version (node_modules/app-sync, the devDependency; the version must match)
+//     package at the same version (node_modules/app-sync or node_modules/app-ui, the devDependencies; the version must
+//     match): core.anawj.com/sync/<v>/ is app-sync, core.anawj.com/ui/<v>/ is app-ui
+//   - app-ui's style sheets and scripts the page links (<link rel="stylesheet">, <script src>), as they are
 //   - any other https:// address in the import map, as it is (app-update's register.js)
 // The same command lists a Vite build (dist/): the port to Vite changes only the folder this runs on.
-//   node tools/sw-files.mjs <dir> [--sw sw.js] [--sync <app-sync dir>]   write SHELL into <dir>'s sw.js
+//   node tools/sw-files.mjs <dir> [--sw sw.js] [--sync <app-sync dir>] [--ui <app-ui dir>]   write SHELL into <dir>'s sw.js
 //   node tools/sw-files.mjs <dir> --check                                fail if SHELL is out of date (CI)
 // Then the deploy stamps VERSION and MANIFEST (tools/stamp-versions.mjs), as before.
 import fs from 'node:fs';
@@ -14,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SYNC = /^https:\/\/core\.anawj\.com\/sync\/(\d+\.\d+\.\d+[^/]*)\/(.+)$/;
+const UI = /^https:\/\/core\.anawj\.com\/ui\/(\d+\.\d+\.\d+[^/]*)\/(.+)$/;
 // files in the app folder that are never served to the page (the Worker's .assetsignore leaves them out too)
 const SKIP = [/(^|\/)\./, /^test\//, /\.rules$/, /^firebase\.json$/, /\.d\.ts$/, /(^|\/)sw\.js$/, /\.(map|log)$/];
 
@@ -44,48 +47,62 @@ function importsOf(src, file) {
   return out;
 }
 
-// the entry and everything it imports, depth first, each once -> paths inside the app-sync package
-function graph(sync, entry, seen) {
+// the page's linked style sheets and classic scripts -> their addresses
+export function pageLinks(html) {
+  const out = [];
+  for (const m of html.matchAll(/<link\b[^>]*>/g)) if (/\brel="stylesheet"/.test(m[0])) out.push((m[0].match(/\bhref="([^"]+)"/) || [])[1]);
+  for (const m of html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)) out.push(m[1]);
+  return out.filter(Boolean);
+}
+
+// the entry and everything it imports, depth first, each once -> paths inside the package (pkg: its name, for errors)
+function graph(pkg, root, entry, seen) {
   if (seen.has(entry)) return [];
   seen.add(entry);
-  const file = path.join(sync, entry);
-  if (!fs.existsSync(file)) throw new Error(`app-sync has no ${entry} (in ${sync})`);
+  const file = path.join(root, entry);
+  if (!fs.existsSync(file)) throw new Error(`${pkg} has no ${entry} (in ${root})`);
   const out = [entry];
-  for (const imp of importsOf(fs.readFileSync(file, 'utf8'), entry)) out.push(...graph(sync, path.posix.join(path.posix.dirname(entry), imp), seen));
+  if (!entry.endsWith('.js')) return out;
+  for (const imp of importsOf(fs.readFileSync(file, 'utf8'), entry)) out.push(...graph(pkg, root, path.posix.join(path.posix.dirname(entry), imp), seen));
   return out;
 }
 
-// -> the SHELL list for app folder <dir> (sync: the app-sync package; defaults to the devDependency)
-export function shellFiles({ dir, sync = path.join(ROOT, 'node_modules/app-sync') }) {
+// every file the core addresses (of one package, re: its address) load -> full addresses, each once
+function coreFiles(pkg, root, re, addresses) {
+  const out = [], seen = new Set();
+  if (!addresses.length) return out;
+  const have = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  for (const u of addresses) {
+    const [, v, entry] = u.match(re);
+    if (v !== have) throw new Error(`the page pins ${pkg} ${v}, but ${root} is ${have} (bump the devDependency with the import map)`);
+    for (const f of graph(pkg, root, entry, seen)) out.push(u.slice(0, u.length - entry.length) + f);
+  }
+  return out;
+}
+
+// -> the SHELL list for app folder <dir> (sync, ui: the app-sync and app-ui packages; default: the devDependencies)
+export function shellFiles({ dir, sync = path.join(ROOT, 'node_modules/app-sync'), ui = path.join(ROOT, 'node_modules/app-ui') }) {
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   const own = walk(dir).filter(f => f !== 'index.html' && !SKIP.some(re => re.test(f))).map(f => f.replace(/^public\//, '')).sort();
   const map = Object.values(importMap(html));
   for (const u of map) {
     if (/^(\.\/|\/|[^:]+$)/.test(u) && !own.includes(u.replace(/^\.?\//, ''))) throw new Error(`the import map names ${u}, but ${dir} has no such file`);
   }
-  const other = map.filter(u => /^https?:\/\//.test(u) && !SYNC.test(u)).sort();
-  const core = [], seen = new Set();
-  const entries = map.filter(u => SYNC.test(u));
-  if (entries.length) {
-    const have = JSON.parse(fs.readFileSync(path.join(sync, 'package.json'), 'utf8')).version;
-    for (const u of entries) {
-      const [, v, entry] = u.match(SYNC);
-      if (v !== have) throw new Error(`the import map pins app-sync ${v}, but ${sync} is ${have} (bump the devDependency with the import map)`);
-      for (const f of graph(sync, entry, seen)) core.push(`https://core.anawj.com/sync/${v}/${f}`);
-    }
-  }
-  return ['./', ...own, ...other, ...core];
+  const other = map.filter(u => /^https?:\/\//.test(u) && !SYNC.test(u) && !UI.test(u)).sort();
+  const core = coreFiles('app-sync', sync, SYNC, map.filter(u => SYNC.test(u)));
+  const uiFiles = coreFiles('app-ui', ui, UI, [...map, ...pageLinks(html)].filter(u => UI.test(u)));
+  return ['./', ...own, ...other, ...core, ...uiFiles];
 }
 
 const block = list => `const SHELL = [\n${list.map(u => `  '${u}',\n`).join('')}];`;
 const swOf = (dir, sw) => { const f = path.join(dir, sw); return fs.existsSync(f) ? f : path.join(dir, 'public', sw); };
 
 // writes SHELL into sw.js; check: only say whether it is up to date (throws if not)
-export function writeShell({ dir, sw = 'sw.js', sync, check = false }) {
+export function writeShell({ dir, sw = 'sw.js', sync, ui, check = false }) {
   const file = swOf(dir, sw);
   const src = fs.readFileSync(file, 'utf8');
   if (!/const SHELL = \[[\s\S]*?\];/.test(src)) throw new Error(`${sw}: no SHELL list`);
-  const list = shellFiles({ dir, sync });
+  const list = shellFiles({ dir, sync, ui });
   const next = src.replace(/const SHELL = \[[\s\S]*?\];/, () => block(list));
   if (check) {
     if (next !== src) throw new Error(`${sw}: SHELL is out of date; run node tools/sw-files.mjs ${posix(path.relative(ROOT, dir)) || '.'}`);
@@ -96,9 +113,10 @@ export function writeShell({ dir, sw = 'sw.js', sync, check = false }) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2);
   const opt = n => (a.includes(n) ? a[a.indexOf(n) + 1] : undefined);
-  const dir = a.find((x, i) => !x.startsWith('--') && !['--sw', '--sync'].includes(a[i - 1])) || 'app';
+  const dir = a.find((x, i) => !x.startsWith('--') && !['--sw', '--sync', '--ui'].includes(a[i - 1])) || 'app';
+  const at = n => opt(n) && path.resolve(opt(n));
   try {
-    const list = writeShell({ dir: path.resolve(dir), sw: opt('--sw'), sync: opt('--sync') && path.resolve(opt('--sync')), check: a.includes('--check') });
+    const list = writeShell({ dir: path.resolve(dir), sw: opt('--sw'), sync: at('--sync'), ui: at('--ui'), check: a.includes('--check') });
     console.log(`sw-files: ${a.includes('--check') ? 'up to date' : 'written'} (${list.length} files)`);
   } catch (e) { console.error('sw-files: ' + e.message); process.exit(1); }
 }

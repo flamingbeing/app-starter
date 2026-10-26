@@ -11,8 +11,8 @@ export const CSP_ENFORCE = false;
 
 // The page's import map (app/index.html), the one inline script, allowed by its hash (worker/test/headers.test.mjs
 // says the new one when the map changes).
-export const IMPORT_MAP = "'sha256-pNa5LRiJMeM9kLuxxEbvodD3amMulJEuRQ9atG8smck='";
-// Shared modules (app-sync, app-update) are served at exact versions from here.
+export const IMPORT_MAP = "'sha256-UDKFlRLRba01mzIv1Ea+KNwMYVi/1k+nB4a0dJF4EpU='";
+// Shared modules (app-sync, app-update, app-ui: its scripts and style sheets) are served at exact versions from here.
 const CORE = 'https://core.anawj.com';
 // Firebase: the SDK is vendored (app/public/vendor/firebase/<ver>/, served as 'self'); Google sign-in, Firestore and
 // Auth APIs.
@@ -30,7 +30,7 @@ export function csp({ kit = KIT, project = '', local = false, framedBySelf = fal
   const d = {
     'default-src': ["'self'"],
     'script-src': ["'self'", IMPORT_MAP, CORE, GOOGLE_API, kit],
-    'style-src': ["'self'", kit, FONTS_CSS],
+    'style-src': ["'self'", CORE, kit, FONTS_CSS],
     'font-src': ["'self'", kit, FONTS],
     'img-src': ["'self'", 'data:', 'blob:', kit, 'https://lh3.googleusercontent.com', 'https://www.google.com'],   // (the SDK's connectivity ping)
     'connect-src': ["'self'", CORE, kit, FONTS_CSS, FONTS, 'https://*.googleapis.com', GOOGLE_API, ...emulators],
