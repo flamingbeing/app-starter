@@ -77,5 +77,6 @@ template commit in `.starter.json`, not a `git merge`; the app's history is neve
 - [ ] **app-devkit pins:** every run lists the workflow pins older than the template's or the newest app-devkit tag.
   Bump them on purpose, after the tests pass.
 - [ ] `node tools/update-from-starter.mjs --behind <n>` prints how far behind the app is and exits 1 when more than
-  `n` template commits behind (for a scheduled check).
+  `n` template commits behind. The weekly workflow `.github/workflows/starter-behind.yml` runs it in every app and
+  warns (never fails) past `BEHIND` commits, with the stale app-devkit pins.
 - [ ] Then the README's tests, and one PR.
