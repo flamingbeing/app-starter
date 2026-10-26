@@ -8,6 +8,13 @@ applyTheme();
 const edge = new URLSearchParams(location.search).get('edge');
 if (edge === 'always' || edge === 'off') document.documentElement.dataset.edgeBack = edge;
 
+// the other tabs are the same page (the gallery has one list); the tab bar shows which was picked
+const tab = new URLSearchParams(location.search).get('tab');
+for (const a of document.querySelectorAll('.ui-tab')) {
+  const mine = (a.getAttribute('href') || '').includes(`tab=${tab}`) || (!tab && a.getAttribute('href') === './');
+  if (mine) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+}
+
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 const kit = startGestures();
 /** @type {any} */ (window).kit = kit;
