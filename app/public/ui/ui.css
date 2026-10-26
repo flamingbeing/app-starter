@@ -19,11 +19,15 @@ dialog::backdrop { background: var(--backdrop); }
 /* refused list */
 #refused li { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
 
+/* an open modal (sheet, alert, confirm) or hold menu holds the page still: a wheel or finger on the backdrop doesn't
+   scroll the page behind it (and the menu's lifted preview stays on its row) */
+:root:has(dialog:modal), :root.ui-menu-open { overflow: hidden; }
+
 /* modal (alert / confirm) */
 dialog.modal p { margin: 0 0 var(--pad); }
 
 /* toasts */
-.toasts { position: fixed; inset: auto var(--pad) var(--pad) var(--pad); display: grid; gap: var(--gap); justify-items: center; pointer-events: none; z-index: 10; }
+.toasts { position: fixed; inset: auto var(--pad) calc(var(--pad) + env(safe-area-inset-bottom, 0px)) var(--pad); display: grid; gap: var(--gap); justify-items: center; pointer-events: none; z-index: 10; }
 .toast { pointer-events: auto; display: flex; gap: var(--gap); align-items: center; max-width: 30rem; padding: var(--gap) var(--pad);
   background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--pill-r); }
 .toast button { min-width: var(--tap); padding: 0; border: 0; background: none; }

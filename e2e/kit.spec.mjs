@@ -345,3 +345,63 @@ test('a page without the markup is left alone', async ({ phone }) => {
   expect(r).toEqual({ menus: null, screens: null, sheets: 0 });
   await expect(page.locator('.ui-menu-layer')).toHaveCount(0);
 });
+
+// an open sheet or hold menu holds the page still: a wheel (or finger) on the backdrop doesn't scroll what is behind it
+for (const width of [390, 1280]) {
+  test(`at ${width} px an open sheet or hold menu keeps the page behind it still`, async ({ sized }) => {
+    const page = await sized(width);
+    await page.goto(KIT);
+    await expect.poll(() => page.evaluate(() => !!window.kit)).toBe(true);
+    const wheel = async () => { await page.mouse.move(width / 2, 40); await page.mouse.wheel(0, 600); await page.waitForTimeout(300); return page.evaluate(() => scrollY); };
+    await page.click('#open-sheet');
+    await expect(page.locator('#sheet')).toHaveJSProperty('open', true);
+    expect(await wheel()).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#sheet')).toHaveJSProperty('open', false);
+    // the menu's lifted preview stays on its row
+    const row = page.locator('#plants .ui-row').first();
+    await row.click({ button: 'right' });
+    await expect(page.locator('.ui-menu')).toBeVisible();
+    await settled(page);
+    expect(await wheel()).toBe(0);
+    const [p, r] = await page.evaluate(() => ['.ui-menu-preview', '#plants .ui-row'].map(s => document.querySelector(s).getBoundingClientRect().top));
+    expect(Math.abs(p - r)).toBeLessThan(2);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ui-menu')).toHaveCount(0);
+    expect(await wheel()).toBeGreaterThan(0);   // closed: the page scrolls again
+  });
+}
+
+// a phone with a home indicator (Chromium's safe-area override): sheets, the sheet menu and toasts clear it
+test('at 390 px the sheet and the sheet menu clear the home indicator', async ({ sized }) => {
+  const page = await sized(390);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34 } });
+  await page.goto(`${KIT}&look=b`);   // look B: menus come up as a sheet
+  await expect.poll(() => page.evaluate(() => !!window.kit)).toBe(true);
+  await page.click('#open-sheet');
+  await page.locator('#sheet .ui-sheet-grabber').click();   // full height: the body's end is on screen
+  await settled(page);
+  const bodyEnd = await page.evaluate(() => { const b = document.querySelector('#sheet .ui-sheet-body'); b.scrollTop = b.scrollHeight;
+    const last = b.lastElementChild.getBoundingClientRect().bottom; return innerHeight - last; });
+  expect(bodyEnd).toBeGreaterThanOrEqual(34);
+  await page.keyboard.press('Escape');
+  await page.locator('#plants .ui-row').first().click({ button: 'right' });
+  await expect(page.locator('.ui-menu.is-sheet')).toBeVisible();
+  await settled(page);
+  expect(await page.evaluate(() => innerHeight - document.querySelector('.ui-menu').getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(34);
+});
+
+test('at 390 px a toast clears the home indicator on a page without a tab bar', async ({ sized }) => {
+  const page = await sized(390);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, bottom: 34 } });
+  await page.goto('/app/?emulator');
+  await expect(page.locator('#signed-out')).toBeVisible();
+  await page.evaluate(async () => { const { toaster } = await import('@core/ui'); toaster(document.body).show('Saved'); });
+  const toast = page.locator('.toast', { hasText: 'Saved' });
+  await expect(toast).toBeVisible();
+  await settled(page);
+  const box = await toast.boundingBox();
+  expect(844 - (box.y + box.height)).toBeGreaterThanOrEqual(34 + 16);
+});

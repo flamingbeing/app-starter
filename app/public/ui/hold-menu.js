@@ -65,7 +65,10 @@ export function holdMenus(root = document) {
     box.className = 'ui-menu-layer';
     const veil = document.createElement('div');
     veil.className = 'ui-menu-veil';
-    box.append(veil);
+    // as tall as the home indicator's inset (0 without one): the sheet menu sits above it
+    const safe = document.createElement('div');
+    safe.className = 'ui-menu-safe';
+    box.append(veil, safe);
     document.body.append(box);
     box.addEventListener('click', e => { if (!(/** @type {Element} */ (e.target).closest('.ui-menu'))) close(); });
     box.addEventListener('keydown', e => {
@@ -115,7 +118,7 @@ export function holdMenus(root = document) {
     const sheet = html.dataset.menu === 'sheet' && innerWidth < SHEET_BELOW;
     menu.classList.toggle('is-sheet', sheet);   // (before measuring: the sheet is wider)
     const view = { w: innerWidth, h: innerHeight };
-    const p = sheet ? placeSheetMenu(r, { h: menu.offsetHeight }, view)
+    const p = sheet ? placeSheetMenu(r, { h: menu.offsetHeight }, { h: view.h - (layer.querySelector('.ui-menu-safe')?.clientHeight || 0) })
       : placeMenu(r, { w: menu.offsetWidth, h: menu.offsetHeight }, view, at);
     if ('left' in p) menu.style.left = `${p.left}px`; else menu.style.removeProperty('left');
     menu.style.top = `${p.top}px`;
