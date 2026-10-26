@@ -187,7 +187,7 @@ try {
   if (phase === 'extra') {
     const ctxBx = b.context();
     const listB = async prefix => { await b.reload(); await b.locator('#list-view').waitFor(); return b.locator('#items button', { hasText: prefix }).allInnerTexts(); };
-    const edit = async (page, from, to) => { await page.getByRole('button', { name: from }).click(); await page.fill('#edit-text', to); await page.click('#edit-save'); await page.locator('#items', { hasText: to }).waitFor(); };
+    const edit = async (page, from, to) => { await page.getByRole('button', { name: from }).click(); await page.fill('#edit-text', to); await tap(page.locator('#edit-save')); await page.locator('#items', { hasText: to }).waitFor(); };
 
     await check('5 same item edited offline on both devices: converges, nothing lost or doubled', async () => {
       const t = uniq('conf');
