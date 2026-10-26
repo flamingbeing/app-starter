@@ -48,9 +48,11 @@ are safe from day one. Replace this first paragraph with what the app is once it
 
 ## Start an app
 
-1. On GitHub, "Use this template" (never a fork), then clone the new repo.
+1. On GitHub, "Use this template" (never a fork), then clone the new repo. Go through the
+   [new-app checklist](docs/new-app-checklist.md) alongside these steps.
 2. Fill it (next section): name, address, design kit, Firebase project.
-3. `npm ci`, then the tests (README, "Tests"); all green before the first change.
+3. `. tools/dev-setup.sh` (app-devkit into `.devkit/`, `npm ci`, the test environment), then the tests (README,
+   "Tests"); all green before the first change.
 4. Replace the sample screen (`app/src/app.js`, `app/index.html`) with the app. Keep the wiring in `app/src/cloud.js`
    (one `createApp`, every save through the sync module) and the rules that bite in `AGENTS.md`.
 5. Before the first deploy, make the files bucket once: `npx wrangler r2 bucket create <name>-files` (the deploy fails
@@ -96,7 +98,7 @@ node tools/sw-files.mjs app --check && node tools/vendor-firebase.mjs --check   
 ```
 
 `.devkit/` holds app-devkit's `playwright/`, `rules/`, `tools/` and `worker/` at the pinned version (CI's setup
-blocks put it there; locally, copy those folders from an app-devkit checkout at the same tag).
+blocks put it there; locally, `. tools/dev-setup.sh` copies them at the same tag).
 
 `SYNC_DIR=<app-sync checkout> npm run e2e` serves that app-sync build in place of `core.anawj.com/sync/<version>/`:
 app-sync's CI runs these tests that way against each candidate (its consumer test) before a release.
@@ -113,7 +115,8 @@ worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js +
 e2e/        browser tests and their server; fixtures/outside-package/ (a page that imports a vendored zod)
 tools/      fill.mjs, sw-files.mjs (sw.js's file list), vendor-firebase.mjs (+ firebase.lock.json), stamp-versions.mjs
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
-            vite-outside-package.mjs (the same for the outside-package fixture)
+            vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
+            to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps)
 docs/       decisions
 ```
 
@@ -132,6 +135,13 @@ fixture entries in `tsconfig.json`.
 4. **Offline:** `node tools/sw-files.mjs app` lists the file in `sw.js`'s SHELL (CI runs its `--check`).
 5. **Vite:** add `resolve.alias: { <name>: '<the vendored file>' }` to `vite.config.mjs` (an npm dependency of the same
    version works too); `tools/vite-outside-package.mjs` shows the build keeps it out of pages that do not import it.
+
+## Update from the template
+
+`node tools/update-from-starter.mjs --dry-run`, then without `--dry-run`: a three-way merge per file from the template
+commit in `.starter.json` (the app's values swapped in first; generated files regenerated), never a history rewrite.
+`--sync <x.y.z>` bumps app-sync alone; `--behind <n>` fails when the app is more than n commits behind. Details and
+the rest of the list: [new-app checklist](docs/new-app-checklist.md), "Staying current with the template".
 
 ## Move an app onto 1.0
 

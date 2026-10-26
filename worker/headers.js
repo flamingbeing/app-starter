@@ -20,7 +20,8 @@ const FONTS_CSS = 'https://fonts.googleapis.com';
 const FONTS = 'https://fonts.gstatic.com';
 
 // local: the page is served from localhost (tests), which talks to the Firebase emulators over http.
-export function csp({ kit = KIT, project = '', local = false } = {}) {
+// framedBySelf: the sign-in helper pages, which the app's own page frames from this same address
+export function csp({ kit = KIT, project = '', local = false, framedBySelf = false } = {}) {
   const emulators = local ? ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*'] : [];
   const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : [])];
   const d = {
@@ -36,19 +37,19 @@ export function csp({ kit = KIT, project = '', local = false } = {}) {
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
-    'frame-ancestors': ["'none'"],
+    'frame-ancestors': [framedBySelf ? "'self'" : "'none'"],
   };
   return Object.entries(d).map(([k, v]) => `${k} ${v.join(' ')}`).join('; ');
 }
 
 // -> [name, value] pairs to set on an answer
-export function securityHeaders({ kit = KIT, project = '', local = false, enforce = CSP_ENFORCE } = {}) {
+export function securityHeaders({ kit = KIT, project = '', local = false, enforce = CSP_ENFORCE, framedBySelf = false } = {}) {
   return [
-    [enforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', csp({ kit, project, local })],
+    [enforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', csp({ kit, project, local, framedBySelf })],
     ...(local ? [] : [['Strict-Transport-Security', 'max-age=31536000; includeSubDomains']]),
     ['X-Content-Type-Options', 'nosniff'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
-    ['X-Frame-Options', 'DENY'],
+    ['X-Frame-Options', framedBySelf ? 'SAMEORIGIN' : 'DENY'],   // (authDomain is this host, so Firebase's auth iframe is framed by us)
     ['Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'],
     // the Google sign-in popup must be able to hand back to this page
     ['Cross-Origin-Opener-Policy', 'same-origin-allow-popups'],

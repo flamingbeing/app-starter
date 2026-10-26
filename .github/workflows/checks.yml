@@ -147,7 +147,7 @@ jobs:
           node tools/fill.mjs "${ARGS[@]}"
           node tools/fill.mjs "${ARGS[@]}" --check
           grep -qF "$FAKE_KEY" app/src/config.js
-          ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=claims.js --exclude=custom-token.js -e 'starter-app' -e 'app\.example\.com' .
+          ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=update-from-starter.test.mjs --exclude=claims.js --exclude=custom-token.js -e 'starter-app' -e 'app\.example\.com' .
       - name: Checks on the filled app
         if: matrix.mode == 'plain'
         working-directory: ${{ runner.temp }}/new-app

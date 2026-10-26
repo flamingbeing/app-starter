@@ -22,6 +22,17 @@ test('serves the app at the root, noindex, with the security headers', async () 
   assert.match(r.headers.get('Content-Security-Policy-Report-Only') || r.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
 });
 
+test('the sign-in helper pages may be framed by this address (Firebase auth iframe), nothing else may', async () => {
+  const fetched = globalThis.fetch;
+  globalThis.fetch = async () => new Response('<html>helper</html>', { status: 200 });
+  try {
+    const r = await get(`https://${HOST}/__/auth/iframe?apiKey=x`);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get('X-Frame-Options'), 'SAMEORIGIN');
+    assert.match(r.headers.get('Content-Security-Policy-Report-Only') || r.headers.get('Content-Security-Policy'), /frame-ancestors 'self'/);
+  } finally { globalThis.fetch = fetched; }
+});
+
 test('folder without a slash redirects; missing files 404; unknown hosts 404', async () => {
   assert.equal((await get(`https://${HOST}/list`)).status, 301);
   assert.equal((await get(`https://${HOST}/kit`)).status, 301, 'a page folder in public/ too');

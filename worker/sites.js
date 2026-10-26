@@ -26,7 +26,7 @@ export default {
     // Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
     if (/^\/__\/(auth|firebase)\//.test(url.pathname) && project && !local) {
       const res = await fetch(new Request(`https://${project}.firebaseapp.com${url.pathname}${url.search}`, request));
-      return finish(new Response(res.body, res));
+      return withHeaders(new Response(res.body, res), { project, local, framedBySelf: true });
     }
     const r = resolve(url.hostname, url.pathname);
     if (r.redirect) return finish(redirect(url, r.redirect));
