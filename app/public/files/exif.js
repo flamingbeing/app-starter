@@ -13,7 +13,7 @@ export async function readExif(file, { place = false } = {}) {
   if (!/^image\/(jpeg|heic|heif|tiff|png|webp)$/.test(file.type)) return {};
   try {
     const exifr = await load();
-    const tags = await exifr.parse(await file.arrayBuffer(), { pick: ['DateTimeOriginal', 'CreateDate', ...(place ? ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef'] : [])], gps: place });
+    const tags = await exifr.parse(await file.arrayBuffer(), { exif: true, gps: place });  // the lite build throws on `pick`
     if (!tags) return {};
     /** @type {Exif} */
     const out = {};

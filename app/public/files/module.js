@@ -153,8 +153,10 @@ export function files(options) {
       const kick = () => {
         if (stopped) return Promise.resolve();
         if (busy) { again = true; return busy; }
-        busy = (async () => { do { again = false; await pass(); } while (again && !stopped); })()
-          .finally(() => { busy = null; tell(); schedule(); });
+        // `busy` clears in the same tick as the last `again` check, so a kick in between is never lost
+        busy = (async () => {
+          try { do { again = false; await pass(); } while (again && !stopped); } finally { busy = null; tell(); schedule(); }
+        })();
         return busy;
       };
 
