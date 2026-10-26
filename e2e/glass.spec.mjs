@@ -65,9 +65,11 @@ const MODES = [
 test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a sheet; screenshots kept', async ({ phone }, info) => {
   const page = await phone();
   await signIn(page, 'member');
-  for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i}`);
+  // (the list is shared and kept between runs: a run tag keeps this run's names unique under --repeat-each)
+  const run = Math.random().toString(36).slice(2, 6);
+  for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i} ${run}`);
   // (other tests add to the same list in parallel: wait for this test's last item, not a total)
-  await expect(page.getByRole('button', { name: 'Sample item 14', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Sample item 14 ${run}`, exact: true })).toBeVisible();
   for (const [name, pick] of MODES) {
     await page.getByLabel('Theme').selectOption(pick.theme);
     await page.getByLabel('Dark style').selectOption(pick.dark);
@@ -75,14 +77,14 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
     // (dismiss the last mode's toast first: its 4 s timer would otherwise end mid-check and move this one under axe)
     await page.evaluate(() => document.querySelectorAll('.toast button').forEach(b => /** @type {HTMLElement} */ (b).click()));
     await expect(page.locator('.toast')).toHaveCount(0);
-    await add(page, `Toast for ${name}`);
+    await add(page, `Toast for ${name} ${run}`);
     await expect(page.locator('.toast').last()).toBeVisible();
     await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
     await settled(page);
     expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
     await page.screenshot({ path: info.outputPath(`glass-${name}.png`) });
 
-    await page.getByRole('button', { name: 'Sample item 3' }).click();
+    await page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }).click();
     await expect(page.locator('#edit')).toBeVisible();
     await settled(page);
     expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
