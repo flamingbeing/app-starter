@@ -6,6 +6,7 @@
 // (SA_EMAIL, SA_KEY) are Worker secrets.
 import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
+import { handleCspReport } from './csp-report.js';
 import { admin, handleClaims, verifyIdToken } from './claims.js';
 import { handleFiles } from './files.js';
 import { loadClaims } from './members.js';
@@ -21,12 +22,13 @@ export default {
     const finish = res => withHeaders(res, { project, local });
 
     if (url.pathname === '/api/claims') return finish(await claims(request, env, url, local, project));
+    if (url.pathname === '/api/csp') return finish(await handleCspReport(request));
     if (url.pathname.startsWith('/api/files/')) return finish(await files(request, env, url, local, project));
     if (request.method !== 'GET' && request.method !== 'HEAD') return finish(new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } }));
     // Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
     if (/^\/__\/(auth|firebase)\//.test(url.pathname) && project && !local) {
       const res = await fetch(new Request(`https://${project}.firebaseapp.com${url.pathname}${url.search}`, request));
-      return withHeaders(new Response(res.body, res), { project, local, framedBySelf: true });
+      return withHeaders(new Response(res.body, res), { project, local, framedBySelf: true, helper: true });
     }
     const r = resolve(url.hostname, url.pathname);
     if (r.redirect) return finish(redirect(url, r.redirect));

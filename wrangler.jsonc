@@ -1,5 +1,5 @@
 // Cloudflare Workers config. The Worker (worker/sites.js) serves this repo's files, decides which folder each address
-// may see (worker/routes.js) and answers /api/claims and /api/files/ (the R2 bucket below). No secrets in this file:
+// may see (worker/routes.js) and answers /api/claims, /api/csp and /api/files/ (the R2 bucket below). No secrets in this file:
 // the service account (SA_EMAIL, SA_KEY) is a Worker secret (wrangler secret put), kept across deploys.
 // tools/fill.mjs sets the name, route, project and bucket name.
 {
@@ -19,6 +19,8 @@
   "preview_urls": false,
   "workers_dev": false,
   "keep_vars": true,
+  // Workers Logs: keeps console lines such as the CSP reports (worker/csp-report.js) to read in the dashboard
+  "observability": { "enabled": true },
   "vars": { "FIREBASE_PROJECT": "demo-starter-app" },
   // the app's files (@core/files; worker/files.js): one private bucket per app, made once before the first deploy
   // (README, "Files"); tools/fill.mjs names it after the app
