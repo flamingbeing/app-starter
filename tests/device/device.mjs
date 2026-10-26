@@ -1,0 +1,166 @@
+// Device test against a LIVE deployed copy of the app (not part of `npx playwright test`; run per starter release).
+// Four checks, two "devices" signed in as the same test user:
+//   1 offline save, force-quit, reopen, reconnect: the save is there and sent
+//   2 two devices: edit + delete on one, seen on the other
+//   3 offline save, sign out, sign in: nothing lost
+//   4 installed app, new deploy, update works (two phases: `install` before the deploy, `update` after it)
+// Device A is a phone-sized Chromium context, or real Chrome on an Android emulator with ANDROID=1 (Playwright's
+// _android API over adb); device B is always a phone-sized Chromium context.
+// Needs: DEVICE_URL (https://sandbox-app.flamingbeing.com), DEVICE_EMAIL, DEVICE_PASSWORD (the test-bot user; it must
+// already hold the member role on that app: claim g._=member plus a members/<uid> doc, which the tests do not create),
+// and the app's firebase config (read from DEVICE_URL's app/src/config.js).
+// Run:  node tests/device/device.mjs [--phase=all|install|update] [--out=tests/device/out]
+// Needs @playwright/test's `playwright` package (1.56+). Exit code 0 only when every check passed. Writes
+// <out>/results.json and one screenshot per check. Emulator: stop it afterwards (the script never leaves one running).
+import { chromium, devices, _android } from 'playwright';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+
+const arg = (k, d) => (process.argv.find(a => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1];
+const URL_ = (process.env.DEVICE_URL || '').replace(/\/$/, '');
+const { DEVICE_EMAIL: email, DEVICE_PASSWORD: password } = process.env;
+if (!URL_ || !email || !password) { console.error('set DEVICE_URL, DEVICE_EMAIL, DEVICE_PASSWORD'); process.exit(2); }
+const phase = arg('phase', 'all');
+const out = arg('out', 'tests/device/out');
+mkdirSync(out, { recursive: true });
+const stateFile = `${out}/install-state.json`;
+const uniq = p => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const results = [];
+
+async function until(fn, what, ms = 20_000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    try { const v = await fn(); if (v) return v; } catch {}
+    if (Date.now() > end) throw new Error(`timed out: ${what}`);
+    await sleep(250);
+  }
+}
+
+// Sign in through the identity REST API and hand the session to the page (the starter has Google sign-in only).
+async function config() {
+  const src = await (await fetch(`${URL_}/app/src/config.js`)).text();
+  const pick = k => (src.match(new RegExp(`${k}\\s*:\\s*['"]([^'"]+)['"]`)) || [])[1];
+  return { apiKey: pick('apiKey'), authDomain: pick('authDomain') };
+}
+async function signIn(page, cfg) {
+  await page.goto(`${URL_}/app/?sw`);
+  await page.locator('#signed-out').waitFor({ state: 'visible', timeout: 20_000 });
+  await page.evaluate(async ({ apiKey, authDomain, email, password }) => {
+    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true }) });
+    const j = await r.json();
+    if (!j.idToken) throw new Error('sign-in refused');
+    const user = { uid: j.localId, email: j.email, emailVerified: true, apiKey, appName: '[DEFAULT]', authDomain,
+      stsTokenManager: { refreshToken: j.refreshToken, accessToken: j.idToken, expirationTime: Date.now() + 3_500_000 }, createdAt: String(Date.now()), lastLoginAt: String(Date.now()) };
+    const open = indexedDB.open('firebaseLocalStorageDb', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
+    await new Promise((res, rej) => { open.onerror = () => rej(open.error); open.onsuccess = () => {
+      const tx = open.result.transaction('firebaseLocalStorage', 'readwrite');
+      tx.objectStore('firebaseLocalStorage').put({ fbase_key: `firebase:authUser:${apiKey}:[DEFAULT]`, value: user });
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error); }; });
+  }, { ...cfg, email, password });
+  await page.reload();
+  await page.locator('#list-view').waitFor({ state: 'visible', timeout: 30_000 });
+  await until(() => page.evaluate(() => window.starter?.ready), 'app ready');
+}
+const synced = page => until(() => page.evaluate(() => window.starter?.status === 'synced'), 'status synced', 30_000);
+const add = async (page, text) => { await page.fill('#new-text', text); await page.click('#add button[type=submit]'); await page.locator('#items', { hasText: text }).waitFor(); };
+const shot = (page, name) => page.screenshot({ path: `${out}/${name}.png` }).catch(() => {});
+
+async function check(name, fn) {
+  const t0 = Date.now();
+  try { await fn(); results.push({ name, pass: true, seconds: Math.round((Date.now() - t0) / 1000) }); console.log('PASS', name); }
+  catch (e) { results.push({ name, pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL', name, '-', e.message); }
+}
+
+const browser = await chromium.launch();
+const phone = () => browser.newContext({ ...devices['Pixel 7'] });
+let android, deviceA, ctxA;
+try {
+  if (process.env.ANDROID) {
+    [android] = await _android.devices();
+    if (!android) throw new Error('no Android device (start the emulator first)');
+    ctxA = await android.launchBrowser({ pkg: 'com.android.chrome' });
+  } else ctxA = await phone();
+  const ctxB = await phone();
+  const cfg = await config();
+  if (!cfg.apiKey) throw new Error('no firebase config on the live app');
+  let a = await ctxA.newPage(); const b = await ctxB.newPage();
+
+  if (phase !== 'update') {
+    await signIn(a, cfg); await signIn(b, cfg);
+
+    await check('1 offline save, force-quit, reopen, reconnect', async () => {
+      const t = uniq('off');
+      await ctxA.setOffline(true);
+      await add(a, t);
+      await a.close();                    // force-quit: the page goes away with the save unsent
+      a = await ctxA.newPage();
+      await a.goto(`${URL_}/app/?sw`);    // reopened still offline, from the service worker
+      await a.locator('#items', { hasText: t }).waitFor({ timeout: 20_000 });
+      await ctxA.setOffline(false);
+      await synced(a);
+      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#items').innerText()).includes(t); }, 'other device sees the save', 40_000);
+      await shot(a, '1-offline-save');
+    });
+
+    await check('2 two devices: edit + delete on one, seen on the other', async () => {
+      const t = uniq('two'), t2 = `${t}-edited`;
+      await add(a, t); await synced(a);
+      await b.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await a.getByRole('button', { name: t }).click();
+      await a.fill('#edit-text', t2); await a.click('#edit-save'); await synced(a);
+      await b.locator('#items', { hasText: t2 }).waitFor({ timeout: 30_000 });
+      await a.getByRole('button', { name: t2 }).click();
+      await a.click('#edit-delete');
+      await a.getByRole('button', { name: 'Delete', exact: true }).click();
+      await synced(a);
+      await until(async () => !(await b.locator('#items').innerText()).includes(t2), 'delete seen on the other device', 30_000);
+      await shot(b, '2-two-devices');
+    });
+
+    await check('3 offline save, sign out, sign in: nothing lost', async () => {
+      const t = uniq('out');
+      await ctxA.setOffline(true);
+      await add(a, t);
+      await a.click('#sign-out').catch(() => {});
+      await ctxA.setOffline(false);
+      await signIn(a, cfg);
+      await a.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await synced(a);
+      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#items').innerText()).includes(t); }, 'sent after sign-in', 40_000);
+      await shot(a, '3-sign-out-in');
+    });
+  }
+
+  if (phase === 'install' || phase === 'all') {
+    await check('4a installed app: service worker in charge, version recorded', async () => {
+      await a.goto(`${URL_}/app/?sw`);
+      await until(() => a.evaluate(() => !!navigator.serviceWorker.controller), 'service worker in charge', 30_000);
+      const sw = await (await fetch(`${URL_}/app/sw.js`)).text().catch(() => '');
+      writeFileSync(stateFile, JSON.stringify({ sw: createHash('sha256').update(sw).digest('hex'), at: new Date().toISOString() }));
+      await shot(a, '4a-installed');
+    });
+  }
+  if (phase === 'update') {
+    await check('4b after a new deploy the installed app updates', async () => {
+      if (!existsSync(stateFile)) throw new Error('run --phase=install before the deploy first');
+      const before = JSON.parse(readFileSync(stateFile, 'utf8')).sw;
+      const now = createHash('sha256').update(await (await fetch(`${URL_}/app/sw.js`)).text()).digest('hex');
+      if (now === before) throw new Error('the deployed sw.js is unchanged: deploy a new version first');
+      await a.goto(`${URL_}/app/?sw`);     // the installed (old) worker starts the page
+      await a.evaluate(() => { window.__same = true; });
+      await a.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+      await until(() => a.evaluate(() => window.__same).then(v => v === undefined).catch(() => true), 'page reloaded onto the new version', 45_000);
+      await a.locator('#list-view').waitFor({ timeout: 30_000 });
+      await shot(a, '4b-updated');
+    });
+  }
+} catch (e) { results.push({ name: 'setup', pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL setup -', e.message); }
+finally {
+  writeFileSync(`${out}/results.json`, JSON.stringify({ url: URL_, phase, android: !!process.env.ANDROID, at: new Date().toISOString(), results }, null, 2));
+  await browser.close().catch(() => {});
+  if (android) await android.close().catch(() => {});
+}
+process.exit(results.length && results.every(r => r.pass) ? 0 : 1);
