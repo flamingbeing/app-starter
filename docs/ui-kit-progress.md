@@ -86,8 +86,13 @@ Gotchas found:
 - Gotchas: an `aria-label` that doesn't contain the button's visible words fails axe (`label-content-name-mismatch`);
   ids from labels with spaces break `aria-labelledby`. The dense page is in `tsconfig.json`'s include.
 
-## For K5
+## K5: feedback, default look, cheap-Android check (done)
 
-- Look A is still the default; extra-dense and the layout parts follow whatever tokens A ends with, and
-  `e2e/dense.spec.mjs` will catch a target that drops under 24 px.
-
+- Feedback: F1.3 (look B when the header hides) was fixed in K4 (see above); `e2e/looks.spec.mjs` ("Look B's band"
+  in kit-tests.md) keeps it fixed.
+- Default look: A, set in `theme/looks.js` (`DEFAULT_LOOK`); a device's own pick wins, then the app's
+  `applyTheme({ look })`. Pinned by `app/test/looks.unit.test.mjs` and the gallery test that a link's `?look=b` is only a preview.
+- Cheap-Android check: `e2e/cheap-android.spec.mjs` stands in for a cheap phone in Chromium (2 GB memory figure;
+  slow frames with no figure). Both turn glass Solid and the verdict is kept. **Not done: a real phone.** Open `/kit/`
+  on the oldest Android, scroll the gallery once with Bars and sheets on "Glass, even here" and once on Solid, and
+  note whether either stutters; `?guard=again` re-runs the guard.

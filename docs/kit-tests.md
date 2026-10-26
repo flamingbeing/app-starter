@@ -63,3 +63,10 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Undo | clearing the boxes and setting a key time show an Undo toast, never a dialog | |
 | Look B's band | the bar keeps the band's colour once the title has scrolled under it | |
 
+
+### Cheap Android stand-in (`e2e/cheap-android.spec.mjs`)
+
+| Part | What is checked | Screenshot |
+|---|---|---|
+| Glass guard, little memory | a phone that reports 2 GB shows Solid at once (verdict kept: memory); scrolling the gallery still gives frames | |
+| Glass guard, slow frames | no memory figure plus 30 ms of work per frame: glass shows until the first scroll, then Solid (verdict kept: frames), and stays so after a reload | |
