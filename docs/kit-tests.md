@@ -50,3 +50,16 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Ticks | square in B, round in A and C | |
 | Density | rows 60 / 50 / 44 px; taps never under 44; a link's `?look=` is a preview, a pick is kept after reload | |
 | Glass guard | little memory turns glass off, kept, with the reason in Settings; Solid and "Glass, even here" still win | yes |
+
+### Layout parts and extra-dense (`e2e/dense.spec.mjs`)
+
+| Part | What is tested | axe |
+| --- | --- | --- |
+| Both dense screens | in looks A, B, C at 390, 820 and 1280 px: every target 24 px or more (a radio or checkbox measured by its label), nothing wider than the screen; screenshots kept (`dense-<screen>-<look>-<width>.png`) | yes |
+| Sizes | extra-dense is 32 / 24 px; unticking it gives the density's own sizes; Comfortable gets 44 / 36 px | |
+| Segmented | arrows pick and move focus; a second tap clears a clearable one, Space does not; a plain one keeps its pick | |
+| Stepper | − and + step by the step, stay in min/max, an empty box starts at `data-start`; buttons out of the Tab order | |
+| Toolbar | one Tab stop; arrows wrap, Home, End; Tab leaves it | |
+| Undo | clearing the boxes and setting a key time show an Undo toast, never a dialog | |
+| Look B's band | the bar keeps the band's colour once the title has scrolled under it | |
+

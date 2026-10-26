@@ -1,0 +1,45 @@
+/* The dense screens gallery page's own bits; the screens themselves are the layout parts (ui/layout.css). */
+body { margin: 0 auto; max-width: 80rem; padding: 0 0 calc(var(--tap) * 2 + env(safe-area-inset-bottom, 0px)); }
+.kit-bar-side { flex: 1; }
+.ui-bar .kit-home { flex: 1; text-decoration: none; }
+.kit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap) var(--pad); margin: 0 var(--pad) var(--pad); }
+.kit-looks .theme-switch { display: flex; flex-wrap: wrap; gap: var(--gap) var(--pad); }
+.kit-looks select { min-height: 32px; }
+.kit-check { display: inline-flex; align-items: center; gap: .4em; min-height: var(--tap-s); cursor: pointer; }
+.kit-check input { width: 1.1em; height: 1.1em; margin: 0; }
+.kit-screen { padding: 0 var(--pad) var(--pad); }
+.kit-screen h2 { font-size: 1rem; margin: 0 0 var(--gap); }
+[data-dense="extra"].kit-screen h2 { font-size: 1em; }
+.kit-badge { padding: 0 .5em; border-radius: var(--control-r); background: var(--selection); font-size: .85em; }
+
+/* key times: a number, a name and the time in each tile */
+.kit-time { position: relative; display: grid; align-content: center; justify-items: center; gap: 1px; min-width: 0;
+  min-height: calc(var(--tap) + 12px); padding: 10px 2px 2px; border-style: dashed; color: var(--muted); line-height: 1.1; }
+.kit-time i { position: absolute; top: 2px; inset-inline-start: 4px; font-size: .7em; font-style: normal; font-weight: 700; }
+.kit-time span { font-size: .8em; max-width: 100%; overflow-wrap: anywhere; }
+.kit-time b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.kit-time.is-set { border-style: solid; border-color: transparent; background: var(--selection); color: var(--text); }
+
+/* previous / next either side of the readings */
+.kit-points { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--gap); align-items: stretch; }
+.kit-pn { min-width: var(--tap); padding: 0; font-size: 1.4em; color: var(--link); }
+.kit-board { --grid-min: 8.5rem; }
+[data-dense="extra"] .kit-board { --grid-min: 7rem; }
+
+.kit-table { width: 100%; border-collapse: collapse; font-size: .9em; }
+.kit-table :is(th, td) { padding: 2px var(--gap); text-align: start; border-bottom: var(--border) solid var(--line); }
+.kit-table tr.is-on { background: var(--selection); font-weight: 600; }
+.kit-form { display: grid; place-items: center; min-height: var(--tap); padding: 0 var(--gap); text-align: center;
+  border: var(--border) solid var(--line); border-radius: var(--control-r); background: var(--surface); text-decoration: none; }
+
+.kit-input { width: 100%; box-sizing: border-box; min-height: var(--tap); padding: var(--gap); font: inherit; color: inherit;
+  border: var(--border) solid var(--line); border-radius: var(--control-r); background: var(--surface); }
+textarea.kit-input { resize: vertical; line-height: 1.4; border-radius: min(var(--control-r), var(--radius-l)); }
+.kit-tag { min-height: var(--tap-s); padding: 0 .6em; font-size: .9em; border-radius: var(--pill-r); }
+.kit-tag[aria-pressed="true"] { background: var(--selection); border-color: var(--accent); color: var(--text); font-weight: 600; }
+#common { --grid-min: 6.5rem; }
+.kit-screen .ui-list { margin: 0; }
+.ui-tab { white-space: nowrap; }
+
+/* toasts sit above the tab bar */
+.toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }

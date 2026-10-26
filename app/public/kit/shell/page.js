@@ -1,10 +1,8 @@
 // The shell gallery: the plants list in the adaptive shell. window.kit (the started parts) and window.shell are for the tests.
 import { startGestures, adaptiveShell, toaster } from '../../ui/index.js';
-import { applyTheme } from '../../theme/index.js';
+import { galleryPreview } from '../preview.js';
 
-applyTheme();
-const edge = new URLSearchParams(location.search).get('edge');
-if (edge === 'always' || edge === 'off') document.documentElement.dataset.edgeBack = edge;
+galleryPreview();   // ?look=, ?density=, ?edge= as on the other gallery pages
 
 // the other sections are the same page (there is one list); the bars show which was picked
 const tab = new URLSearchParams(location.search).get('tab') || 'plants';

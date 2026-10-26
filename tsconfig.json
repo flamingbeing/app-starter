@@ -22,5 +22,5 @@
       "zod": ["./e2e/fixtures/outside-package/vendor/zod/3.23.8/index.d.ts"]
     }
   },
-  "include": ["app/src/**/*.js", "app/src/**/*.d.ts", "app/public/ui/*", "app/public/kit/*.js", "app/public/theme/*.js", "app/public/settings/*.js", "app/public/settings/*.d.ts", "app/public/files/*", "app/public/search/*.js", "app/public/search/*.d.ts", "e2e/fixtures/outside-package/src/*.js"]
+  "include": ["app/src/**/*.js", "app/src/**/*.d.ts", "app/public/ui/*", "app/public/kit/*.js", "app/public/kit/dense/*.js", "app/public/theme/*.js", "app/public/settings/*.js", "app/public/settings/*.d.ts", "app/public/files/*", "app/public/search/*.js", "app/public/search/*.d.ts", "e2e/fixtures/outside-package/src/*.js"]
 }

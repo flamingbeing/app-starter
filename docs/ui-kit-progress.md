@@ -72,3 +72,22 @@ Gotchas found:
 - `sw.js` changed byte for byte, so phones with the old worker fetch the new one on their next visit and take over
   as usual (`e2e/update.spec.mjs` covers the take-over). VERSION is `app-v2`.
 - Test: `e2e/kit-sw.spec.mjs` (opens the app, waits for the worker, then `/kit`, `/kit/`, `/kit/shell/` show the gallery).
+
+## K4: layout parts + extra-dense (done)
+
+- `ui/layout.css`, `ui/layout.js` (grid, stack, split, toolbar, segmented, stepper) and `data-dense="extra"`; rules
+  in [ui-kit.md](ui-kit.md#layout-parts-and-extra-dense). Gallery `app/public/kit/dense/`, tests `e2e/dense.spec.mjs`
+  and `app/test/layout.unit.test.mjs`.
+- Feedback fixed on earlier parts: look B's bar now keeps the band's colour when the title collapses (no white flash,
+  no empty band; `large-title.js` collapses when the title's words, not its padding, reach the bar); B's band in the
+  laptop detail pane runs edge to edge; from 600 px the glass scroll-edge veil no longer blurs the pane headings.
+- `kit/preview.js`: the gallery pages share `?look=`, `?density=`, `?edge=`, `?guard=again` (the shell page now
+  honours `?look=`).
+- Gotchas: an `aria-label` that doesn't contain the button's visible words fails axe (`label-content-name-mismatch`);
+  ids from labels with spaces break `aria-labelledby`. The dense page is in `tsconfig.json`'s include.
+
+## For K5
+
+- Look A is still the default; extra-dense and the layout parts follow whatever tokens A ends with, and
+  `e2e/dense.spec.mjs` will catch a target that drops under 24 px.
+

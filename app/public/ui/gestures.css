@@ -23,9 +23,13 @@
 /* a look with the title on a band of the accent (data-header="band"): the bar is the band's top until it collapses */
 [data-header="band"] .ui-large-title { margin: 0 0 var(--pad); padding: var(--gap) var(--pad) calc(var(--pad) * 1.5);
   background: var(--accent); color: var(--on-accent); border-radius: 0 0 var(--sheet-r) var(--sheet-r); }
-[data-header="band"] .ui-bar:not(.is-collapsed) { background: var(--accent); color: var(--on-accent); }
-[data-header="band"] .ui-bar:not(.is-collapsed) :is(button, a, .ui-back) { color: var(--on-accent); background: transparent;
+/* the bar keeps the band's colour when the title goes under it (large-title.js waits for the title's words, not the
+   band's padding): no empty band, no flash to the page colour; collapsed, it takes the small title and a soft edge */
+[data-header="band"] .ui-bar, .glass[data-header="band"] .ui-bar.is-collapsed { background: var(--accent); color: var(--on-accent);
+  border-bottom-color: transparent; }
+[data-header="band"] .ui-bar :is(button, a, .ui-back) { color: var(--on-accent); background: transparent;
   border-color: color-mix(in srgb, var(--on-accent) 45%, transparent); }
+[data-header="band"] .ui-bar.is-collapsed { box-shadow: 0 1px 6px rgb(0 0 0 / .18); }
 
 /* ---------- tab bar ---------- */
 .ui-tabbar { position: fixed; z-index: 6; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gap));
