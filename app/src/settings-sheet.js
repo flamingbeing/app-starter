@@ -26,7 +26,6 @@ export function settingsSheet(app, signedIn) {
     }
     input('opt-itemCount').disabled = !signedIn();
     $('settings-note').hidden = signedIn();
-    msg.textContent = '';
   };
   for (const key of SWITCHES) {
     input(`opt-${key}`).addEventListener('change', async e => {
@@ -36,7 +35,7 @@ export function settingsSheet(app, signedIn) {
   }
   settings.watch(null, () => { if (sheet.open) draw(); });
 
-  $('open-settings').addEventListener('click', () => { draw(); sheet.showModal(); });
+  $('open-settings').addEventListener('click', () => { msg.textContent = ''; draw(); sheet.showModal(); });
   $('settings-close').addEventListener('click', () => sheet.close());
 
   $('settings-export').addEventListener('click', () => {
