@@ -37,7 +37,7 @@
 
 /* ---------- toolbar: a row of actions, one Tab stop, arrow keys between them (layout.js); wraps when narrow ---------- */
 .ui-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); }
-.ui-toolbar button { min-height: var(--tap); border-radius: var(--control-r); }
+.ui-toolbar button { min-height: var(--tap); min-width: var(--tap); border-radius: var(--control-r); }
 .ui-toolbar .ui-primary { background: var(--accent); color: var(--on-accent, var(--bg)); border-color: var(--accent); font-weight: 600; }
 .ui-toolbar > .ui-push { margin-inline-start: auto; }
 

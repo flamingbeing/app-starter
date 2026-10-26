@@ -106,7 +106,7 @@ The app picks its own look with `applyTheme({ look: 'b' })`. A device's own pick
 ### Density
 
 `comfortable` · `regular` (default) · `compact` set the row height to **60 / 50 / 44 px**, along with the gaps and the
-text size. Taps are never smaller than 44 px. (An extra-dense density comes later.)
+text size. Taps are never smaller than 44 px. A busy screen can opt into extra-dense ([below](#layout-parts-and-extra-dense)).
 
 ### Glass guard
 
@@ -142,3 +142,26 @@ No component code. If a look seems to need a fork of a part, add a variant inste
 A new variant value takes one more step. Add it to `VARIANTS` in `looks.js`, add the CSS that styles
 `[data-<variant>="<value>"]` (in `ui.css`, `ui/gestures.css` or `glass.css`), add the mark to `early.js`'s list if the
 variant is new, and give it a test.
+
+## Layout parts and extra-dense
+
+`ui/layout.css` and `ui/layout.js` (load the CSS after `ui.css`; `startLayout()` starts the parts that need script).
+Every part follows the look's tokens and the density, so it needs no code per look. The gallery is `/kit/dense/`: a
+timed readings screen and a case-entry screen on made-up data (`?screen=readings|log`, `?look=`, `?density=`).
+
+| Part | Markup | Notes |
+| --- | --- | --- |
+| Grid | `.ui-grid` (`data-cols="2\|3\|4\|6"`, `.ui-span` for a full row) | equal tiles; without `data-cols` they wrap at `--grid-min`; 6 and 4 columns halve on phones |
+| Stack | `.ui-stack` (`data-dir="row"`, `data-gap="pad"`, `.ui-push`) | one under another, or a wrapping row |
+| Split | `.ui-split` (`data-split="side"`) | two parts side by side when both fit, else stacked; no media query, so it works in a laptop's detail pane too |
+| Toolbar | `.ui-toolbar` with `role="toolbar"` and an `aria-label` (`.ui-primary`, `.ui-push`) | one Tab stop; arrows, Home and End move between buttons |
+| Segmented | `fieldset.ui-segmented` with a `legend` and native radios in labels (`data-clearable`) | arrows pick, screen readers say "2 of 7"; clearable: a second tap clears (a key never does) |
+| Stepper | `.ui-stepper` with `[data-step="-1"]` and `[data-step="1"]` buttons around an `input type=number` (`data-start`) | the field is the Tab stop and takes typing and arrows; the buttons step in its `step`, kept in `min`/`max`; an empty box starts at `data-start` |
+| Field | `.ui-field` | a small label over a stepper or segmented control |
+
+**Extra-dense** is opt-in per screen: `data-dense="extra"` on the screen (or a part of it). Main targets 32 px, small
+ones (`--tap-s`: segments, stepper buttons, tags) 24 px, the WCAG 2.2 target-size minimum; text 14 px. Never go
+under 24 px: if a screen doesn't fit, cut or split it instead. A device set to Comfortable gets 44 / 36 px there,
+since its owner asked for bigger targets. Use it for data entry that a trained person repeats many times a day,
+not for a screen someone meets once. `e2e/dense.spec.mjs` measures every target on the gallery screens.
+

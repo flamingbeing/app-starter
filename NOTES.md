@@ -14,7 +14,9 @@ shrinking tab bar, collapsing large title), each started only where its markup i
 on made-up data, signed out; its tests are listed in [docs/kit-tests.md](docs/kit-tests.md) and run at 390, 820 and
 1280 px. Stage notes: [docs/ui-kit-progress.md](docs/ui-kit-progress.md). Port rules: hold 500 ms within 10 px, the
 lift's click swallowed; no gesture from fields, dialogs, sideways scrollers, drag handles or screen edges; the tab bar
-never moves with a swipe; Still (this device) or Reduce Motion turns motion off.
+never moves with a swipe; Still (this device) or Reduce Motion turns motion off. Layout parts (grid, stack, split,
+toolbar, segmented, stepper) and the opt-in extra-dense level (never under 24 px) are on `/kit/dense/`; rules in
+[docs/ui-kit.md](docs/ui-kit.md#layout-parts-and-extra-dense).
 
 ## Later
 
