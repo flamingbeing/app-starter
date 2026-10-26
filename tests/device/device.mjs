@@ -100,7 +100,11 @@ try {
   if (process.env.ANDROID) {
     [android] = await _android.devices();
     if (!android) throw new Error('no Android device (start the emulator first)');
-    ctxA = await android.launchBrowser({ pkg: 'com.android.chrome' });
+    await android.shell('am force-stop com.android.chrome');   // a Chrome left over from an earlier run can hide its debugging socket
+    ctxA = await Promise.race([
+      android.launchBrowser({ pkg: 'com.android.chrome' }),
+      sleep(60_000).then(() => { throw new Error('Chrome on the device did not open its debugging socket in 60 s (first-run screen, or Chrome missing from the system image?)'); }),
+    ]);
   } else ctxA = await phone();
   const ctxB = await phone();
   const cfg = await config();
