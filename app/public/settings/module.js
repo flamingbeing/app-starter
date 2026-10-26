@@ -55,6 +55,7 @@ export function settings(options) {
       /** @type {Map<string, Set<(v: unknown, key: string) => void>>} */
       const watchers = new Map();
       let stopped = false;
+      let gen = 0;   // bumped when the stored copies are wiped, so a late failed save cannot bring them back
 
       const uid = () => /** @type {string | null} */ (ctx.user()?.uid ?? null);
       const spec = (/** @type {string} */ key) => {
@@ -94,7 +95,7 @@ export function settings(options) {
         rec = a && a.uid && a.uid === uid() && a.rec && typeof a.rec === 'object' ? a.rec : null;
       };
       const keepRec = () => { const id = uid(); if (id && rec) store.set('account', { uid: id, rec }); else store.remove('account'); };
-      const wipe = () => { store.remove('device'); store.remove('account'); device = {}; rec = null; notify(); };
+      const wipe = () => { gen++; store.remove('device'); store.remove('account'); device = {}; rec = null; notify(); };
 
       loadDevice(); loadRec();
       shown = all();
@@ -109,9 +110,10 @@ export function settings(options) {
         const next = { id, ...Object.fromEntries(Object.entries(before || {}).filter(([k, v]) => v !== null && (k === 'profile' || cfg.specs.get(k)?.scope === 'account'))), ...patch };
         for (const k of Object.keys(next)) if (next[k] === null && k !== 'id' && !(k in patch)) delete next[k];
         rec = next; keepRec(); notify();
+        const mine = gen;
         try {
           await sync.save(collection, scopeOf(ctx.user()), next, sync.copyOf(collection, id) || before);
-        } catch (e) { rec = before; keepRec(); notify(); throw e; }
+        } catch (e) { if (gen === mine && rec === next) { rec = before; keepRec(); notify(); } throw e; }
       };
 
       // a change to some options and/or the profile, in one account write: `account` keys already cleaned

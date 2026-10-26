@@ -254,3 +254,16 @@ test('module: the stored formats are the ones NOTES.md lists', async () => {
   assert.deepEqual(JSON.parse(e.storage.get('settings/device')), { v: 1, values: { big: true } });
   assert.deepEqual(JSON.parse(e.storage.get('settings/account')), { uid: 'u1', rec: { id: 'u1', count: true } });
 });
+
+test('module: a save that fails after forget does not bring the account copy back', async () => {
+  const e = engine();
+  let fail;
+  e.sync.save = () => new Promise((_, rej) => { fail = rej; });
+  const { api } = await start({}, e);
+  const p = api.set('count', true).catch(err => err);
+  await e.emit('forget');
+  fail(new Error('refused'));
+  assert.match((await p).message, /refused/);
+  assert.equal(api.get('count'), false);
+  assert.equal(e.storage.has('settings/account'), false);
+});
