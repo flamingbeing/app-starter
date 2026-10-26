@@ -60,7 +60,8 @@ test('account options: one doc per person, only theirs, only the allowed fields'
     assert.equal((await as(role).get(`spaces/_/settings/u-${role}`)).ok, true);
   }
   assert.equal((await as('member').set('spaces/_/settings/u-admin', mine, at)).ok, false, 'not someone else’s doc');
-  assert.equal((await as('member').get('spaces/_/settings/u-admin')).ok, false, 'nor read it');
+  assert.equal((await as('member').get('spaces/_/settings/u-admin')).ok, true, 'the group can read it (a list listen cannot ask for one doc)');
+  assert.equal((await emu.as('u-new', {}).get('spaces/_/settings/u-member')).ok, false, 'no role, no read');
   assert.equal((await emu.as('u-new', {}).set('spaces/_/settings/u-new', mine, at)).ok, false, 'no role, no access');
   assert.equal((await as('member').set('spaces/_/settings/u-member', mine)).ok, false, 'unstamped');
   assert.equal((await as('member').set('spaces/_/settings/u-member', { ...mine, other: 1 }, at)).ok, false, 'an option the app did not list');

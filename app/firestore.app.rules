@@ -27,10 +27,11 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // Each person's account options (@core/settings): one doc named by their uid, readable and writable by them alone.
+    // Each person's account options (@core/settings): one doc named by their uid, writable by them alone. The group can read the
+    // docs because a list listen cannot be proven to ask for only one (rules are not filters); keep secrets out of options.
     // One field per option (src/options.js); null forgets a saved value.
     match /spaces/{g}/settings/{id} {
-      allow read: if can(g, ['admin', 'member', 'viewer']) && request.auth.uid == id;
+      allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member', 'viewer']) && request.auth.uid == id && stamped()
         && request.resource.data.keys().hasOnly(['profile', 'itemCount', 'updatedAt', 'serverAt', '_edits'])
         && (!('_edits' in request.resource.data) || request.resource.data._edits is map)

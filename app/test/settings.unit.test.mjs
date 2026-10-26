@@ -246,3 +246,11 @@ test('module: junk in storage or from the server is cleaned, not trusted', async
 test('module: options are checked when the module is made', () => {
   assert.throws(() => settings({ options: {} }), /needs options/);
 });
+
+test('module: the stored formats are the ones NOTES.md lists', async () => {
+  const { e, api } = await start();
+  await api.set('big', true);
+  await api.set('count', true);
+  assert.deepEqual(JSON.parse(e.storage.get('settings/device')), { v: 1, values: { big: true } });
+  assert.deepEqual(JSON.parse(e.storage.get('settings/account')), { uid: 'u1', rec: { id: 'u1', count: true } });
+});
