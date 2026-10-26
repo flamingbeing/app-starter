@@ -6,14 +6,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // devkit:common
 
-    // The role docs: each person reads their own (the page watches its v); only admins write.
+    // The role docs: each person reads their own (the page watches its v), admins read all. Only the Worker writes them
+    // (/api/members/, worker/members.js): a removal there also revokes the account, which a page's delete could not.
     match /members/{uid} {
       allow read: if (isSignedIn() && request.auth.uid == uid) || can('_', ['admin']);
-      allow create, update: if can('_', ['admin'])
-        && request.resource.data.keys().hasOnly(['role', 'v', 'name'])
-        && request.resource.data.role in ['admin', 'member', 'viewer']
-        && request.resource.data.v is int;
-      allow delete: if can('_', ['admin']);
+      allow write: if false;
     }
 
     match /spaces/{g}/items/{id} {

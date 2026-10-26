@@ -59,6 +59,40 @@ test('a role change reaches the page by itself (role doc v ahead of the token)',
   await expect(page.locator('#no-access')).toBeVisible({ timeout: 15_000 });
 });
 
+// S1: removing someone ends their access, not only their role doc: the Worker deletes the doc and revokes the account
+// (revoked/{uid}: the rules and the files route refuse at once; claims cleared; refresh tokens ended)
+test('an admin removes a member: the page loses the list, writes and uploads are refused, the session ends', async ({ phone }) => {
+  const admin = await phone(), gone = await phone();
+  const { uid: adminUid } = await signIn(admin, 'admin');
+  const { uid } = await signIn(gone, 'member');
+  const upload = () => gone.evaluate(async uid => {
+    const { getAuth } = await import('firebase/auth');
+    const t = await getAuth().currentUser?.getIdToken().catch(() => '');
+    return (await fetch(`/api/files/${uid}/f1`, { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${t}` } })).status;
+  }, uid);
+  expect(await upload()).toBe(201);
+  // a page can't delete a role doc any more (the rules), and only admins may ask the Worker
+  expect(await gone.evaluate(u => window.starter.members().remove(u), adminUid)).toBe('Admins only.');
+  expect(await admin.evaluate(u => window.starter.members().remove(u), uid)).toBe('');
+  expect(await db.get(`members/${uid}`)).toBeFalsy();
+  expect(await db.get(`revoked/${uid}`)).toBeTruthy();
+  expect(await upload()).toBe(403);
+  await expect(gone.locator('#list-view')).toBeHidden({ timeout: 15_000 });
+  // after a token refresh the token carries no role; the sessions were ended (validSince: real Firebase then refuses the
+  // refresh token and the page signs out; the Auth emulator doesn't check it on refresh, so the test reads the account)
+  expect(await gone.evaluate(async () => {
+    const { getAuth } = await import('firebase/auth');
+    const u = getAuth().currentUser;
+    return u ? (await u.getIdTokenResult(true).then(r => r.claims.g ?? 'none', e => e.code)) : 'signed out';
+  })).not.toHaveProperty('_');
+  const account = await (await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'}/identitytoolkit.googleapis.com/v1/projects/demo-starter-app/accounts:lookup`,
+    { method: 'POST', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: JSON.stringify({ localId: [uid] }) })).json();
+  expect(Number(account.users[0].validSince)).toBeGreaterThan(0);
+  // added back later: the next claims ask clears revoked/ and the list returns
+  expect(await admin.evaluate(u => window.starter.members().setRole(u, 'viewer'), uid)).toBe('');
+  expect(await db.get(`members/${uid}`)).toMatchObject({ role: 'viewer', v: 1 });
+});
+
 // A token refresh restarts Firestore's Listen stream; a role change written just then must still reach the page (the
 // Firestore emulator before v1.22 lost such changes: firebase-tools is pinned past it, package.json "rules")
 test('a role change during a token refresh still reaches the page', async ({ phone }) => {

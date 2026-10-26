@@ -2,7 +2,8 @@
 // update()] }) from app-sync (an exact version from core.anawj.com, named once in index.html's import map).
 //
 // Firestore layout (rules in firestore.app.rules):
-//   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins write it)
+//   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins change it
+//                              through the Worker's /api/members/, which revokes a removed person's access)
 //   spaces/_/items/{id}        { text, updatedAt, serverAt, _edits }  the list (_edits: who changed each field, and when) ('_' is the single group)
 //   spaces/_/bin/{coll:id}     { id, kind, data, deletedAt, … }       a deleted item's last version (delete to bin)
 //   spaces/_/files/{id}        { name, type, size, w?, h?, thumb?, taken?, state, item }  a photo or file on an item
@@ -191,6 +192,16 @@ export async function start({ canReload = null }) {
   };
   app.auth.onUser(() => { claimsStatus = 0; void show(); });
 
+  /** @param {string} method @param {string} uid @param {unknown} [body] @returns {Promise<string>} */
+  const membersCall = async (method, uid, body) => {
+    try {
+      const token = await fa.currentUser?.getIdToken();
+      if (!token) return 'Sign in first.';
+      const r = await fetch(`/api/members/${encodeURIComponent(uid)}`, { method, headers: { Authorization: `Bearer ${token}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+      return r.ok ? '' : (await r.json().catch(() => ({}))).error || `Refused (${r.status})`;
+    } catch { return 'Offline: try again.'; }
+  };
   /** @param {Promise<unknown>} saving */
   const refusal = saving => saving.then(() => '', e => (e instanceof Error && e.message) || 'The server refused it');
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
@@ -225,6 +236,13 @@ export async function start({ canReload = null }) {
     // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),
+    // admins: set someone's role, or remove them (they lose access at once; their sessions end). -> '' or the reason
+    members: {
+      /** @param {string} uid @param {'admin' | 'member' | 'viewer'} role */
+      setRole: (uid, role) => membersCall('PUT', uid, { role }),
+      /** @param {string} uid */
+      remove: uid => membersCall('DELETE', uid),
+    },
     // Sign-out keeps this device's copy and unsent saves. -> how many are still unsent (they send at the next sign-in)
     async signOut() { await app.auth.signOut(); return unsent; },
   };

@@ -21,7 +21,7 @@ const emu = suite({
 
 const as = role => emu.as(`u-${role}`, { g: { _: role }, v: 1 });
 
-test('people read their own role doc, not others’; only admins write role docs', async () => {
+test('people read their own role doc, not others’; nobody writes or deletes one from a page (the Worker does)', async () => {
   await emu.clear();
   await emu.seed('members/u-member', { role: 'member', v: 1 });
   await emu.seed('members/u-other', { role: 'member', v: 1 });
@@ -29,8 +29,11 @@ test('people read their own role doc, not others’; only admins write role docs
   assert.equal((await emu.as('u-new', {}).get('members/u-new')).ok, true, 'no role yet: may still read (absent) own doc');
   assert.equal((await as('member').get('members/u-other')).ok, false);
   assert.equal((await as('member').set('members/u-member', { role: 'admin', v: 2 })).ok, false, 'no self-promotion');
-  assert.equal((await as('admin').set('members/u-other', { role: 'viewer', v: 2 })).ok, true);
-  assert.equal((await as('admin').set('members/u-other', { role: 'owner', v: 3 })).ok, false, 'unknown role');
+  assert.equal((await as('admin').get('members/u-other')).ok, true, 'admins read every role doc');
+  assert.equal((await as('admin').set('members/u-other', { role: 'viewer', v: 2 })).ok, false, 'role changes: /api/members/');
+  assert.equal((await as('admin').set('members/u-new', { role: 'member', v: 1 })).ok, false);
+  assert.equal((await as('admin').delete('members/u-other')).ok, false, 'removal: /api/members/ (it also revokes)');
+  assert.equal((await as('member').delete('members/u-member')).ok, false);
 });
 
 test('items: text required and at most 500 characters; no extra fields', async () => {

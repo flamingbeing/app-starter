@@ -7,7 +7,8 @@
 //
 // The object key is `<scope>/<id>[.thumb]`. scope is the signed-in account's uid (a personal file) or a shared scope
 // the token's role allows, by the same rule as the app's Firestore rules (claims { g: { <scope>: role } }): any role
-// reads, admin and member write. An app with other rules passes its own access().
+// reads, admin and member write. Personal files need a role too to be written: a signed-in account the app never gave
+// a role (admin or member in some group) can't upload. An app with other rules passes its own access().
 //
 // handleFiles(request, { bucket, verify, revoked, maxBytes, access, origin, now }) is pure: bucket is R2's interface (put, get, delete),
 // so the unit tests and the e2e server (e2e/serve.mjs) give it an in-memory one (e2e/memory-bucket.mjs).
@@ -20,13 +21,13 @@ const PATH = /^\/api\/files\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,64})(\.thu
 const TYPE = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}$/;
 const WRITERS = ['admin', 'member'], READERS = ['admin', 'member', 'viewer'];
 
-/** The starter's rule: your own uid, or a shared scope your role allows (writes: admin and member); not after the
- * access end in the claims (`x`, seconds), the same gate as the rules' live(). */
+/** The starter's rule: your own uid (writes: with admin or member in some group), or a shared scope your role allows
+ * (writes: admin and member); not after the access end in the claims (`x`, seconds), the same gate as the rules' live(). */
 export function defaultAccess({ token, scope, write, now = Date.now() }) {
   if (token.x != null && !(now < Number(token.x) * 1000)) return false;
-  if (scope === token.sub) return true;
-  const role = token.g && typeof token.g === 'object' ? token.g[scope] : undefined;
-  return (write ? WRITERS : READERS).includes(role);
+  const g = token.g && typeof token.g === 'object' ? token.g : {};
+  if (scope === token.sub) return !write || Object.values(g).some(r => WRITERS.includes(r));
+  return (write ? WRITERS : READERS).includes(g[scope]);
 }
 
 export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTES, access = defaultAccess, origin, revoked = null, now = Date.now } = {}) {
