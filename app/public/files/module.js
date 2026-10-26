@@ -64,6 +64,8 @@ export function files(options) {
       });
       /** @type {Map<string, string>} */
       const urls = new Map();
+      /** @type {Map<string, Promise<string>>} */
+      const making = new Map();   // url() calls on their way, so two at once share one object URL
       /** @type {Map<string, Promise<Blob>>} */
       const fetching = new Map();
       let stopped = false, again = false;
@@ -126,6 +128,11 @@ export function files(options) {
           if (r.ok) q.done(job.id); else refusedOrLater(job, r);
           return;
         }
+        if (/** @type {FileRecord | null} */ (sync.copyOf(collection, job.id))?._deleted) {   // removed on another device first
+          q.done(job.id);
+          for (const t of [false, true]) await cache.del(keyOf(job.scope, job.id, t));
+          return;
+        }
         for (const part of job.parts || []) {
           const blob = await cache.get(keyOf(job.scope, job.id, part === 'thumb'));
           if (!blob) { q.stuck(job.id, 'lost'); return; }   // the browser cleared this site's storage
@@ -167,7 +174,7 @@ export function files(options) {
       const revoke = () => { for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear(); };
       // another account, or forget(): this device's files go (a throw refuses the switch; the old data stays)
       // `gen` moves on at each wipe, so a fetch that started before it neither refills the cache nor is shown
-      const wipe = async () => { gen++; fetching.clear(); q.clear(); revoke(); await cache.clear(); tell(); };
+      const wipe = async () => { gen++; fetching.clear(); making.clear(); q.clear(); revoke(); await cache.clear(); tell(); };
 
       const offs = [
         ctx.on('signin', () => { q.wake(); tell(); void kick(); }),
@@ -216,36 +223,46 @@ export function files(options) {
           if (!u) throw fail('sign in first');
           if (!(file instanceof Blob)) throw new TypeError('files: add() takes a File or Blob');
           if (file.size > maxBytes) throw fail('too big', { code: 'too-big', max: maxBytes });
-          const s = scopeFor(scope), id = newId();
+          const s = scopeFor(scope), id = newId(), g = gen;
+          // another account (or forget) since this add began: its bytes and job must not land in the new account's device
+          const moved = () => g !== gen || me()?.uid !== u.uid;
           // (offline before exif.js was ever loaded: no date taken, the photo is still added)
           const facts = exif && /^image\//.test(file.type) ? await import('./exif.js')
             .then(m => m.readExif(file, { place: typeof exif === 'object' && !!exif.place }), () => ({})) : {};
           const img = await prepareImage(file, image);
+          if (moved()) throw fail('sign in first');
           const bytes = img ? img.blob : file;
           /** @type {FileRecord} */
           const record = {
             ...extra, id, name: String(/** @type {File} */ (file).name || 'file').slice(0, 255), type: bytes.type || 'application/octet-stream', size: bytes.size,
             ...(img ? { w: img.w, h: img.h, thumb: true } : {}), ...facts, state: 'local',
           };
+          const unstash = async () => { await cache.del(keyOf(s, id)); await cache.del(keyOf(s, id, true)); };
           await cache.set(keyOf(s, id), bytes);
           if (img) await cache.set(keyOf(s, id, true), img.thumb);
+          if (moved()) { await unstash(); throw fail('sign in first'); }
           q.add(u.uid, { id, scope: s, op: 'put', parts: img ? ['file', 'thumb'] : ['file'], rec: record });
           tell();
           try { await sync.save(collection, s, record, null); }
-          catch (e) { q.drop(id); await cache.del(keyOf(s, id)); await cache.del(keyOf(s, id, true)); tell(); throw e; }
+          catch (e) { q.drop(id); await unstash(); tell(); throw e; }
           void kick();
           return { id, record };
         },
         blob,
         async url(id, o = {}) {
           const key = keyOf(scopeFor(o.scope), id, !!o.thumb);
-          const have = urls.get(key);
+          const have = urls.get(key) || making.get(key);
           if (have) return have;
-          const g = gen, b = await blob(id, o);
-          if (g !== gen) throw fail('sign in first', { status: 401 });
-          const href = URL.createObjectURL(b);
-          urls.set(key, href);
-          return href;
+          const g = gen;
+          const run = (async () => {
+            const b = await blob(id, o);
+            if (g !== gen) throw fail('sign in first', { status: 401 });
+            const href = URL.createObjectURL(b);
+            urls.set(key, href);
+            return href;
+          })().finally(() => { if (making.get(key) === run) making.delete(key); });
+          making.set(key, run);
+          return run;
         },
         async remove(x, { scope } = {}) {
           const u = me();
@@ -254,12 +271,13 @@ export function files(options) {
           if (!id) throw new TypeError('files: remove() takes an id or a record');
           const s = scopeFor(scope);
           const cur = typeof x === 'object' ? x : /** @type {FileRecord | null} */ (sync.copyOf(collection, id));
+          // the record first: a delete the server refuses leaves the file and its upload as they were
+          await sync.save(collection, s, { id, _deleted: true }, cur);
           const put = q.jobs().find(j => j.id === id && j.op === 'put');
           // a file that never left this device needs no delete on the Worker
           const neverSent = put && !putting.has(id) && (put.parts || []).length === (put.rec?.thumb ? 2 : 1);
           if (neverSent) q.drop(id); else q.add(u.uid, { id, scope: s, op: 'delete' });
           tell();
-          await sync.save(collection, s, { id, _deleted: true }, cur);
           for (const t of [false, true]) {
             const key = keyOf(s, id, t), href = urls.get(key);
             if (href) { URL.revokeObjectURL(href); urls.delete(key); }

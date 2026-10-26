@@ -100,7 +100,7 @@ test('readExif: the date taken; the place only when asked; nothing from other fi
 });
 
 // The module with stand-ins: the engine (auth, sync), ctx (storage, status, events), the Worker (fetch) and the cache.
-function rig({ online = true, answer = () => 201, gate = (/** @type {string} */ _m) => null } = {}) {
+function rig({ online = true, answer = () => 201, gate = (/** @type {string} */ _m) => null, refuse = (/** @type {any} */ _rec) => false, cacheGate = null } = {}) {
   const on = {}, saved = [], calls = [], copies = new Map(), net = { online };
   let status = null, user = { uid: 'u1' };
   const ctx = {
@@ -109,11 +109,12 @@ function rig({ online = true, answer = () => 201, gate = (/** @type {string} */ 
     on: (ev, fn) => { on[ev] = fn; return () => { delete on[ev]; }; },
   };
   const sync = {
-    save: async (coll, scope, rec, base) => { saved.push({ coll, scope, rec, base }); copies.set(rec.id, rec); },
+    save: async (coll, scope, rec, base) => { if (refuse(rec)) throw Object.assign(new Error('refused'), { code: 'permission-denied' }); saved.push({ coll, scope, rec, base }); copies.set(rec.id, rec); },
     copyOf: (coll, id) => copies.get(id) || null,
   };
   const auth = { user: () => user };
-  const cache = memoryCache();
+  const mem = memoryCache();
+  const cache = cacheGate ? { ...mem, set: async (k, v) => { await cacheGate(); return mem.set(k, v); } } : mem;
   const tokens = [];
   const mod = files({
     collection: 'files', scope: () => '_', cache, now: () => 0,
@@ -121,7 +122,7 @@ function rig({ online = true, answer = () => 201, gate = (/** @type {string} */ 
     fetch: async (url, init) => { calls.push([init.method, url, init.headers.Authorization]); await gate(init.method); return new Response(null, { status: answer(init.method, url, calls.length) }); },
     win: { navigator: { get onLine() { return net.online; } }, addEventListener() {}, removeEventListener() {} },
   });
-  return { mod, ctx, deps: { auth, sync }, saved, calls, cache, net, on, tokens, status: () => status, signOut: () => { user = null; } };
+  return { mod, ctx, deps: { auth, sync }, saved, calls, cache, net, on, tokens, status: () => status, signOut: () => { user = null; }, signIn: uid => { user = { uid }; }, copies };
 }
 
 test('module: a file added offline waits as unsent, sends when online, then its record says stored', async () => {
@@ -230,5 +231,60 @@ test('module: a fetch that ends after a switch is neither cached nor shown', asy
   h.release();
   assert.equal(await shown, 401);
   assert.equal(await r.cache.get('_/x1'), null);
+  r.mod.stop();
+});
+
+test('module: an account switch while add() waits neither writes into the new account nor blocks its adds', async () => {
+  const h = holder('set');
+  const r = rig({ online: false, cacheGate: () => h.gate('set') });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const first = api.add(new Blob(['a'], { type: 'text/plain' })).then(() => 'added', e => e.message);
+  await h.started();
+  await r.on.switch();
+  r.signIn('u2');
+  h.release();
+  assert.match(await first, /sign in first/);
+  assert.deepEqual(api.jobs(), [], 'nothing queued under the old account');
+  assert.equal(r.saved.length, 0, 'no record saved into the new account');
+  const b = api.add(new Blob(['b'], { type: 'text/plain' }));   // the new account's own add goes through
+  await h.started();
+  h.release();
+  const { id } = await b;
+  assert.deepEqual(api.jobs().map(j => j.id), [id]);
+  r.mod.stop();
+});
+
+test('module: two url() calls at once share one object URL', async () => {
+  const r = rig({ answer: () => 200 });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const made = [], real = URL.createObjectURL;
+  URL.createObjectURL = b => { const u = real(b); made.push(u); return u; };
+  try {
+    const [a, b] = await Promise.all([api.url('x1'), api.url('x1')]);
+    assert.equal(a, b);
+    assert.equal(made.length, 1, 'no second URL left unrevoked');
+  } finally { URL.createObjectURL = real; r.mod.stop(); }
+});
+
+test('module: a remove the server refuses leaves the upload queued', async () => {
+  const r = rig({ online: false, refuse: rec => !!rec._deleted });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const a = await api.add(new Blob(['a'], { type: 'text/plain' }));
+  await assert.rejects(api.remove(a.id), /refused/);
+  assert.deepEqual(api.jobs().map(j => [j.id, j.op]), [[a.id, 'put']]);
+  assert.equal(await (await r.cache.get(`_/${a.id}`)).text(), 'a', 'bytes kept');
+  r.mod.stop();
+});
+
+test('module: a file deleted on another device before its upload is not sent', async () => {
+  const r = rig({ online: false });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const a = await api.add(new Blob(['a'], { type: 'text/plain' }));
+  r.copies.set(a.id, { id: a.id, _deleted: true });
+  r.net.online = true;
+  await api.kick();
+  assert.deepEqual(r.calls, [], 'no orphan bytes on the Worker');
+  assert.deepEqual(api.jobs(), []);
+  assert.equal(await r.cache.get(`_/${a.id}`), null);
   r.mod.stop();
 });
