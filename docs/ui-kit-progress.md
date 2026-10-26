@@ -30,11 +30,18 @@ Gotchas found:
   only (bars, tab bar, menus, sheets, action bar).
 - The gallery is the place to check each look at 390 / 820 / 1280.
 
-## For K3 (shell)
+## K3: tablet and laptop shell (done)
 
-- K3 owns `ui/shell/`. Screens push history entries `{ uiScreens: depth }`, sheets `{ uiSheet: id }`; keep both when
-  adding routes. `.ui-screens` sends `ui-screen` events (detail.top) on every change.
+- `app/public/ui/shell/` (`shell.js`, `shell.css`): `adaptiveShell(shell, { screens, render })` sets `data-size`
+  (phone / tablet / laptop at 600 and 840 px), opens rows into the detail, filters rows from the search fields,
+  Ctrl/Cmd+K, Esc and arrow keys. Rules and keys are in [ui-kit.md](ui-kit.md); the sample is `app/public/kit/shell/`.
+- `select-mode.js` gained Ctrl/Cmd-click (add) and Shift-click (range); `detent-sheet.js` leaves a
+  `data-wide="panel"` sheet's height alone from 840 px.
+- No router change: the detail is a pushed `.ui-screen` on a phone, and both panes just show from 600 px.
+- Gotchas: the kit has `[hidden] { display: none !important }`, so the wide layout shows hidden screens with its own
+  `!important`. Playwright needs `PW_CHROMIUM` when the pinned browser build isn't installed.
 
-## K4, K5
+## For K4, K5
 
-- (nothing yet)
+- A real app moves its list into the shell markup and passes its own `render`; Settings follows the rules in
+  [ui-kit.md](ui-kit.md).

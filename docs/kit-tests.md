@@ -24,3 +24,20 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Still | off until picked; on: no lifted preview, no slide; kept after reload | |
 | Reduce Motion | the device setting counts as Still | |
 | Other pages | `startGestures()` on a page without the markup starts nothing | |
+
+## Shell gallery
+
+`/kit/shell/` is tested by `e2e/shell.spec.mjs` at 390, 820 and 1280 px (axe and CSP reports as above). Pure parts
+(`sizeClass`, `matchesSearch`) are in `app/test/shell.unit.test.mjs`.
+
+| Part | What is tested | axe |
+| --- | --- | --- |
+| Layout | phone: tab bar, one pane; tablet and laptop: side bar, list and detail side by side, in order | yes |
+| Open | clicking a row opens it; on a phone it pushes the detail, Back and Esc pop it | |
+| Keyboard | Ctrl/Cmd+K focuses the search; typing filters; Esc clears, then leaves; arrows and Enter work the list | |
+| Pointer | right-click opens the row menu; Ctrl/Cmd-click adds; Shift-click takes a range; the detail summarises a multi-selection; Esc leaves select mode | |
+| Sheets | a side panel at 1280 px, a bottom sheet below; Back and Esc close it | open |
+| Delete | removing from the detail shows an Undo toast; Undo puts the row back | |
+| Resize | the layout follows the width when the window crosses a size class | |
+| Other pages | `startGestures()` on a page without the shell markup starts nothing | |
+
