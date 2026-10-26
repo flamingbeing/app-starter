@@ -14,6 +14,7 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Hold menu | right-click, Shift+F10, the context-menu key; arrows, End, wrap; Esc gives focus back to the row | |
 | Hold menu | Delete removes the row with an Undo toast (no confirm); Undo puts it back in place | |
 | Hold menu | its Select starts select mode with that row ticked; no hold menu while selecting | |
+| Hold menu | a menu for a row near the bottom of the screen stays fully on screen | |
 | Select mode | Select/Done; listbox + aria-selected; tap ticks (doesn't open); drag down the ticks takes a range; action bar replaces the tab bar; `data-needs` enables buttons; Esc leaves | selecting |
 | Sheet | opens at medium; drag up to large, down to medium, down to close (phone); Enter on the grabber cycles; Back closes it; centred dialog from 840 px, bottom edge below | open |
 | Sheet | a drag from a field or a sideways scroller neither moves the sheet nor scrolls the body; the same drag from the body does | |

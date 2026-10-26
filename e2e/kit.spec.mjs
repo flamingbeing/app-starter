@@ -95,6 +95,22 @@ for (const width of [390, 820, 1280]) {
       await page.keyboard.press('Escape');
     });
 
+    test('a menu for a row near the bottom of the screen stays on screen', async ({ sized }) => {
+      const page = await sized(width);
+      await page.goto(KIT);
+      const h = page.viewportSize().height;
+      // a row scrolled to just above the bottom: a menu opened under it would run off the screen
+      const row = page.locator('.ui-row').nth(11);
+      await row.evaluate((e, h) => scrollBy(0, e.getBoundingClientRect().top - (h - 130)), h);
+      expect((await row.boundingBox()).y).toBeGreaterThan(h - 300);
+      await row.click({ button: 'right' });
+      await settled(page);
+      const m = await page.locator('.ui-menu').boundingBox();
+      expect(m.y).toBeGreaterThanOrEqual(0);
+      expect(m.y + m.height).toBeLessThanOrEqual(h);
+      await page.keyboard.press('Escape');
+    });
+
     test('Delete from the menu: gone, with a toast that puts it back (no "are you sure")', async ({ sized }) => {
       const page = await sized(width);
       await page.goto(KIT);

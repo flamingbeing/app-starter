@@ -21,6 +21,8 @@ Gotchas found:
 - Chrome gives a modal `<dialog>` `overflow: auto`; a sheet must set `overflow: hidden` or a drag scrolls the whole sheet.
 - A sideways scroller is its own scroll container, so its `touch-action` must match the sheet body's rule.
 - Folders in `public/` (like `kit/`) needed the Worker's no-slash redirect to look in `public/` too.
+- Measure the hold menu after its layer opens: a closed layer is `display: none`, so the menu measures 0 and lands off
+  screen near the bottom.
 
 ## For K2 (looks and tokens)
 

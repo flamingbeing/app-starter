@@ -96,11 +96,11 @@ export function holdMenus(root = document) {
     menu.append(tpl.content.cloneNode(true));
     menu.querySelectorAll('.ui-menu-item').forEach(b => { b.setAttribute('role', 'menuitem'); if (b instanceof HTMLButtonElement) b.type = 'button'; });
     layer.append(preview, menu);
+    layer.classList.add('is-open');   // before measuring: a closed layer is display:none, so the menu would measure 0
     const p = placeMenu(r, { w: menu.offsetWidth, h: menu.offsetHeight }, { w: innerWidth, h: innerHeight }, at);
     menu.style.left = `${p.left}px`;
     menu.style.top = `${p.top}px`;
     menu.style.setProperty('--ui-menu-origin', p.below ? '50% 0' : '50% 100%');
-    layer.classList.add('is-open');
     html.classList.add('ui-menu-open');
     requestAnimationFrame(() => {
       preview.style.top = `${p.previewTop}px`;
