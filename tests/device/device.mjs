@@ -196,7 +196,11 @@ try {
       await ctxA.setOffline(true); await ctxBx.setOffline(true);
       await edit(a, t, `${t}-A`); await edit(b, t, `${t}-B`);
       await ctxA.setOffline(false); await synced(a);
-      await ctxBx.setOffline(false); await synced(b);
+      await ctxBx.setOffline(false);
+      // B's save meets A's edit: the kit holds it as a conflict until the person chooses (#attention -> Keep mine), then it sends
+      await until(async () => await b.locator('#attention').isVisible() || await b.evaluate(() => window.starter?.status === 'synced'), 'B synced or holding a conflict', 30_000);
+      if (await b.locator('#attention').isVisible()) { await b.click('#attention'); await b.getByRole('button', { name: 'Keep mine' }).first().click(); }
+      await synced(b);
       let rows;
       await until(async () => {
         await a.reload(); await a.locator('#list-view').waitFor();
