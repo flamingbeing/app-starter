@@ -3,6 +3,7 @@
 // stays open, says so, and Save adds their text back as a new item. (An item not on the server yet is only "gone" once
 // it was seen there.) Its photos and files (@core/files) are listed under the text: add one, open one, remove one.
 import { confirmModal } from '@core/ui';
+import { REFUSED } from '../cloud.js';
 import { $, input, dialog } from '../dom.js';
 import { attachmentRows } from './attachments.js';
 
@@ -51,8 +52,8 @@ export function itemSheet(app, toast, filesOf) {
     const item = editing; editing = null;
     if (sheet.returnValue === 'save' && item) {
       const text = input('edit-text').value.trim();
-      if (text && editingGone) await app.add(text);
-      else if (text && text !== item.text) { await app.edit(item, text); toast('Saved'); }
+      if (text && editingGone) { if (await app.add(text)) toast(REFUSED); }
+      else if (text && text !== item.text) toast(await app.edit(item, text) ? REFUSED : 'Saved');
     }
   });
   $('edit-delete').addEventListener('click', async () => {

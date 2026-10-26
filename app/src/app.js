@@ -26,8 +26,15 @@ updatePrompt($('update-prompt'), { update: app?.update || null });
 
 if (!app) notSetUpScreen().show({ phase: 'not-set-up' });
 else {
-  syncChip($('sync-chip'), { sync: app.sync });
-  app.sync.status$((/** @type {{ state: string }} */ st) => { window.starter.status = st.state; });
+  // the chip and the tests' status read the whole app (sync and files), not the sync module alone: "Saved" only when
+  // nothing is unsent anywhere, the same count sign-out reports. (The files module says 'saving'; the chip's word is 'pending'.)
+  /** @param {(st: { state: string, count: number }) => void} fn */
+  const chipStatus$ = fn => app.status$(st => {
+    const state = st.state === 'saving' ? 'pending' : st.state;
+    fn(state === 'synced' && st.unsent > 0 ? { state: 'pending', count: st.unsent } : { state, count: st.count });
+  });
+  syncChip($('sync-chip'), { sync: /** @type {any} */ ({ status$: chipStatus$ }) });   // (the chip reads only status$)
+  chipStatus$(st => { window.starter.status = st.state; });
   let signedIn = false;
   settingsSheet(app, () => signedIn);
   const list = listScreen(app);

@@ -58,3 +58,19 @@ test('a role change reaches the page by itself (role doc v ahead of the token)',
   await db.del(`members/${uid}`);
   await expect(page.locator('#no-access')).toBeVisible({ timeout: 15_000 });
 });
+
+// A token refresh restarts Firestore's Listen stream; a role change written just then must still reach the page (the
+// Firestore emulator before v1.22 lost such changes: firebase-tools is pinned past it, package.json "rules")
+test('a role change during a token refresh still reaches the page', async ({ phone }) => {
+  const page = await phone();
+  const { uid } = await signIn(page, 'viewer');
+  const refresh = () => page.evaluate(async () => { const { getAuth } = await import('firebase/auth'); void getAuth().currentUser?.getIdToken(true); });
+  for (let v = 2; v < 10; v += 2) {
+    await refresh();
+    await db.put(`members/${uid}`, { role: 'member', v });
+    await expect(page.locator('#add')).toBeVisible();
+    await refresh();
+    await db.put(`members/${uid}`, { role: 'viewer', v: v + 1 });
+    await expect(page.locator('#add')).toBeHidden();
+  }
+});
