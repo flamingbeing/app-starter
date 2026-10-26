@@ -4,12 +4,15 @@
 //   2 two devices: edit + delete on one, seen on the other
 //   3 offline save, sign out, sign in: nothing lost
 //   4 installed app, new deploy, update works (two phases: `install` before the deploy, `update` after it)
+// Extra checks (`--phase=extra`, run after the four on a good deploy; not part of `all`):
+//   5 the same item edited offline on both devices: both reconnect, both end on the same text, nothing lost or doubled
+//   6 twelve offline saves, force-quit, reconnect, then six saves while the network flaps: all arrive once, none doubled
 // Device A is a phone-sized Chromium context, or real Chrome on an Android emulator with ANDROID=1 (Playwright's
 // _android API over adb); device B is always a phone-sized Chromium context.
 // Needs: DEVICE_URL (https://sandbox-app.flamingbeing.com), DEVICE_EMAIL, DEVICE_PASSWORD (the test-bot user; it must
 // already hold the member role on that app: claim g._=member plus a members/<uid> doc, which the tests do not create),
 // and the app's firebase config (read from DEVICE_URL's app/src/config.js).
-// Run:  node tests/device/device.mjs [--phase=all|install|update] [--out=tests/device/out]
+// Run:  node tests/device/device.mjs [--phase=all|install|update|extra] [--out=tests/device/out]
 // Needs @playwright/test's `playwright` package (1.56+). Exit code 0 only when every check passed. Writes
 // <out>/results.json and one screenshot per check. Emulator: stop it afterwards (the script never leaves one running).
 import { chromium, devices, _android } from 'playwright';
@@ -82,9 +85,10 @@ const tap = async loc => {
 };
 const shot = (page, name) => page.screenshot({ path: `${out}/${name}.png` }).catch(() => {});
 
+let note;
 async function check(name, fn) {
-  const t0 = Date.now();
-  try { await fn(); results.push({ name, pass: true, seconds: Math.round((Date.now() - t0) / 1000) }); console.log('PASS', name); }
+  const t0 = Date.now(); note = undefined;
+  try { await fn(); results.push({ name, pass: true, seconds: Math.round((Date.now() - t0) / 1000), ...(note && { note }) }); console.log('PASS', name, note || ''); }
   catch (e) {
     results.push({ name, pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL', name, '-', e.message);
     // a failed check must not leave device A offline or without a page for the next one
@@ -99,7 +103,7 @@ async function check(name, fn) {
 async function cleanup(page) {
   if (!page || page.isClosed()) return;
   await page.goto(`${URL_}/app/?sw`).catch(() => {});
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     const row = page.locator('#items button', { hasText: RUN }).first();
     if (!(await row.count())) return;
     await row.click();
@@ -134,6 +138,8 @@ try {
 
   if (phase !== 'update') {
     await signIn(a, cfg); await signIn(b, cfg);
+  }
+  if (phase !== 'update' && phase !== 'extra') {
 
     await check('1 offline save, force-quit, reopen, reconnect', async () => {
       const t = uniq('off');
@@ -175,6 +181,51 @@ try {
       await synced(a);
       await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#items').innerText()).includes(t); }, 'sent after sign-in', 40_000);
       await shot(a, '3-sign-out-in');
+    });
+  }
+
+  if (phase === 'extra') {
+    const ctxBx = b.context();
+    const listB = async prefix => { await b.reload(); await b.locator('#list-view').waitFor(); return b.locator('#items button', { hasText: prefix }).allInnerTexts(); };
+    const edit = async (page, from, to) => { await page.getByRole('button', { name: from }).click(); await page.fill('#edit-text', to); await page.click('#edit-save'); await page.locator('#items', { hasText: to }).waitFor(); };
+
+    await check('5 same item edited offline on both devices: converges, nothing lost or doubled', async () => {
+      const t = uniq('conf');
+      await add(a, t); await synced(a);
+      await b.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await ctxA.setOffline(true); await ctxBx.setOffline(true);
+      await edit(a, t, `${t}-A`); await edit(b, t, `${t}-B`);
+      await ctxA.setOffline(false); await synced(a);
+      await ctxBx.setOffline(false); await synced(b);
+      let rows;
+      await until(async () => {
+        await a.reload(); await a.locator('#list-view').waitFor();
+        const ra = await a.locator('#items button', { hasText: t }).allInnerTexts(); const rb = await listB(t);
+        rows = [ra, rb];
+        return ra.length === 1 && rb.length === 1 && ra[0] === rb[0];
+      }, 'both devices end on one and the same item', 45_000);
+      note = `winner: ${/-A/.test(rows[0][0]) ? 'A (first to reconnect)' : 'B'}`;
+      await shot(a, '5-conflict');
+    });
+
+    await check('6 many offline saves, force-quit, reconnect, then a flapping network: all arrive once', async () => {
+      const t = uniq('many');
+      await ctxA.setOffline(true);
+      for (let i = 0; i < 12; i++) await add(a, `${t}-q${String(i).padStart(2, '0')}`);
+      await a.close();                         // force-quit with twelve unsent saves
+      await ctxA.setOffline(false);
+      a = await ctxA.newPage(); await a.goto(`${URL_}/app/?sw`); await a.locator('#list-view').waitFor();
+      await synced(a);
+      for (let i = 0; i < 6; i++) {            // network flaps while saving
+        await ctxA.setOffline(i % 2 === 0);
+        await add(a, `${t}-f${i}`);
+        await sleep(300);
+      }
+      await ctxA.setOffline(false); await synced(a);
+      await until(async () => (await listB(t)).length === 18, 'all 18 on the other device', 60_000);
+      const rows = await listB(t);
+      if (new Set(rows).size !== rows.length) throw new Error('doubled items on the other device');
+      await shot(b, '6-many');
     });
   }
 
