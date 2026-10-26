@@ -26,7 +26,7 @@ const REPORTS = '/api/csp';
 // framedBySelf: the sign-in helper pages, which the app's own page frames from this same address
 export function csp({ kit = KIT, project = '', local = false, framedBySelf = false } = {}) {
   const emulators = local ? ['http://127.0.0.1:*', 'http://localhost:*', 'ws://127.0.0.1:*'] : [];
-  const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : [])];
+  const frames = ["'self'", 'https://accounts.google.com', ...(project ? [`https://${project}.firebaseapp.com`] : []), ...emulators.filter(e => e.startsWith('http:'))];   // (WebKit frames the auth emulator)
   const d = {
     'default-src': ["'self'"],
     'script-src': ["'self'", IMPORT_MAP, CORE, GOOGLE_API, kit],

@@ -27,6 +27,13 @@ test('CSP: the emulators only for local pages', () => {
   assert.ok(parse(csp({ local: true }))['connect-src'].includes('http://127.0.0.1:*'));
 });
 
+test('CSP: the emulators may be framed only on local pages (WebKit frames the auth emulator); production is unchanged', () => {
+  assert.ok(parse(csp({ local: true }))['frame-src'].includes('http://127.0.0.1:*'));
+  const prod = parse(csp({ project: 'p1' }));
+  assert.ok(!prod['frame-src'].some(s => /127\.0\.0\.1|localhost/.test(s)));
+  assert.deepEqual(prod['frame-src'], ["'self'", 'https://accounts.google.com', 'https://p1.firebaseapp.com']);
+});
+
 test('report-only until enforced; HSTS off on localhost', () => {
   const names = h => h.map(([k]) => k);
   assert.ok(names(securityHeaders({ enforce: false })).includes('Content-Security-Policy-Report-Only'));
