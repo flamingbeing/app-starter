@@ -57,8 +57,12 @@ export function listScreen(app) {
     e.preventDefault();
     const text = input('new-text').value.trim();
     if (!text) return;
-    const refused = await app.add(text);
-    input('new-text').value = '';   // (a refused save is kept in the refused list, not in the box)
+    // clear the box now, not after the save: on a slow network the next item may be typed while this one saves
+    // (a refused save is kept in the refused list, not in the box)
+    input('new-text').value = '';
+    let refused;
+    try { refused = await app.add(text); }
+    catch (err) { if (!input('new-text').value) input('new-text').value = text; throw err; }   // not saved: give it back
     toast(refused ? REFUSED : 'Added');
   });
 

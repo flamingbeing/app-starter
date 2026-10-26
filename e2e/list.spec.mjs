@@ -74,3 +74,27 @@ test('a role change during a token refresh still reaches the page', async ({ pho
     await expect(page.locator('#add')).toBeHidden();
   }
 });
+
+test('typing the next item while the last one saves keeps the new draft (slow or offline network)', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await synced(page);
+  await page.context().setOffline(true);
+  const first = uniq('first'), second = uniq('second');
+  // both user actions in one task, so the next draft is typed before the first save resolves
+  await page.evaluate(({ first, second }) => {
+    const box = /** @type {HTMLInputElement} */ (document.querySelector('#new-text'));
+    box.value = first;
+    /** @type {HTMLFormElement} */ (document.querySelector('#add')).requestSubmit();
+    box.value = second;
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  }, { first, second });
+  await expect(page.locator('#items')).toContainText(first);
+  await expect(page.locator('#new-text')).toHaveValue(second);
+  await page.click('#add button[type=submit]');
+  await expect(page.locator('#items')).toContainText(second);
+  await expect(page.locator('#new-text')).toHaveValue('');
+  await page.context().setOffline(false);
+  await serverHas(first);
+  await serverHas(second);
+});
