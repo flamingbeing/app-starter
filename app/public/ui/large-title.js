@@ -19,8 +19,10 @@ export function largeTitle(bar, title) {
     requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove('ui-bar-instant')));
     if (!t) return;
     if (typeof IntersectionObserver !== 'function') { bar.classList.add('is-collapsed'); return; }
+    // collapse when the title's words reach the bar: a band look pads the title below its words, so leave that out
+    const below = parseFloat(getComputedStyle(t).paddingBottom) || 0;
     io = new IntersectionObserver(e => bar.classList.toggle('is-collapsed', !e[e.length - 1].isIntersecting),
-      { rootMargin: `-${bar.offsetHeight}px 0px 0px 0px`, threshold: 0 });
+      { rootMargin: `-${Math.round(bar.offsetHeight + below)}px 0px 0px 0px`, threshold: 0 });
     io.observe(t);
   }
   watch(title ?? [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ui-large-title'))].find(t => t.offsetParent !== null) ?? null);

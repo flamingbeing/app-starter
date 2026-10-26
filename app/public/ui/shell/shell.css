@@ -16,6 +16,8 @@
 /* ---------- tablet and laptop: side bar + list + detail ---------- */
 @media (min-width: 600px) {
   :root { --shell-side: 11rem; --shell-list: 19rem; }
+  /* the panes scroll, not the page: glass.css's scroll-edge veil would only blur the pane headings under it */
+  .glass body:has(> .ui-shell)::before { content: none; }
   .ui-shell { display: grid; grid-template-columns: var(--shell-side) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
   .ui-shell .ui-bar, .ui-shell .ui-tabbar, .ui-shell .ui-phone-search, .ui-shell .ui-back { display: none; }
 
@@ -40,6 +42,9 @@
   .ui-pane-list .ui-row[aria-current="true"] { background: var(--selection); }
   .ui-pane-detail { padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) calc(var(--pad) * 2) var(--pad); }
   .ui-pane-detail .ui-large-title { margin-inline: 0; font-size: 1.6rem; }
+  /* a band look: the band runs to the pane's edges and top, as the phone's runs to the screen's, not a floating card */
+  [data-header="band"] .ui-pane-detail .ui-large-title { margin: calc(-1 * (env(safe-area-inset-top, 0px) + var(--pad))) calc(var(--pad) * -2) var(--pad);
+    padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) calc(var(--pad) * 2) var(--pad); }
   /* select mode: the actions sit in the list pane, not over the content */
   .ui-pane-list .ui-action-bar { position: static; margin: 0 var(--pad) var(--gap); max-width: none; }
 }
