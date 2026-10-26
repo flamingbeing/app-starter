@@ -56,7 +56,10 @@ test('a save the server refuses waits in a list until retried or discarded', asy
   const page = await phone();
   await signIn(page, 'member');
   await synced(page);
-  await page.evaluate(() => window.starter.add('x'.repeat(501)));   // the rules refuse text over 500
+  // the rules refuse text over 500. app-sync may reject the save at once (a fast refusal) or queue it first; either way
+  // the add resolves (to '' or the reason), never throws into the page, and the copy waits in the refused list
+  const said = await page.evaluate(() => window.starter.add('x'.repeat(501)));
+  expect(typeof said).toBe('string');
   await expect(page.locator('#refused li')).toHaveCount(1, { timeout: 15_000 });
   await page.click('#refused li button.discard');
   await expect(page.locator('#refused li')).toHaveCount(0);

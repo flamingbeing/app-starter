@@ -31,6 +31,8 @@ import { OPTIONS, SETTINGS_COLL } from './options.js';
 export { usingEmulator } from './roles.js';
 const SPACE = '_';
 export const COLL = 'items';
+/** what the page says when the server refused a save at once (its copy waits in the refused list) */
+export const REFUSED = 'The server refused that. A copy is kept in the refused list.';
 export const FILES = 'files';
 
 /** @typedef {{ id: string, text: string, updatedAt?: unknown, _deleted?: boolean } & Record<string, unknown>} Item */
@@ -177,6 +179,8 @@ export async function start({ canReload = null }) {
   };
   app.auth.onUser(() => { claimsStatus = 0; void show(); });
 
+  /** @param {Promise<unknown>} saving */
+  const refusal = saving => saving.then(() => '', e => (e instanceof Error && e.message) || 'The server refused it');
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
@@ -184,11 +188,13 @@ export async function start({ canReload = null }) {
     // from now on: onState with what the page shows, onList with the list once it is shown
     /** @param {Hooks} h */
     follow(h) { hooks = h; void show(); },
-    /** @param {string} text */
-    add: text => app.sync.save(COLL, SPACE, { id: id(), text }, null),
+    // add and edit resolve to '' when the save is stored or queued, or to the reason when the server refused it at
+    // once (app-sync rejects then; the copy waits in the refused list, so the page says so rather than fail)
+    /** @param {string} text @returns {Promise<string>} */
+    add: text => refusal(app.sync.save(COLL, SPACE, { id: id(), text }, null)),
     // base: the copy the edit started from
-    /** @param {Item} item @param {string} text */
-    edit: (item, text) => app.sync.save(COLL, SPACE, { ...item, text }, item),
+    /** @param {Item} item @param {string} text @returns {Promise<string>} */
+    edit: (item, text) => refusal(app.sync.save(COLL, SPACE, { ...item, text }, item)),
     // a delete takes the item's photos and files with it
     /** @param {Item} item @param {Attachment[]} [attached] */
     remove: async (item, attached = []) => {
