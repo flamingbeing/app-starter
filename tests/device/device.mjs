@@ -72,6 +72,13 @@ async function signIn(page, cfg) {
 }
 const synced = page => until(() => page.evaluate(() => window.starter?.status === 'synced'), 'status synced', 30_000);
 const add = async (page, text) => { await page.fill('#new-text', text); await page.click('#add button[type=submit]'); await page.locator('#items', { hasText: text }).waitFor(); };
+// Click that survives the phone's soft keyboard resizing the viewport after a filled field (Android: the dialog's
+// button is then reported not visible): drop focus, bring it into view, and fall back to a DOM click.
+const tap = async loc => {
+  await loc.page().evaluate(() => document.activeElement?.blur?.()).catch(() => {});
+  await loc.scrollIntoViewIfNeeded().catch(() => {});
+  try { await loc.click({ timeout: 8_000 }); } catch { await loc.dispatchEvent('click'); }
+};
 const shot = (page, name) => page.screenshot({ path: `${out}/${name}.png` }).catch(() => {});
 
 async function check(name, fn) {
@@ -95,8 +102,8 @@ async function cleanup(page) {
     const row = page.locator('#items button', { hasText: RUN }).first();
     if (!(await row.count())) return;
     await row.click();
-    await page.click('#edit-delete');
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await tap(page.locator('#edit-delete'));
+    await tap(page.getByRole('button', { name: 'Delete', exact: true }));
     await sleep(500);
   }
 }
@@ -149,8 +156,8 @@ try {
       await a.fill('#edit-text', t2); await a.click('#edit-save'); await synced(a);
       await b.locator('#items', { hasText: t2 }).waitFor({ timeout: 30_000 });
       await a.getByRole('button', { name: t2 }).click();
-      await a.click('#edit-delete');
-      await a.getByRole('button', { name: 'Delete', exact: true }).click();
+      await tap(a.locator('#edit-delete'));
+      await tap(a.getByRole('button', { name: 'Delete', exact: true }));
       await synced(a);
       await until(async () => !(await b.locator('#items').innerText()).includes(t2), 'delete seen on the other device', 30_000);
       await shot(b, '2-two-devices');
