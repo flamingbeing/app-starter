@@ -14,8 +14,8 @@ import { fileURLToPath } from 'node:url';
 
 export const KITS = { homedesign: 'https://design.flamingbeing.com', nuhs: 'https://design.anawj.com' };
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
-// never changed: these two name the placeholders on purpose; the other two are app-devkit's files (CI compares them)
-const KEEP = ['tools/fill.mjs', 'tools/test/fill.test.mjs', 'worker/claims.js', 'worker/custom-token.js'];
+// never changed: these three name the placeholders on purpose; the other two are app-devkit's files (CI compares them)
+const KEEP = ['tools/fill.mjs', 'tools/test/fill.test.mjs', 'tools/test/update-from-starter.test.mjs', 'worker/claims.js', 'worker/custom-token.js'];
 const TEXT = /\.(m?js|json|jsonc|html|css|md|webmanifest|rules|ya?ml|svg|txt)$|^\.[a-z]+ignore$/;
 
 const RULES = {
@@ -66,6 +66,8 @@ export function swapsFor(old, app) {
   ];
 }
 export const KEEP_FILES = KEEP;
+// whether fill (and the update path) treats a file as text it swaps the values in
+export const isText = rel => TEXT.test(rel.split('/').pop()) && !KEEP.includes(rel);
 // per-file settings that are not a plain swap (also used by the drift report)
 export const fixup = (rel, text, app) => rel === 'wrangler.jsonc' ? text.replace(/("FIREBASE_PROJECT":\s*")[^"]*(")/, `$1${app.project}$2`) : text;
 

@@ -26,6 +26,9 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - `app/public/sw.js`'s SHELL list is generated: after adding or removing a file the page loads, or bumping app-sync,
   run `node tools/sw-files.mjs app`. Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
   (never edit `app/public/vendor/`). Both have a `--check` in CI ([decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
+- New library, own-host sign-in, live smoke test, template updates: go through
+  [docs/new-app-checklist.md](docs/new-app-checklist.md). `@core/files` `url()` is a page-local `blob:` URL; hand a
+  file on with `files.blob(id)`. App-sync bumps: `node tools/update-from-starter.mjs --sync <x.y.z>`.
 - Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt`). No install buttons.
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports
   ([decision 0003](docs/decisions/0003-csp-report-only-first.md)); the browser tests already fail on any report.
