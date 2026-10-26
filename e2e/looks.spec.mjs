@@ -72,8 +72,8 @@ for (const width of [390, 820, 1280]) {
   });
 }
 
-test('densities: rows 60, 50 and 44 px; taps never under 44; the switcher keeps a pick and drops the link\'s preview', async ({ phone }) => {
-  const page = await phone();
+test('densities: rows 60, 50 and 44 px; taps never under 44; the switcher keeps a pick and drops the link\'s preview', async ({ sized }) => {
+  const page = await sized(390);   // (the gallery loads no app bundle: not the phone fixture's APP_DIR check)
   const row = () => page.locator('#plants .ui-row').first().evaluate(e => e.getBoundingClientRect().height);
   for (const [density, h] of [['comfortable', 60], ['regular', 50], ['compact', 44]]) {
     await page.goto(`${KIT}&density=${density}`);
