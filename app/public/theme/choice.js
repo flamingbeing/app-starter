@@ -27,6 +27,11 @@ let sheet = null;
 
 /** @typedef {import('./schema.js').Choice} Choice */
 
+/** @type {Choice | null}  a look shown without keeping it (previewTheme), until the next pick */
+let shown = null;
+/** @type {(() => void) | null} */
+let stopGuard = null;
+
 /** @param {string | null} stored  what KEY holds -> the choice it names, defaults where it names none */
 export function parseChoice(stored) {
   let saved = null;
@@ -87,11 +92,6 @@ export function applyTheme(appTheme = {}) {
   show(shown ?? themeChoice());
   if (!stopGuard) stopGuard = startGuard(() => show(shown ?? themeChoice()));
 }
-
-/** @type {Choice | null}  a look shown without keeping it (previewTheme), until the next pick */
-let shown = null;
-/** @type {(() => void) | null} */
-let stopGuard = null;
 
 /** @param {Partial<Choice>} change  shows the choice with this change on this page only, keeping nothing (the
  *  gallery's ?look= links) @returns {Choice} */

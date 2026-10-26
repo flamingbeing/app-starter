@@ -15,8 +15,9 @@ import c from './looks/c.js';
  * @typedef {{ header: 'band' | 'plain', menu: 'popover' | 'sheet', glass: 'bars' | 'pill' | 'none',
  *   tick: 'round' | 'square', tabbar: 'float' | 'edge' }} Variants
  * tokens: custom properties (without the --) every look sets, the same keys in each: look-font-head, title-size,
- * title-weight, title-track, bar-line, card-r, list-inset, list-sep, list-shadow, row-weight, control-r, pill-r,
- * menu-r, sheet-r, tick-size, tab-active, glass-tint
+ * title-weight, title-track, bar-line, card-r, list-inset, list-edge,
+ * list-sep, list-shadow, row-weight, control-r, pill-r,
+ * menu-r, sheet-r, tick-size, tab-active, glass-tint (how much accent the glass takes, a percentage)
  * @typedef {{ id: string, name: string, desc: string, variants: Variants, tokens: Record<string, string> }} Look
  */
 

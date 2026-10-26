@@ -12,11 +12,11 @@ export default {
     'title-size': '1.375rem', 'title-weight': '700', 'title-track': '0',
     'bar-line': 'var(--line)',
     'card-r': '0', 'list-inset': '0',
-    'list-sep': 'color-mix(in srgb, var(--line) 35%, transparent)', 'list-shadow': 'none',
+    'list-edge': 'var(--line)', 'list-sep': 'color-mix(in srgb, var(--line) 35%, transparent)', 'list-shadow': 'none',
     'row-weight': '400',
     'control-r': 'var(--radius)', 'pill-r': 'calc(var(--radius-l) * 1.2)',
     'menu-r': 'var(--radius-l)', 'sheet-r': 'calc(var(--radius-l) * 1.33)',
     'tick-size': '20px', 'tab-active': 'transparent',
-    'glass-tint': 'transparent',
+    'glass-tint': '0%',
   },
 };

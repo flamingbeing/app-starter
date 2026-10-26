@@ -13,3 +13,5 @@ body { margin: 0 auto; max-width: 48rem; padding: 0 0 calc(var(--tap) * 2 + env(
 .kit-chips button { flex: none; }
 /* toasts sit above the tab bar */
 .toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }
+.kit-looks { margin: 0 var(--pad) var(--pad); }
+.kit-looks .theme-switch { gap: var(--pad); }
