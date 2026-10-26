@@ -250,7 +250,10 @@ try {
       if (now === before) throw new Error('the deployed sw.js is unchanged: deploy a new version first');
       await a.goto(`${URL_}/app/?sw`);     // the installed (old) worker starts the page
       await a.evaluate(() => { window.__same = true; });
-      await a.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+      const reg = () => a.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r ? { active: r.active?.state, waiting: !!r.waiting, installing: !!r.installing, controlled: !!navigator.serviceWorker.controller } : null)).catch(e => ({ error: String(e.message || e).slice(0, 80) }));
+      console.log('4b registration on the old version:', JSON.stringify(await reg()));
+      // the app's own update check may already be swapping the worker (a nudge that finds no registration or a worker mid-swap is fine)
+      await a.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r && r.update())).catch(() => {});
       await until(() => a.evaluate(() => window.__same).then(v => v === undefined).catch(() => true), 'page reloaded onto the new version', 45_000);
       await a.locator('#list-view').waitFor({ timeout: 30_000 });
       await shot(a, '4b-updated');
