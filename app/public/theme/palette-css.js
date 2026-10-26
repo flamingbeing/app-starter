@@ -5,13 +5,14 @@
 import { lightPalette, darkPalette, floor, glassStrengths } from './colour.js';
 import { PRESETS, SURFACES } from './presets.js';
 import { cleanChoice } from './schema.js';
+import { lookOf } from './looks.js';
 
 // The app's colour when it names none (applyTheme({ accent })): v0's light accent
 export const DEFAULT_ACCENT = '#3a6390';
 
 /** @typedef {import('./schema.js').Choice} Choice */
 /** @typedef {import('./colour.js').Palette} Palette */
-/** @typedef {{ accent?: string }} AppTheme  the app's own defaults (config) */
+/** @typedef {{ accent?: string, look?: string }} AppTheme  the app's own defaults (config): accent colour, look id */
 
 /** @param {Partial<Choice>} choice */
 const presetOf = choice => PRESETS.find(p => p.id === choice.preset) ?? PRESETS[0];
@@ -43,7 +44,8 @@ export function shapeTokens(choice) {
   return {
     'radius-s': s, radius: m, 'radius-l': l, border: `${p.border ?? 1}px`,
     shadow: p.shadow === false ? 'none' : '0 1px 3px rgb(0 0 0 / .14)',
-    'font-head': p.head === 'serif' ? 'ui-serif, Georgia, "Times New Roman", serif' : 'inherit',
+    // (a serif theme wins; else the look's heading face)
+    'font-head': p.head === 'serif' ? 'ui-serif, Georgia, "Times New Roman", serif' : 'var(--look-font-head, inherit)',
     leading: String(p.leading ?? 1.5),
   };
 }
@@ -65,14 +67,16 @@ export function glassTokens(p, choice) {
 const decl = t => Object.entries(t).map(([k, v]) => `--${k}: ${v};`).join(' ');
 
 /**
- * The CSS text for a choice: light on :root, dark when chosen or when Auto meets a dark device.
+ * The CSS text for a choice: the look's tokens and the theme's shapes, light on :root, dark when chosen or when Auto
+ * meets a dark device.
  * @param {Partial<Choice>} choice @param {AppTheme} [app] @returns {string}
  */
 export function paletteCss(choice, app = {}) {
   const { light, dark } = palettes(choice, app);
   const l = decl({ ...light, ...glassTokens(light, choice) }), d = decl({ ...dark, ...glassTokens(dark, choice) });
+  const look = lookOf(cleanChoice(choice).look, app.look);
   return [
-    `:root { ${decl(shapeTokens(choice))} ${l} }`,
+    `:root { ${decl(look.tokens)} ${decl(shapeTokens(choice))} ${l} }`,
     `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${d} } }`,
     `:root[data-theme="dark"] { ${d} }`,
   ].join('\n');
