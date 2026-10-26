@@ -32,12 +32,15 @@ const seed = () => {
   } catch { /* an opaque origin: nothing to keep */ }
 };
 
+// Firefox has no mobile emulation (isMobile throws); touch and the viewport work everywhere
+const touch = (browserName, mobile = true) => ({ hasTouch: true, ...(mobile && browserName !== 'firefox' ? { isMobile: true } : {}) });
+
 export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
-  phone: async ({ browser }, use) => {
+  phone: async ({ browser, browserName }, use) => {
     const made = [];
     await use(async () => {
-      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...touch(browserName) });
       await context.addInitScript(seed);
       const served = { n: 0, built: 0 };
       if (SYNC_DIR) await routeSync(context, served);
@@ -50,11 +53,11 @@ export const test = base.extend({
     await check(made);
   },
   // a touch screen of this width (390 phone, 820 tablet, 1280 laptop with touch): the same CSP check after the test
-  sized: async ({ browser }, use) => {
+  sized: async ({ browser, browserName }, use) => {
     const made = [];
     await use(async (/** @type {number} */ width) => {
       const height = width < 600 ? 844 : width < 1000 ? 1180 : 800;
-      const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 1000, hasTouch: true });
+      const context = await browser.newContext({ viewport: { width, height }, ...touch(browserName, width < 1000) });
       await context.addInitScript(seed);
       const page = await context.newPage();
       made.push({ context, page, served: null });
