@@ -10,9 +10,10 @@ if (edge === 'always' || edge === 'off') document.documentElement.dataset.edgeBa
 
 // the other tabs are the same page (the gallery has one list); the tab bar shows which was picked
 const tab = new URLSearchParams(location.search).get('tab');
-for (const a of document.querySelectorAll('.ui-tab')) {
-  const mine = (a.getAttribute('href') || '').includes(`tab=${tab}`) || (!tab && a.getAttribute('href') === './');
-  if (mine) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+for (const a of /** @type {NodeListOf<HTMLAnchorElement>} */ (document.querySelectorAll('a.ui-tab'))) {
+  const t = a.dataset.tab;
+  if (t) a.href = `?tab=${t}`;
+  if ((t || null) === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
 }
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
