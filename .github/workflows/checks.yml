@@ -130,8 +130,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/new-app"
           tar --exclude=.git -cf - . | tar -xf - -C "$RUNNER_TEMP/new-app"
           cd "$RUNNER_TEMP/new-app"
-          node tools/fill.mjs --name fill-check --host fill-check.example.net --kit nuhs --project fill-check-app --commit "$GITHUB_SHA"
-          node tools/fill.mjs --name fill-check --host fill-check.example.net --kit nuhs --project fill-check-app --commit "$GITHUB_SHA" --check
+          # a made-up web config (what `firebase apps:sdkconfig WEB` prints): the "configured" path, not the blank one
+          FAKE_KEY="fake-$(openssl rand -hex 8)"
+          jq -n --arg k "$FAKE_KEY" '{sdkConfig: {projectId: "fill-check-app", apiKey: $k, appId: "1:0:web:made-up"}}' > "$RUNNER_TEMP/web-config.json"
+          ARGS=(--name fill-check --host fill-check.example.net --kit nuhs --project fill-check-app --web-config "$RUNNER_TEMP/web-config.json" --commit "$GITHUB_SHA")
+          node tools/fill.mjs "${ARGS[@]}"
+          node tools/fill.mjs "${ARGS[@]}" --check
+          grep -qF "$FAKE_KEY" app/src/config.js
           ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=claims.js --exclude=custom-token.js -e 'starter-app' -e 'app\.example\.com' .
       - name: Checks on the filled app
         working-directory: ${{ runner.temp }}/new-app
@@ -147,3 +152,14 @@ jobs:
       - name: Browser tests on the filled app
         working-directory: ${{ runner.temp }}/new-app
         run: npx playwright test
+      - name: Vite build of the filled app
+        working-directory: ${{ runner.temp }}/new-app
+        run: npm run vite
+      - name: Browser tests on the filled app's Vite build
+        working-directory: ${{ runner.temp }}/new-app
+        run: npx playwright test
+        env:
+          APP_DIR: dist
+      - name: Worker build of the filled app (wrangler dry run, no account)
+        working-directory: ${{ runner.temp }}/new-app
+        run: npx -y wrangler@4.45.0 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
