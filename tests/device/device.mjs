@@ -40,7 +40,7 @@ async function until(fn, what, ms = 20_000) {
 // Sign in through the identity REST API and hand the session to the page (the starter has Google sign-in only).
 async function config() {
   const src = await (await fetch(`${URL_}/app/src/config.js`)).text();
-  const pick = k => (src.match(new RegExp(`${k}\\s*:\\s*['"]([^'"]+)['"]`)) || [])[1];
+  const pick = k => (src.match(new RegExp(`["']?${k}["']?\\s*:\\s*["']([^"']+)["']`)) || [])[1];
   return { apiKey: pick('apiKey'), authDomain: pick('authDomain') };
 }
 async function signIn(page, cfg) {
@@ -51,8 +51,10 @@ async function signIn(page, cfg) {
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true }) });
     const j = await r.json();
     if (!j.idToken) throw new Error('sign-in refused');
-    const user = { uid: j.localId, email: j.email, emailVerified: true, apiKey, appName: '[DEFAULT]', authDomain,
-      stsTokenManager: { refreshToken: j.refreshToken, accessToken: j.idToken, expirationTime: Date.now() + 3_500_000 }, createdAt: String(Date.now()), lastLoginAt: String(Date.now()) };
+    const now = Date.now();   // the user shape app-devkit's signInViaApi stores (the page makes the call: the API key allows only the app's own origin)
+    const user = { uid: j.localId, email: j.email, emailVerified: false, isAnonymous: false, apiKey, appName: '[DEFAULT]', authDomain,
+      providerData: [{ providerId: 'password', uid: j.email, email: j.email, displayName: null, phoneNumber: null, photoURL: null }],
+      stsTokenManager: { refreshToken: j.refreshToken, accessToken: j.idToken, expirationTime: now + Number(j.expiresIn || 3600) * 1000 }, createdAt: String(now), lastLoginAt: String(now) };
     const open = indexedDB.open('firebaseLocalStorageDb', 1);
     open.onupgradeneeded = () => open.result.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
     await new Promise((res, rej) => { open.onerror = () => rej(open.error); open.onsuccess = () => {
