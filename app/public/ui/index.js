@@ -20,3 +20,5 @@ export { detentSheet } from './detent-sheet.js';
 export { screenStack } from './screens.js';
 export { selectMode } from './select-mode.js';
 export { still, haptic } from './gesture.js';
+// the adaptive shell (ui/shell/shell.css): phone tab bar, tablet and laptop side bar with list and detail
+export { adaptiveShell, sizeClass, matchesSearch } from './shell/shell.js';

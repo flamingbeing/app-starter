@@ -1,0 +1,58 @@
+/* @core/ui shell: the phone, tablet and laptop layouts of one page (ui/shell/shell.js), on @core/theme's custom
+   properties (load after theme.css, ui.css and gestures.css). Looks and tokens are the theme's; this file only lays out. */
+
+.ui-row[hidden], .ui-shell [hidden] { display: none; }
+.ui-sidebar, .ui-pane-head { display: none; }
+.ui-pane-head button, .ui-detail-actions button { min-height: var(--tap); border: 0; border-radius: var(--radius); background: var(--selection); color: var(--text); padding: 0 var(--pad); }
+.ui-pane-head .ui-primary { background: var(--accent); color: var(--bg); font-weight: 600; }
+.ui-shell kbd { display: none; }
+.ui-search { display: flex; align-items: center; gap: var(--gap); min-height: var(--tap); padding: 0 var(--gap);
+  background: var(--surface); border: var(--border) solid var(--line); border-radius: var(--radius); color: var(--muted); }
+.ui-search input { flex: 1; min-width: 0; min-height: calc(var(--tap) - 4px); border: 0; background: none; color: var(--text); font: inherit; }
+.ui-search input::-webkit-search-cancel-button { display: none; }
+.ui-phone-search { margin: 0 var(--pad) var(--pad); }
+.ui-shell-empty { margin: var(--pad); color: var(--muted); }
+
+/* ---------- tablet and laptop: side bar + list + detail ---------- */
+@media (min-width: 600px) {
+  :root { --shell-side: 11rem; --shell-list: 19rem; }
+  .ui-shell { display: grid; grid-template-columns: var(--shell-side) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
+  .ui-shell .ui-bar, .ui-shell .ui-tabbar, .ui-shell .ui-phone-search, .ui-shell .ui-back { display: none; }
+
+  .ui-sidebar { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: auto;
+    padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) var(--gap) var(--pad);
+    background: var(--surface); border-inline-end: var(--border) solid var(--line); }
+  .ui-sidebar-name { margin: 0; padding: 0 var(--gap) var(--pad); font-size: 1.2rem; }
+  .ui-sidebar .ui-search { margin-bottom: var(--pad); }
+  .ui-side-link { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap);
+    padding: 0 var(--pad); border-radius: var(--radius); color: var(--text); text-decoration: none; }
+  .ui-side-link[aria-current="page"] { background: var(--selection); color: var(--accent); font-weight: 600; }
+  .ui-side-link:hover { background: color-mix(in srgb, var(--selection) 60%, transparent); }
+
+  .ui-panes { display: grid; grid-template-columns: var(--shell-list) minmax(0, 1fr); min-height: 0; overflow: hidden; }
+  /* both panes always show; the screen stack's hidden/transform only matter on a phone (!important: the kit has [hidden] { display: none !important }) */
+  .ui-panes > .ui-screen, .ui-panes > .ui-screen[hidden] { display: block !important; min-height: 0; overflow: auto; transform: none; }
+  .ui-pane-list { border-inline-end: var(--border) solid var(--line); }
+  .ui-pane-head { display: flex; align-items: center; gap: var(--gap); padding: calc(env(safe-area-inset-top, 0px) + var(--gap)) var(--pad) var(--gap); }
+  .ui-pane-title { flex: 1; margin: 0; font-size: 1.1rem; }
+  .ui-pane-list > .ui-large-title { display: none; }
+  .ui-pane-list .ui-list { border-inline: 0; }
+  .ui-pane-list .ui-row[aria-current="true"] { background: var(--selection); }
+  .ui-pane-detail { padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) calc(var(--pad) * 2) var(--pad); }
+  .ui-pane-detail .ui-large-title { margin-inline: 0; font-size: 1.6rem; }
+  /* select mode: the actions sit in the list pane, not over the content */
+  .ui-pane-list .ui-action-bar { position: static; margin: 0 var(--pad) var(--gap); max-width: none; }
+}
+
+@media (min-width: 840px) {
+  :root { --shell-side: 14rem; --shell-list: 24rem; }
+  .ui-shell kbd { display: inline-block; padding: 0 var(--gap); border-radius: var(--radius); background: var(--selection); color: var(--muted);
+    font: inherit; font-size: .8rem; }
+  /* a sheet that opts in is a side panel from here up, not a centred dialog */
+  dialog.ui-sheet[data-wide="panel"] { inset: 0 0 0 auto; margin: 0; width: min(26rem, 100%); max-width: none; height: 100dvh; max-height: none;
+    border-radius: 0; border-width: 0 0 0 var(--border); }
+  dialog.ui-sheet[data-wide="panel"][data-detent] { height: 100dvh; }
+  dialog.ui-sheet[data-wide="panel"] .ui-sheet-grabber { display: none; }
+  dialog.ui-sheet[data-wide="panel"][open] { animation-name: ui-slide-in; }
+}
+@keyframes ui-slide-in { from { transform: translateX(100%); } }

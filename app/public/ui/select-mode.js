@@ -1,7 +1,8 @@
 // Select mode: .ui-list[data-select] with .ui-row rows. [data-edit-for="#list"] buttons switch it on and off (Select /
 // Done); a "ui-edit" event on the list switches it on from code (a hold menu's Select, detail.row ticks that row).
 // While on, the list is a multi-select listbox: a tap ticks a row (no navigation), Space ticks the focused one, Esc
-// leaves, and a finger that starts on the ticks and moves up or down sets the whole range from where it started to
+// leaves, Shift-click ticks the range from the last row clicked and Ctrl/Cmd-click adds one (also outside select mode:
+// they start it from the open row, aria-current), and a finger that starts on the ticks and moves up or down sets the whole range from where it started to
 // where it is now, against the ticks as they were when it started (no flicker going back over rows); the page scrolls
 // near the screen's edges. [data-select-toolbar="#list"] (the bottom action bar) replaces the tab bar; its
 // [data-needs="2-4"] buttons follow the count; [data-select-count="#list"] says how many (a live region);
@@ -92,14 +93,31 @@ export function selectMode(list, { tabBar = /** @type {HTMLElement | null} */ (d
     if (e.detail?.row) { tick(e.detail.row, true); paint(); }
   });
   let dragged = false;
+  /** the row a Shift-click ranges from: the last one ticked or clicked */
+  /** @type {HTMLElement | null} */
+  let anchor = null;
+  /** ticks every shown row between two rows, and nothing else @param {HTMLElement} a @param {HTMLElement} b */
+  function tickRange(a, b) {
+    const shown = rows().filter(r => !r.hidden), i = shown.indexOf(a), j = shown.indexOf(b);
+    const lo = Math.min(i < 0 ? j : i, j), hi = Math.max(i < 0 ? j : i, j);
+    rows().forEach(r => tick(r, false));
+    shown.slice(lo, hi + 1).forEach(r => tick(r, true));
+  }
   l.on(list, 'click', (/** @type {MouseEvent} */ e) => {
-    if (!on()) return;
     const r = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('.ui-row'));
-    if (!r) return;
+    const mod = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (!r || (!on() && !mod)) return;
     e.preventDefault();
     e.stopPropagation();
     if (dragged) { dragged = false; return; }
-    tick(r, !isTicked(r));
+    if (!on()) {   // a pointer user: Ctrl/Cmd-click or Shift-click starts select mode from the open row (aria-current)
+      const open = /** @type {HTMLElement | null} */ (list.querySelector('.ui-row[aria-current="true"]'));
+      setEditing(true);
+      if (e.shiftKey) tickRange(open ?? r, r);
+      else { if (open) tick(open, true); tick(r, true); }
+    } else if (e.shiftKey) tickRange(anchor && !anchor.hidden ? anchor : selected()[0] ?? r, r);
+    else tick(r, !isTicked(r));
+    anchor = r;
     haptic();
     paint();
   }, true);
@@ -115,7 +133,7 @@ export function selectMode(list, { tabBar = /** @type {HTMLElement | null} */ (d
   l.on(document, 'keydown', (/** @type {KeyboardEvent} */ e) => {
     if (e.key === 'Escape' && on() && !document.querySelector('dialog[open]') && !document.documentElement.classList.contains('ui-menu-open')) {
       setEditing(false);
-      toggles[0]?.focus();
+      (toggles.find(t => t.getClientRects().length) ?? toggles[0])?.focus();
     }
   });
 
