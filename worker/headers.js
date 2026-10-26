@@ -1,8 +1,9 @@
 // Security headers for every answer the Worker gives (sites.js). Pure functions, tested in worker/test/headers.test.mjs.
 //
 // The Content-Security-Policy starts as Report-Only (docs/decisions/0003-csp-report-only-first.md): the browser reports
-// what it would have blocked but blocks nothing. Set CSP_ENFORCE to true once a live sign-in, sync and update show no
-// reports (the e2e tests fail on any report already).
+// what it would have blocked but blocks nothing, to /api/csp (worker/csp-report.js, one line each in the Worker log).
+// Set CSP_ENFORCE to true once a live sign-in, sync and update show no reports there (the e2e tests fail on any
+// report already).
 
 // The design kit's origin. tools/fill.mjs sets it from --kit (homedesign or nuhs).
 export const KIT = 'https://design.flamingbeing.com';
@@ -18,6 +19,8 @@ const CORE = 'https://core.anawj.com';
 const GOOGLE_API = 'https://apis.google.com';
 const FONTS_CSS = 'https://fonts.googleapis.com';
 const FONTS = 'https://fonts.gstatic.com';
+// where the browser sends what the policy blocked (or would have)
+const REPORTS = '/api/csp';
 
 // local: the page is served from localhost (tests), which talks to the Firebase emulators over http.
 // framedBySelf: the sign-in helper pages, which the app's own page frames from this same address
@@ -38,14 +41,21 @@ export function csp({ kit = KIT, project = '', local = false, framedBySelf = fal
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
     'frame-ancestors': [framedBySelf ? "'self'" : "'none'"],
+    'report-uri': [REPORTS],
+    'report-to': ['csp'],
   };
   return Object.entries(d).map(([k, v]) => `${k} ${v.join(' ')}`).join('; ');
 }
 
 // -> [name, value] pairs to set on an answer
-export function securityHeaders({ kit = KIT, project = '', local = false, enforce = CSP_ENFORCE, framedBySelf = false } = {}) {
+// helper: Firebase's sign-in helper pages (/__/auth/, /__/firebase/), passed on from firebaseapp.com. They are
+// Firebase's code, with their own inline script, and Firebase sends no policy for them: the app's policy would block
+// that script once enforced, so they get only the framing rule.
+export function securityHeaders({ kit = KIT, project = '', local = false, enforce = CSP_ENFORCE, framedBySelf = false, helper = false } = {}) {
   return [
-    [enforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', csp({ kit, project, local, framedBySelf })],
+    ...(helper ? [['Content-Security-Policy', `frame-ancestors ${framedBySelf ? "'self'" : "'none'"}`]]
+      : [[enforce ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', csp({ kit, project, local, framedBySelf })],
+        ['Reporting-Endpoints', `csp="${REPORTS}"`]]),
     ...(local ? [] : [['Strict-Transport-Security', 'max-age=31536000; includeSubDomains']]),
     ['X-Content-Type-Options', 'nosniff'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],

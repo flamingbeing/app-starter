@@ -7,8 +7,9 @@ are safe from day one. Replace this first paragraph with what the app is once it
 
 - **Worker** (`worker/`): serves `app/` on the app's address, adds security headers (`headers.js`: HSTS, nosniff,
   Referrer-Policy, frame-ancestors, Permissions-Policy, and a Content-Security-Policy that starts as Report-Only),
-  answers `/api/claims` (app-devkit `claims.js`, roles from `members.js`) and passes Firebase's sign-in helper pages
-  (`/__/auth/`, `/__/firebase/`) on to the project, so sign-in stays on the app's address.
+  answers `/api/claims` (app-devkit `claims.js`, roles from `members.js`) and `/api/csp` (CSP reports, one line each
+  in the Worker log: `csp-report.js`), and passes Firebase's sign-in helper pages (`/__/auth/`, `/__/firebase/`) on
+  to the project, so sign-in stays on the app's address (those pages get only the framing rule, not the app's CSP).
 - **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a list of saves the server
   refused, a status chip, Google sign-in, sign-out that keeps the device copy (forget wipes it, once nothing is
   unsent), an edit sheet that follows its item, "check for updates" and the version line. Sync is
