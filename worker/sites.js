@@ -42,7 +42,8 @@ export default {
     }
     if (res.status === 404 && !/\.[^/]+$/.test(file)) {
       // no such file, but a folder of that name: send the browser to the address with a "/" (as GitHub Pages does)
-      const dir = await asset(env, url, file + '/index.html');
+      let dir = await asset(env, url, file + '/index.html');
+      if (dir.status === 404 && publicFile(file + '/index.html')) dir = await asset(env, url, /** @type {string} */ (publicFile(file + '/index.html')));
       if (dir.status === 200) return finish(redirect(url, url.pathname + '/'));
     }
     if (res.status === 404) return finish(notFound());

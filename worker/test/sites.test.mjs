@@ -5,7 +5,7 @@ import worker from '../sites.js';
 import { SITES } from '../routes.js';
 
 const HOST = Object.keys(SITES)[0];
-const FILES = { '/app/index.html': '<h1>hi</h1>', '/app/public/sw.js': '//', '/app/public/app.css': 'css', '/app/src/app.js': 'js', '/app/list/index.html': 'list' };
+const FILES = { '/app/index.html': '<h1>hi</h1>', '/app/public/sw.js': '//', '/app/public/app.css': 'css', '/app/src/app.js': 'js', '/app/list/index.html': 'list', '/app/public/kit/index.html': 'kit' };
 const env = { FIREBASE_PROJECT: 'demo-x', ASSETS: { fetch: async req => {
   const p = new URL(req.url).pathname;
   return p in FILES ? new Response(FILES[p], { status: 200 }) : new Response('', { status: 404 });
@@ -24,6 +24,8 @@ test('serves the app at the root, noindex, with the security headers', async () 
 
 test('folder without a slash redirects; missing files 404; unknown hosts 404', async () => {
   assert.equal((await get(`https://${HOST}/list`)).status, 301);
+  assert.equal((await get(`https://${HOST}/kit`)).status, 301, 'a page folder in public/ too');
+  assert.equal(await (await get(`https://${HOST}/kit/`)).text(), 'kit');
   assert.equal((await get(`https://${HOST}/nope.js`)).status, 404);
   assert.equal((await get('https://x.workers.dev/')).status, 404);
 });

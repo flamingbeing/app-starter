@@ -50,6 +50,7 @@
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) { :root { --d-spring: 1ms; } }
+:root[data-motion="still"] { --d-spring: 1ms; }
 :root[data-layout="compact"] { --gap: .25rem; --pad: .5rem; font-size: 93.75%; }
 
 body { font-family: var(--font); line-height: var(--leading); background: var(--bg); color: var(--text); }
