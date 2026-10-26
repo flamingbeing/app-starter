@@ -192,3 +192,19 @@ test('startGestures and the shell on a page without the markup start nothing', a
   expect(await page.evaluate(() => document.querySelector('.ui-shell'))).toBeNull();
   expect(await page.evaluate(() => document.documentElement.dataset.size)).toBeUndefined();
 });
+
+// the bars mark the picked section (?tab=), so the shrunk tab bar keeps it: visible, and Tab from the list reaches it
+test('at 390 px the shrunk tab bar keeps the current tab, and Tab reaches it', async ({ sized }) => {
+  const page = await load(sized, 390);
+  await expect(page.locator('nav.ui-tabbar a[aria-current="page"]')).toHaveText('Plants');
+  await page.evaluate(() => scrollTo(0, document.scrollingElement.scrollHeight));
+  await expect(page.locator('nav.ui-tabbar')).toHaveClass(/is-minimised/);
+  await expect(page.locator('nav.ui-tabbar a[aria-current="page"]')).toBeVisible();
+  await page.locator('.ui-pane-list .ui-row').last().focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('nav.ui-tabbar a[aria-current="page"]')).toBeFocused();
+  // another section: both bars mark it, and the page's other settings stay in the link
+  await page.goto(`${SHELL}&tab=jobs`);
+  await expect(page.locator('a.ui-tab[aria-current="page"], a.ui-side-link[aria-current="page"]')).toHaveText(['Jobs', 'Jobs']);
+  expect(new URL(await page.locator('a.ui-tab', { hasText: 'Rooms' }).evaluate(a => a.href)).search).toContain('tab=rooms');
+});

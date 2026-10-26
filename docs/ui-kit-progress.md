@@ -111,4 +111,6 @@ reduced motion, safe-area insets through Chromium's override, frame timing with 
   now visually hidden, so screen readers keep it.
 - Perf, unchanged: no long tasks on load or when a sheet or menu opens (0 ms before and after); with the CPU slowed
   4x one 33 ms frame as a sheet or menu opens, otherwise 16.7 ms frames; every class in the kit's CSS is used.
-- Tests: kit-tests.md ("Page held still", "Home indicator", the shell's heading).
+- Fixed: the shell gallery's tab links had no `?tab=`, so no tab was current; scrolled down, the shrunk tab bar hid
+  every tab and Tab skipped it. The gallery now builds each link's `?tab=` and marks the picked one.
+- Tests: kit-tests.md ("Page held still", "Home indicator", the shell's heading, "Tab bar").
