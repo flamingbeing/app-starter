@@ -22,6 +22,8 @@ const before = importMap(fs.readFileSync(path.join(ROOT, 'app/index.html'), 'utf
 if (JSON.stringify(importMap(html)) !== JSON.stringify(before)) problems.push('the built page lost or changed its import map');
 for (const name of Object.keys(before)) if (!js.includes(`"${name}"`)) problems.push(`${name} is not imported by name (bundled, or no longer used)`);
 if (js.includes('createApp needs config.sdk') || js.includes('sync needs')) problems.push('engine code was bundled (core must stay external)');
+// @core/files (decision 0009) stays external too: only a page that imports it loads it, exifr only on first use
+if (js.includes('files: remove() takes') || js.includes('DateTimeOriginal') || js.includes('idb-keyval')) problems.push('files code was bundled (@core/files must stay external)');
 if (/SDK_VERSION|@firebase\//.test(js)) problems.push('Firebase was bundled (it must load from the vendored files)');
 if (fs.existsSync(path.join(DIST, 'src'))) problems.push('dist/ has src/ (the build should bundle it)');
 if (problems.length) { console.error(`vite-check: ${problems.join('; ')}`); process.exit(1); }

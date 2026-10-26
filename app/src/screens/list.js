@@ -1,12 +1,14 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
-// list of saves the server refused.
+// list of saves the server refused. Each item shows its photos' thumbnails (and a clip for other files).
 import { conflictSheet, refusedList, toaster, emptyState } from '@core/ui';
 import { createSearch } from '@core/search';
 import { COLL } from '../cloud.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
+import { thumbOf } from './attachments.js';
 
 /** @typedef {import('../cloud.js').Item} Item */
+/** @typedef {import('../cloud.js').Attachment} Attachment */
 
 /** @param {unknown} record  an item, or a refused save's record -> its text */
 const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
@@ -35,7 +37,7 @@ export function listScreen(app) {
     for (const i of stale) known.set(i.id, itemText(i));
   };
   /** the items the box leaves in, in the order to show them */
-  const shown = () => {
+  const visible = () => {
     const q = input('q').value.trim();
     if (!q) { $('search-msg').textContent = ''; return [...all].sort((a, b) => String(a.text).localeCompare(String(b.text))); }
     const { hits, unknown } = search.search(q, { limit: 500 });
@@ -43,8 +45,10 @@ export function listScreen(app) {
     const byId = new Map(all.map(i => [i.id, i]));
     return hits.map(h => byId.get(h.id)).filter(/** @returns {i is Item} */ i => !!i);
   };
+  /** @type {Map<string, Attachment[]>} */
+  let byItem = new Map();
   const toast = toaster($('toasts')).show;
-  const openItem = itemSheet(app, toast);
+  const sheet = itemSheet(app, toast, id => byItem.get(id) || []);
   const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
   conflictSheet($('conflict-sheet'), { sync: app.sync, text: itemText });
   refusedList($('refused-list'), { sync: app.sync, kind: COLL, text: itemText });
@@ -69,23 +73,36 @@ export function listScreen(app) {
     canWrite = s.role === 'admin' || s.role === 'member';
     $('add').hidden = !canWrite;
   });
+  /** @param {Item[]} items @param {Set<string>} changed */
+  const draw = (items, changed) => {
+    all = items; feed(items);
+    const list = visible();
+    $('items').replaceChildren(...list.map(item => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.textContent = item.text; b.disabled = !canWrite;
+      b.addEventListener('click', () => sheet.open(item));
+      const attached = byItem.get(item.id) || [];
+      if (attached.length) {
+        // decorative here (the sheet names them), so the button's name stays the item's text
+        const thumbs = document.createElement('span');
+        thumbs.className = 'thumbs'; thumbs.setAttribute('aria-hidden', 'true');
+        const others = attached.filter(f => !f.thumb).length;
+        thumbs.append(...attached.flatMap(f => thumbOf(app, f, '') || []), ...(others ? [`📎${others > 1 ? others : ''}`] : []));
+        b.append(thumbs);
+      }
+      li.classList.toggle('changed', changed.has(item.id));
+      li.append(b);
+      return li;
+    }));
+    $('count').textContent = list.length === items.length ? `${items.length} ${items.length === 1 ? 'item' : 'items'}` : `${list.length} of ${items.length} items`;
+    empty.show(items.length === 0 && canWrite);
+  };
   const api = {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
-    draw(items, changed) {
-      all = items; feed(items);
-      const list = shown();
-      $('items').replaceChildren(...list.map(item => {
-        const li = document.createElement('li'), b = document.createElement('button');
-        b.type = 'button'; b.textContent = item.text; b.disabled = !canWrite;
-        b.addEventListener('click', () => openItem(item));
-        li.classList.toggle('changed', changed.has(item.id));
-        li.append(b);
-        return li;
-      }));
-      $('count').textContent = list.length === items.length ? `${items.length} ${items.length === 1 ? 'item' : 'items'}` : `${list.length} of ${items.length} items`;
-      empty.show(items.length === 0 && canWrite);
-    },
+    draw,
+    /** @param {Map<string, Attachment[]>} by  every item's photos and files */
+    drawFiles(by) { byItem = by; draw(all, new Set()); sheet.redraw(); },
   };
   return api;
 }
