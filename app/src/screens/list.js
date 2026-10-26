@@ -13,6 +13,8 @@ const itemText = record => String(/** @type {{ text?: unknown } | null} */ (reco
 /** @param {import('../cloud.js').Started} app */
 export function listScreen(app) {
   let canWrite = false;
+  /** @type {[Item[], Set<string>] | null} the last list drawn (redrawn when the role arrives: a screen change is a view transition, so the list can come first) */
+  let last = null;
   const toast = toaster($('toasts')).show;
   const openItem = itemSheet(app, toast);
   const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
@@ -28,22 +30,23 @@ export function listScreen(app) {
   });
 
   const screen = sectionScreen('list-view', s => {
+    const could = canWrite;
     canWrite = s.role === 'admin' || s.role === 'member';
     $('add').hidden = !canWrite;
+    if (last && canWrite !== could) draw(...last);
   });
-  return {
-    ...screen,
-    /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
-    draw(items, changed) {
-      $('items').replaceChildren(...[...items].sort((a, b) => String(a.text).localeCompare(String(b.text))).map(item => {
-        const li = document.createElement('li'), b = document.createElement('button');
-        b.type = 'button'; b.textContent = item.text; b.disabled = !canWrite;
-        b.addEventListener('click', () => openItem(item));
-        li.classList.toggle('changed', changed.has(item.id));
-        li.append(b);
-        return li;
-      }));
-      empty.show(items.length === 0 && canWrite);
-    },
-  };
+  /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
+  function draw(items, changed) {
+    last = [items, changed];
+    $('items').replaceChildren(...[...items].sort((a, b) => String(a.text).localeCompare(String(b.text))).map(item => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.textContent = item.text; b.disabled = !canWrite;
+      b.addEventListener('click', () => openItem(item));
+      li.classList.toggle('changed', changed.has(item.id));
+      li.append(b);
+      return li;
+    }));
+    empty.show(items.length === 0 && canWrite);
+  }
+  return { ...screen, draw };
 }
