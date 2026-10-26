@@ -4,6 +4,9 @@ import { createRequire } from 'node:module';
 const src = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 export default async function axe(page) {
   // (evaluated, not a script tag; axe's own inline style is the tool's, not the page's, so its CSP reports are dropped)
+  // a sheet, dialog or toast fades in: axe reads the colours as they are blended mid-animation, so wait for the running
+  // (finite) animations to end rather than measure a half-faded page
+  await page.evaluate(() => Promise.all(document.getAnimations().filter(a => Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a => a.finished.catch(() => {}))));
   const before = await page.evaluate(() => (window.__csp || []).length);
   await page.evaluate(src);
   const r = await page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
