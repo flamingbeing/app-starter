@@ -12,6 +12,6 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     target: 'es2022',
-    rollupOptions: { external: id => /^(@core\/|firebase\/|app-update\/|https:\/\/)/.test(id) },
+    rollupOptions: { external: id => /^(@core\/|app-update\/|https:\/\/)/.test(id) },
   },
 });
