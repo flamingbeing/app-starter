@@ -24,7 +24,10 @@ const phase = arg('phase', 'all');
 const out = arg('out', 'tests/device/out');
 mkdirSync(out, { recursive: true });
 const stateFile = `${out}/install-state.json`;
-const uniq = p => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+// Every item the run adds starts with RUN_ID (default <host>-<time>; set DEVICE_RUN_ID=firetop-... per machine), so two
+// machines can test the same live account at once: each only asserts on and cleans up its own items.
+const RUN = process.env.DEVICE_RUN_ID || `${(process.env.HOSTNAME || 'dev').slice(0, 12)}-${Date.now().toString(36)}`;
+const uniq = p => `${RUN}-${p}-${Math.random().toString(36).slice(2, 6)}`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 
@@ -76,6 +79,20 @@ async function check(name, fn) {
   catch (e) { results.push({ name, pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL', name, '-', e.message); }
 }
 
+// Delete (to the bin, through the UI) only the items this run added.
+async function cleanup(page) {
+  if (!page || page.isClosed()) return;
+  await page.goto(`${URL_}/app/?sw`).catch(() => {});
+  for (let i = 0; i < 20; i++) {
+    const row = page.locator('#items button', { hasText: RUN }).first();
+    if (!(await row.count())) return;
+    await row.click();
+    await page.click('#edit-delete');
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await sleep(500);
+  }
+}
+
 const browser = await chromium.launch();
 const phone = () => browser.newContext({ ...devices['Pixel 7'] });
 let android, deviceA, ctxA;
@@ -88,7 +105,7 @@ try {
   const ctxB = await phone();
   const cfg = await config();
   if (!cfg.apiKey) throw new Error('no firebase config on the live app');
-  let a = await ctxA.newPage(); const b = await ctxB.newPage();
+  var a = await ctxA.newPage(); const b = await ctxB.newPage();
 
   if (phase !== 'update') {
     await signIn(a, cfg); await signIn(b, cfg);
@@ -161,7 +178,9 @@ try {
   }
 } catch (e) { results.push({ name: 'setup', pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL setup -', e.message); }
 finally {
-  writeFileSync(`${out}/results.json`, JSON.stringify({ url: URL_, phase, android: !!process.env.ANDROID, at: new Date().toISOString(), results }, null, 2));
+  await ctxA?.setOffline(false).catch(() => {});
+  await cleanup(a).catch(() => {});
+  writeFileSync(`${out}/results.json`, JSON.stringify({ url: URL_, run: RUN, phase, android: !!process.env.ANDROID, at: new Date().toISOString(), results }, null, 2));
   await browser.close().catch(() => {});
   if (android) await android.close().catch(() => {});
 }
