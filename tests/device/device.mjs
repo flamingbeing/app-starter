@@ -77,7 +77,14 @@ const shot = (page, name) => page.screenshot({ path: `${out}/${name}.png` }).cat
 async function check(name, fn) {
   const t0 = Date.now();
   try { await fn(); results.push({ name, pass: true, seconds: Math.round((Date.now() - t0) / 1000) }); console.log('PASS', name); }
-  catch (e) { results.push({ name, pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL', name, '-', e.message); }
+  catch (e) {
+    results.push({ name, pass: false, error: String(e.message || e).slice(0, 300) }); console.log('FAIL', name, '-', e.message);
+    // a failed check must not leave device A offline or without a page for the next one
+    await shot(a, `fail-${name.split(' ')[0]}`);
+    await ctxA.setOffline(false).catch(() => {});
+    if (a.isClosed()) a = await ctxA.newPage();
+    await a.goto(`${URL_}/app/?sw`).catch(() => {});
+  }
 }
 
 // Delete (to the bin, through the UI) only the items this run added.
