@@ -110,6 +110,7 @@ export function detentSheet(sheet) {
   /** @param {PointerEvent} e @param {HTMLElement} el @param {boolean} fromBody */
   function down(e, el, fromBody) {
     const t = /** @type {Element} */ (e.target);
+    if (sheet.dataset.wide === 'panel' && wide.matches) return;   // a side panel keeps its height
     if (fromBody) {   // a finger on the body, below full height
       if (e.pointerType === 'mouse' || sheet.getAttribute('data-detent') === top || noGestureInSheet(t)) return;
     } else if (t.closest('button:not(.ui-sheet-grabber),a,input,select,textarea')) return;
