@@ -9,3 +9,9 @@ footer { margin-top: 2rem; }
 
 /* an item changed (here or on another device) since the list last showed */
 #items li.changed button { border-inline-start: 3px solid var(--accent); }
+
+/* the sample options (src/options.js) */
+#items.big li button { padding: 1rem .75rem; font-size: 1.15rem; }
+#settings label.file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+#settings label.file { display: inline-block; padding: .5rem .75rem; border: 1px solid currentColor; border-radius: .4rem; cursor: pointer; }
+#settings label.file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
