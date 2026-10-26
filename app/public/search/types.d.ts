@@ -14,6 +14,8 @@ export type Options = {
   operators?: Record<string, (record: Record_, value: string) => boolean>;
   /** a record's sort key for lists with no words in the query (largest first); default `updatedAt` */
   newest?: (record: Record_) => number;
+  /** runs once MiniSearch is in, when a search ran before it was (with plain-text matching): search again */
+  onReady?: () => void;
 };
 
 export type Search = {
@@ -23,6 +25,8 @@ export type Search = {
   remove(id: string): void;
   clear(): void;
   readonly size: number;
+  /** loads MiniSearch and builds the index (call it when the search box gets focus) */
+  prepare(): Promise<void>;
   /** ranked hits; `unknown` lists misspelt operators with a suggestion */
   search(q: string, opts?: { limit?: number }): { hits: Hit[]; unknown: { op: string; suggest: string }[] };
 };
