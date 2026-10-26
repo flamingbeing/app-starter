@@ -152,6 +152,14 @@ export async function start({ canReload = null }) {
   fa.onIdTokenChanged(async (/** @type {any} */ u) => { tokenSeen = u ? await u.getIdToken().catch(() => '') : ''; void show(); });
   /** @type {(() => void) | null} */
   let offSettings = null;
+  // the claims of the token Firebase last had (User.toJSON keeps it), for when it can't get a new one
+  /** @param {any} u */
+  const lastToken = u => {
+    const token = u.toJSON?.()?.stsTokenManager?.accessToken || '';
+    let claims = {};
+    try { claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* none */ }
+    return { token, claims, stale: true };
+  };
   const stopList = () => { offList?.(); offList = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
@@ -160,9 +168,11 @@ export async function start({ canReload = null }) {
     const n = ++seq, u = fa.currentUser, me = app.auth.user();
     if (!u || !me || me.uid !== u.uid) { stopList(); onState({ phase: 'signed-out' }); return; }
     if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
-    const t = await u.getIdTokenResult(), role = roleOf(t.claims);
+    // offline with an expired token Firebase can't refresh it (auth/network-request-failed): the role comes from the
+    // last token it holds, so the saved list still shows; back online, the fresh token calls back (onIdTokenChanged)
+    const t = await u.getIdTokenResult().catch(() => lastToken(u)), role = roleOf(t.claims);
     if (n !== seq) return;
-    if (role && t.token !== tokenSeen) return;   // a new token Firestore hasn't seen yet: onIdTokenChanged calls back
+    if (role && t.token !== tokenSeen && !t.stale) return;   // a new token Firestore hasn't seen yet: onIdTokenChanged calls back
     const user = { uid: me.uid, email: me.email, name: me.name };
     if (!role) { stopList(); onState({ phase: 'no-access', user, role: '' }); return; }
     onState({ phase: 'ready', user, role });

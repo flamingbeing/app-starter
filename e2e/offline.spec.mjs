@@ -1,6 +1,6 @@
 // The service worker installs the whole app (the generated SHELL in public/sw.js: the page, its files, vendored
 // Firebase and the pinned core files), so a phone that has opened the app once starts it with no network at all.
-import { test, expect, uniq, signIn, add, synced } from './fixtures.mjs';
+import { test, expect, uniq, signIn, add, synced, serverHas } from './fixtures.mjs';
 
 test('with no network, the app starts from the service worker and shows the saved list', async ({ phone }) => {
   const page = await phone();
@@ -22,4 +22,28 @@ test('with no network, the app starts from the service worker and shows the save
   await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#items')).toContainText(t);
   await page.context().setOffline(false);
+});
+
+test('with no network and an expired sign-in token, the app still starts and shows the saved list', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member', { path: '/app/?emulator&sw' });
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
+  const t = uniq('kept');
+  await add(page, t);
+  await synced(page);
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.context().setOffline(true);
+  // the ID token lasts an hour: two hours on, Firebase can't refresh it with no network
+  await page.clock.install({ time: Date.now() + 2 * 3600_000 });
+  await page.clock.resume();
+  await page.reload();
+  await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#items')).toContainText(t);
+  expect(errors, 'uncaught errors').toEqual([]);
+  // back online, it gets a new token and saves reach the server again
+  await page.context().setOffline(false);
+  const t2 = uniq('after');
+  await add(page, t2);
+  await serverHas(t2);
 });
