@@ -9,6 +9,8 @@ import { cleanHex } from './colour.js';
 
 export { THEMES, LAYOUTS };
 const KEY = 'core-theme';
+// The last look shown (marks + palette CSS), for early.js to put back before the first paint.
+const PAINT = 'core-theme-paint';
 // The choice made on this page while storage refuses it, so a second pick builds on the first.
 /** @type {Choice | null} */
 let unstored = null;
@@ -49,8 +51,13 @@ function show(c) {
   mark(root, 'layout', c.layout, LAYOUTS[0]);
   // (no constructed stylesheets, as in node or an old browser: theme.css's own values stay)
   if (typeof CSSStyleSheet !== 'function' || !('adoptedStyleSheets' in document)) return;
+  // (early.js's sheet, when it put back the last look before the first paint: this one replaces its values)
+  if (!sheet) sheet = /** @type {any} */ (globalThis).coreThemeSheet ?? null;
   if (!sheet) { sheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; }
-  sheet.replaceSync(paletteCss(c, app));
+  const css = paletteCss(c, app);
+  sheet.replaceSync(css);
+  const { theme, dark, preset, layout } = root.dataset;
+  try { localStorage.setItem(PAINT, JSON.stringify({ marks: { theme, dark, preset, layout }, css })); } catch { /* early.js finds none */ }
 }
 
 /**

@@ -28,6 +28,7 @@ const SHELL = [
   'src/screens/signed-out.js',
   'theme/choice.js',
   'theme/colour.js',
+  'theme/early.js',
   'theme/grid.js',
   'theme/index.js',
   'theme/palette-css.js',

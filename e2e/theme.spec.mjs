@@ -47,6 +47,14 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
   await expect(page.locator('#preset-pick')).toHaveValue('eye');
   await expect(page.getByLabel('Dark style')).toHaveValue('oled');
 
+  // (before any module runs, early.js puts back the last look: shown here with the theme modules kept from loading)
+  await page.route('**/theme/index.js', route => route.abort());
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await expect(root).toHaveAttribute('data-dark', 'oled');
+  expect(await cssVar(page, '--bg')).toBe('#000000');
+  await page.unroute('**/theme/index.js');
+  await page.goto(APP);
+
   await page.locator('#preset-pick').selectOption('default');
   await page.getByLabel('Theme').selectOption('light');
   await expect(root).not.toHaveAttribute('data-preset');
