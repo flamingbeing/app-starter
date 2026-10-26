@@ -37,7 +37,9 @@
   .ui-pane-list { border-inline-end: var(--border) solid var(--line); }
   .ui-pane-head { display: flex; align-items: center; gap: var(--gap); padding: calc(env(safe-area-inset-top, 0px) + var(--gap)) var(--pad) var(--gap); }
   .ui-pane-title { flex: 1; margin: 0; font-size: 1.1rem; }
-  .ui-pane-list > .ui-large-title { display: none; }
+  /* the pane head shows instead; the page's heading stays for screen readers (visually hidden, not display: none) */
+  .ui-pane-list > .ui-large-title { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap; }
   .ui-pane-list .ui-list { border-inline: 0; }
   .ui-pane-list .ui-row[aria-current="true"] { background: var(--selection); }
   .ui-pane-detail { padding: calc(env(safe-area-inset-top, 0px) + var(--pad)) calc(var(--pad) * 2) var(--pad); }

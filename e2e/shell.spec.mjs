@@ -23,6 +23,8 @@ for (const width of [390, 820, 1280]) {
       const page = await load(sized, width);
       await expect(page.locator('.ui-shell')).toHaveAttribute('data-size', SIZE[width]);
       await expect(page.locator('nav.ui-sidebar')).toBeVisible({ visible: wide });
+      // the page's one main heading is there for screen readers at every size (the pane head shows instead from 600 px)
+      await expect(page.getByRole('heading', { level: 1, name: 'Plants' })).toHaveCount(1);
       await expect(page.locator('nav.ui-tabbar')).toBeVisible({ visible: !wide });
       await expect(page.locator('.ui-pane-list')).toBeVisible();
       await expect(page.locator('.ui-pane-detail')).toBeVisible({ visible: wide });

@@ -51,6 +51,7 @@
 /* ---------- hold menu ---------- */
 .ui-menu-layer { position: fixed; inset: 0; z-index: 20; display: none; }
 .ui-menu-layer.is-open { display: block; }
+.ui-menu-safe { position: absolute; bottom: 0; width: 0; height: env(safe-area-inset-bottom, 0px); visibility: hidden; }
 .ui-menu-veil { position: absolute; inset: 0; background: var(--backdrop); animation: ui-fade var(--d-spring) var(--spring); }
 .ui-menu-preview { position: absolute; pointer-events: none; border-radius: var(--card-r, var(--radius-l)); overflow: hidden;
   will-change: transform;   /* (its own layer from the start: Chromium otherwise leaves a dark box round it while it lifts, unless glass is on) */
@@ -93,6 +94,8 @@ dialog.ui-sheet.is-dragging { transition: none; }
   padding: 0 var(--pad) var(--gap); flex: none; }
 .ui-sheet-head h2 { margin: 0; font-size: 1.1rem; }
 .ui-sheet-body { flex: 1; overflow: auto; overscroll-behavior: contain; padding: 0 var(--pad) var(--pad); }
+/* along the bottom edge (below 840 px) the last row clears the home indicator */
+@media (max-width: 839.98px) { .ui-sheet-body { padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); } }
 @media (min-width: 840px) {
   dialog.ui-sheet { inset: 0; margin: auto; max-width: 34rem; border-bottom: var(--border) solid var(--line);
     border-radius: var(--sheet-r); }

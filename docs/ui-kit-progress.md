@@ -96,3 +96,19 @@ Gotchas found:
   slow frames with no figure). Both turn glass Solid and the verdict is kept. **Not done: a real phone.** Open `/kit/`
   on the oldest Android, scroll the gallery once with Bars and sheets on "Glass, even here" and once on Solid, and
   note whether either stutters; `?guard=again` re-runs the guard.
+
+## Audit after K5: phone bugs, a11y, perf (done)
+
+Checked `/kit/`, `/kit/shell/` and `/kit/dense/` at 390, 820 and 1280 px in Chromium and Firefox (axe, keyboard,
+reduced motion, safe-area insets through Chromium's override, frame timing with the CPU slowed 4x).
+- Fixed: an open sheet, alert or hold menu let a wheel or finger on the backdrop scroll the page behind it (the
+  menu's lifted preview then floated off its row); `ui.css` now holds the page still while a modal dialog or hold
+  menu is open (`:root:has(dialog:modal)`, `.ui-menu-open`). Pages with a classic scrollbar (Windows, Linux desktops)
+  lose it while one is open.
+- Fixed: on a phone with a home indicator, a sheet's last row, look B's sheet menu and toasts sat under the indicator;
+  they now clear `env(safe-area-inset-bottom)`.
+- Fixed: the shell gallery had no level-1 heading from 600 px (the list's large title was `display: none`); it is
+  now visually hidden, so screen readers keep it.
+- Perf, unchanged: no long tasks on load or when a sheet or menu opens (0 ms before and after); with the CPU slowed
+  4x one 33 ms frame as a sheet or menu opens, otherwise 16.7 ms frames; every class in the kit's CSS is used.
+- Tests: kit-tests.md ("Page held still", "Home indicator", the shell's heading).

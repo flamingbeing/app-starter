@@ -24,6 +24,8 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 | Still | off until picked; on: no lifted preview, no slide; kept after reload | |
 | Reduce Motion | the device setting counts as Still | |
 | Other pages | `startGestures()` on a page without the markup starts nothing | |
+| Page held still | 390 and 1280 px: a wheel over an open sheet or hold menu doesn't scroll the page (the menu's preview stays on its row); closed, it scrolls again | |
+| Home indicator | 390 px with a 34 px bottom inset: a full-height sheet's last row, look B's sheet menu and a toast on a page without a tab bar clear it | |
 
 ## Shell gallery
 
@@ -32,7 +34,7 @@ Add a line here, and a test, for every part or behaviour the gallery gains.
 
 | Part | What is tested | axe |
 | --- | --- | --- |
-| Layout | phone: tab bar, one pane; tablet and laptop: side bar, list and detail side by side, in order | yes |
+| Layout | phone: tab bar, one pane; tablet and laptop: side bar, list and detail side by side, in order; one level-1 heading at every size | yes |
 | Open | clicking a row opens it; on a phone it pushes the detail, Back and Esc pop it | |
 | Keyboard | Ctrl/Cmd+K focuses the search; typing filters; Esc clears, then leaves; arrows and Enter work the list | |
 | Pointer | right-click opens the row menu; Ctrl/Cmd-click adds; Shift-click takes a range; the detail summarises a multi-selection; Esc leaves select mode | |
