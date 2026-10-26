@@ -4,7 +4,7 @@
 // tools/fill.mjs sets the name, route, project and bucket name.
 {
   "name": "starter-app",
-  "main": "worker/missing-entry.js",
+  "main": "worker/sites.js",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": ".",

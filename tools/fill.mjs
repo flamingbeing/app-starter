@@ -101,7 +101,7 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     const w = JSON.parse(fs.readFileSync(opts['web-config'], 'utf8'));
     const sdk = w.sdkConfig || w.result?.sdkConfig || w;
     if (sdk.projectId && sdk.projectId !== app.project) throw new Error(`--web-config is for project ${sdk.projectId}, not ${app.project}`);
-    web = { ...web, ...pick(sdk, ['appId', 'storageBucket', 'messagingSenderId']) };
+    web = { ...web, ...pick(sdk, ['apiKey', 'appId', 'storageBucket', 'messagingSenderId']) };
   } else if (kept.projectId === app.project) web = { ...web, ...pick(kept, ['apiKey', 'appId', 'storageBucket', 'messagingSenderId']) };
 
   const swaps = swapsFor(old, app);
