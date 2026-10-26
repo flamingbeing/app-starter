@@ -26,14 +26,15 @@ const openItem = async (page, text) => { await page.getByRole('button', { name: 
 const attach = (page, name, buffer, mimeType = 'image/png') => page.setInputFiles('#edit-file', { name, mimeType, buffer });
 // the shared space's file records on the server (db.list leaves document ids out)
 const records = async name => (await db.list('spaces/_/files')).filter(d => d.name === name);
-// how many blobs this phone keeps (IndexedDB starter-app-files / blobs)
+// the keys of the blobs this phone keeps (IndexedDB starter-app-files / blobs). Other tests' photos on the shared list
+// are cached here too (their thumbnails), so a test checks its own keys, not a count, until a wipe empties it.
 const cached = page => page.evaluate(() => new Promise((ok, no) => {
   const r = indexedDB.open('starter-app-files');
   r.onerror = () => no(r.error);
   r.onsuccess = () => {
     const d = r.result;
-    if (!d.objectStoreNames.contains('blobs')) { d.close(); ok(0); return; }
-    const c = d.transaction('blobs').objectStore('blobs').count();
+    if (!d.objectStoreNames.contains('blobs')) { d.close(); ok([]); return; }
+    const c = d.transaction('blobs').objectStore('blobs').getAllKeys();
     c.onsuccess = () => { d.close(); ok(c.result); };
   };
 }));
@@ -93,7 +94,9 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
 
   await page.click('#sign-out');
   await expect(page.locator('#sign-out-msg')).toContainText('unsent');
-  expect(await cached(page)).toBe(1);
+  const [job] = await page.evaluate(() => window.starter.files().jobs());
+  expect(job).toMatchObject({ op: 'put', rec: { name: `${t}.txt` } });
+  expect(await cached(page)).toContain(`${job.scope}/${job.id}`);
   await page.context().setOffline(false);
   await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#list-view')).toBeVisible();
@@ -106,5 +109,5 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   const other = `${uniq('u')}@example.com`;
   await page.evaluate(e => window.starter.signInAs(e), other);
   await expect(page.locator('#no-access')).toBeVisible();
-  await expect.poll(() => cached(page)).toBe(0);
+  await expect.poll(() => cached(page)).toEqual([]);
 });
