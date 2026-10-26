@@ -18,7 +18,9 @@ are safe from day one. Replace this first paragraph with what the app is once it
   Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt`).
 - **UI kit** ([decision 0008](docs/decisions/0008-ui-kit-and-theme-in-the-starter.md)): `@core/ui` (sync chip with
   overridable state words `LABELS`, sign-in sheet, conflict sheet, update prompt, refused list) and `@core/theme`
-  (custom properties, this device's theme and layout switch), v0 in `app/public/ui/` and `app/public/theme/`, each its
+  (custom properties; this device's theme, dark style incl. OLED, look from 8 presets, accent, ground and layout;
+  palettes worked out from one accent with a contrast floor, applied from `src/boot.js` before the first paint; the
+  app's default colour is `APP.accent` in `src/config.js`, `fill.mjs --accent`), v0 in `app/public/ui/` and `app/public/theme/`, each its
   own import map entry. The screens are one file each in `app/src/screens/`; a new app replaces only those.
 - **Files** ([decision 0009](docs/decisions/0009-files-through-the-worker.md)): `@core/files` v0 in `app/public/files/`
   (own import map entry): `add` keeps a photo or file on the device at once (resized, with a thumbnail; date taken

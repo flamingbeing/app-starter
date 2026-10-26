@@ -57,6 +57,7 @@ export function listScreen(app) {
       li.append(b);
       return li;
     }));
+    $('count').textContent = `${items.length} ${items.length === 1 ? 'item' : 'items'}`;
     empty.show(items.length === 0 && canWrite);
   };
   return {

@@ -22,9 +22,11 @@ import { auth } from '@core/auth';
 import { sync, leaveEntry } from '@core/sync';
 import { update } from '@core/update';
 import { files } from '@core/files';
+import { settings } from '@core/settings';
 import * as register from 'app-update/register.js';
 import { firebaseConfig, APP } from './config.js';
 import { emulator, configured, roleOf, needsClaims } from './roles.js';
+import { OPTIONS, SETTINGS_COLL } from './options.js';
 
 export { usingEmulator } from './roles.js';
 const SPACE = '_';
@@ -109,7 +111,7 @@ export async function start({ canReload = null }) {
       },
     }),
     sync({
-      colls: [COLL, FILES], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
+      colls: [COLL, FILES, SETTINGS_COLL], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
       scope: () => SPACE, device: deviceName(), wake: true,
       // a delete writes the item's last version to the bin in the same transaction ({ id, kind, data, deletedAt }:
       // the other devices drop the item from it, and data keeps the deleted version)
@@ -125,6 +127,7 @@ export async function start({ canReload = null }) {
     // photos and files on items: the records sync in FILES, the bytes go to /api/files (shared by the space, like the
     // items; the date a photo was taken is kept, its place is not)
     files({ collection: FILES, scope: () => SPACE, exif: true }),
+    settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
     ...(canReload ? [update({ register, app: 'app', sw: 'sw.js', canReload })] : []),
   ];
   const app = createApp({ config: { name: APP.name, sdk }, modules });
@@ -143,7 +146,9 @@ export async function start({ canReload = null }) {
   // out with the old token, the rules refuse it, and the engine doesn't listen again; so the list waits for this.
   let tokenSeen = '';
   fa.onIdTokenChanged(async (/** @type {any} */ u) => { tokenSeen = u ? await u.getIdToken().catch(() => '') : ''; void show(); });
-  const stopList = () => { offList?.(); offList = null; offFiles?.(); offFiles = null; };
+  /** @type {(() => void) | null} */
+  let offSettings = null;
+  const stopList = () => { offList?.(); offList = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
     if (!hooks) return;
@@ -157,6 +162,7 @@ export async function start({ canReload = null }) {
     const user = { uid: me.uid, email: me.email, name: me.name };
     if (!role) { stopList(); onState({ phase: 'no-access', user, role: '' }); return; }
     onState({ phase: 'ready', user, role });
+    offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
     let first = true;
     offList ??= app.sync.watch(SPACE, COLL, (/** @type {Item[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
       onList(list.filter(x => !x._deleted), new Set(first ? [] : meta?.changed || []));
@@ -174,7 +180,7 @@ export async function start({ canReload = null }) {
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
-    auth: app.auth, sync: app.sync, update: app.update || null, files: app.files,
+    auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
     // from now on: onState with what the page shows, onList with the list once it is shown
     /** @param {Hooks} h */
     follow(h) { hooks = h; void show(); },

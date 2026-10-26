@@ -29,3 +29,20 @@ Kept on the device, so a change needs a new version and a test that the old one 
 - Device cache, IndexedDB database `<name>-files`, store `blobs`: one Blob per key `<scope>/<id>` and
   `<scope>/<id>.thumb` (`app/public/files/cache.js`). Sign-out keeps both; a switch to another account wipes both.
 - Worker: R2 bucket `<name>-files` bound as `FILES`, object key `<scope>/<id>[.thumb]` (`worker/files.js`).
+
+## Settings (`@core/settings`)
+
+`app/src/options.js` lists every option the app allows (scope `device` or `account`; new ones are off); nothing else can
+be saved. Where values live (change these only with a migration; `settings.unit.test.mjs` checks the shapes):
+
+- Device values: `ctx.storage('settings')` key `device` = `{ v: 1, values: { <key>: value } }` (stored as
+  `settings:settings/device` in localStorage). Kept at sign-out, wiped on an account switch or forget.
+- Account values: one sync record per person in the `settings` collection (`spaces/_/settings/<uid>`): one field per
+  account option plus `profile`; `null` forgets a value. The local copy is `settings/account` = `{ uid, rec }`, used
+  only while `uid` is the signed-in account.
+- Rules: only the person writes their own doc (field list in `firestore.app.rules`: add each new account option there
+  and in `options.js`); the group can read it, because a list listen cannot be proven to ask for one doc. Keep secrets
+  out of options.
+- The settings file (`kind: core-settings`, `version`) carries account options only.
+- Decision: `@core/theme`'s per-device choice can later move onto settings (device scope, same storage shape); today it
+  keeps its own storage, so adopting settings changes no theme file.
