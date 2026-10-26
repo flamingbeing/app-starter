@@ -27,6 +27,7 @@ const SHELL = [
   'src/dom.js',
   'src/roles.js',
   'src/screen-switch.js',
+  'src/screens/attachments.js',
   'src/screens/item-sheet.js',
   'src/screens/list.js',
   'src/screens/no-access.js',

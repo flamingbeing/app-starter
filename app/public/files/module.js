@@ -207,12 +207,14 @@ export function files(options) {
           if (!(file instanceof Blob)) throw new TypeError('files: add() takes a File or Blob');
           if (file.size > maxBytes) throw fail('too big', { code: 'too-big', max: maxBytes });
           const s = scopeFor(scope), id = newId();
-          const facts = exif && /^image\//.test(file.type) ? await (await import('./exif.js')).readExif(file, { place: typeof exif === 'object' && !!exif.place }) : {};
+          // (offline before exif.js was ever loaded: no date taken, the photo is still added)
+          const facts = exif && /^image\//.test(file.type) ? await import('./exif.js')
+            .then(m => m.readExif(file, { place: typeof exif === 'object' && !!exif.place }), () => ({})) : {};
           const img = await prepareImage(file, image);
           const bytes = img ? img.blob : file;
           /** @type {FileRecord} */
           const record = {
-            ...extra, id, name: /** @type {File} */ (file).name || 'file', type: bytes.type || 'application/octet-stream', size: bytes.size,
+            ...extra, id, name: String(/** @type {File} */ (file).name || 'file').slice(0, 255), type: bytes.type || 'application/octet-stream', size: bytes.size,
             ...(img ? { w: img.w, h: img.h, thumb: true } : {}), ...facts, state: 'local',
           };
           await cache.set(keyOf(s, id), bytes);

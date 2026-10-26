@@ -5,3 +5,8 @@
 // The Worker side is worker/files.js (/api/files/, an R2 bucket bound as FILES).
 export { files } from './module.js';
 export { prepareImage, fit } from './image.js';
+
+/** @typedef {import('./types').FileRecord} FileRecord */
+/** @typedef {import('./types').FilesApi} FilesApi */
+/** @typedef {import('./types').FilesOptions} FilesOptions */
+/** @typedef {import('./types').Job} Job */
