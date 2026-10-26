@@ -77,3 +77,23 @@ test('the Settings sheet passes axe', async ({ phone }) => {
   await open(a);
   expect(await AxeBuilder(a)).toEqual([]);
 });
+
+test('a direct switch from one account to another follows the new account\'s settings', async ({ phone }) => {
+  const b = await phone();
+  const { email } = await signIn(b, 'member');   // account B, on its own phone
+  const a = await phone();
+  await signIn(a, 'member');                      // account A
+  await synced(a);
+  // straight from A to B, no sign-out in between
+  await a.evaluate(e => window.starter.signInAs(e), email);
+  await expect.poll(() => a.locator('#uid').textContent()).not.toBe('');
+  await expect(a.locator('#list-view')).toBeVisible();
+  await expect.poll(() => a.evaluate(() => window.starter.ready)).toBe(true);
+  await expect(a.locator('#count')).toBeHidden();
+  // B's change on its other phone reaches a without a reload
+  await open(b);
+  await b.check('#opt-itemCount');
+  await b.click('#settings-close');
+  await synced(b);
+  await expect(a.locator('#count')).toBeVisible({ timeout: 15_000 });
+});

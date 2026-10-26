@@ -1,7 +1,9 @@
 // @core/search: the query parser (ported from a working logbook parser) and the index's ranking and filters.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseQuery, createSearch } from '../public/search/index.js';
+import { parseQuery, createSearch, loadSearch } from '../public/search/index.js';
+
+await loadSearch();   // MiniSearch loads on first need in the page (search-lazy.unit.test.mjs); these tests rank with it
 
 const FIELDS = ['title', 'case', 'tag', 'has'];
 const P = q => parseQuery(q, { fields: FIELDS }).groups.map(g => g.map(t => `${t.neg ? '-' : ''}${t.field ? t.field + ':' : ''}${t.phrase ? `"${t.text}"` : t.text}`).join('|')).join(' ');

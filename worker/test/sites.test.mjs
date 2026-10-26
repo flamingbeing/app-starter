@@ -35,6 +35,39 @@ test('the sign-in helper pages may be framed by this address (Firebase auth ifra
   } finally { globalThis.fetch = fetched; }
 });
 
+test('the sign-in helper pages get no script policy (their inline script would be blocked once CSP_ENFORCE is on)', async () => {
+  const fetched = globalThis.fetch;
+  globalThis.fetch = async () => new Response('<script nonce="firebase-auth-helper">x()</script>', { status: 200 });
+  try {
+    for (const path of ['/__/auth/handler', '/__/auth/iframe', '/__/firebase/init.json']) {
+      const r = await get(`https://${HOST}${path}`);
+      assert.equal(r.headers.get('Content-Security-Policy'), "frame-ancestors 'self'", path);
+      assert.equal(r.headers.get('Content-Security-Policy-Report-Only'), null, path);
+    }
+  } finally { globalThis.fetch = fetched; }
+});
+
+test('/api/csp takes CSP reports (both formats), logs one short line each without query strings, answers 204', async () => {
+  const logged = [], log = console.log;
+  console.log = (...a) => logged.push(a.join(' '));
+  try {
+    const old = await get(`https://${HOST}/api/csp`, { method: 'POST', headers: { 'Content-Type': 'application/csp-report' }, body: JSON.stringify({ 'csp-report': {
+      'document-uri': `https://${HOST}/list?q=secret`, 'violated-directive': 'script-src-elem', 'effective-directive': 'script-src-elem', 'blocked-uri': 'https://evil.example/x.js?t=1' } }) });
+    assert.equal(old.status, 204);
+    const now = await get(`https://${HOST}/api/csp`, { method: 'POST', headers: { 'Content-Type': 'application/reports+json' }, body: JSON.stringify([
+      { type: 'csp-violation', body: { documentURL: `https://${HOST}/`, effectiveDirective: 'img-src', blockedURL: 'https://img.example/a.png' } },
+      { type: 'deprecation', body: { id: 'x' } }]) });
+    assert.equal(now.status, 204);
+    assert.deepEqual(logged, [
+      'csp-report script-src-elem https://evil.example/x.js on /list',
+      'csp-report img-src https://img.example/a.png on /',
+    ]);
+    assert.equal((await get(`https://${HOST}/api/csp`)).status, 405);
+    assert.equal((await get(`https://${HOST}/api/csp`, { method: 'POST', body: 'x'.repeat(20_000) })).status, 413);
+    assert.equal((await get(`https://${HOST}/api/csp`, { method: 'POST', body: 'not json' })).status, 400);
+  } finally { console.log = log; }
+});
+
 test('folder without a slash redirects; missing files 404; unknown hosts 404', async () => {
   assert.equal((await get(`https://${HOST}/list`)).status, 301);
   assert.equal((await get(`https://${HOST}/kit`)).status, 301, 'a page folder in public/ too');
