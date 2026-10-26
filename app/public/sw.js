@@ -7,8 +7,8 @@
 // - Install: every SHELL file or nothing, only changed files fetched; the take-over reload waits while someone types,
 //   a sheet is open or saves are sending (app.js, canReload).
 // - Fetch: SHELL files and pages cache-first; the design kit refreshed in the background; the pinned shared modules
-//   once fetched. Sign-in pages (/__/), /api/ and sw.js always go to the network.
-const VERSION = 'app-v1';
+//   once fetched. Sign-in pages (/__/), /api/, sw.js and the gallery's page addresses (KIT_PAGES) always go to the network.
+const VERSION = 'app-v2';
 const SHELL = [
   './',
   'app.css',
@@ -129,11 +129,14 @@ const SHELL = [
   'https://core.anawj.com/sync/1.3.10/src/module-update.js',
 ];
 const MANIFEST = {};
+// Pages of the design gallery (/kit, /kit/, /kit/shell/, any later /kit/<page>): a page address, not a file, so no dot.
+// sw-core answers a navigation the SHELL has no folder entry for with the app's own page, so these go to the network.
+const KIT_PAGES = /\/kit(\/[^.]*)?$/;
 
 importScripts('https://core.anawj.com/update/0.2.0/sw-core.js');
 AppUpdate.init({
   app: 'app', version: VERSION, shell: SHELL, manifest: MANIFEST,
-  never: ['/api/', /\/sw\.js$/],
+  never: ['/api/', /\/sw\.js$/, KIT_PAGES],
   runtime: [
     { name: 'kit', match: 'https://design.flamingbeing.com/v1/', strategy: 'stale-while-revalidate', max: 40 },
     { name: 'pinned', match: /^https:\/\/core\.anawj\.com\/(sync|update)\/\d+\.\d+\.\d+\//, strategy: 'cache-first', max: 40 },

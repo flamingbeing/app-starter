@@ -60,3 +60,15 @@ Gotchas found:
 
 - A real app moves its list into the shell markup and passes its own `render`; Settings follows the rules in
   [ui-kit.md](ui-kit.md).
+
+## K-fix: /kit blank on phones once the service worker was active (done)
+
+- Cause: sw-core's `navigate()` answers any page address whose folder is not in SHELL with the app's own page
+  (`./`). SHELL lists `kit/index.html` but not the folders `kit/` and `kit/shell/`, and `/kit` (no slash) never
+  matches, so a phone that had opened the app once got the app's sign-in screen at `/kit`.
+- Fix in `app/public/sw.js` (not in sw-core): `KIT_PAGES` in the `never` list sends page addresses under `/kit`
+  (no dot in the path: `/kit`, `/kit/`, `/kit/shell/`, any later `/kit/<page>`) to the network. Files under `/kit/`
+  still come from SHELL. A new gallery page needs no SW change. Cost: the gallery's pages open online only.
+- `sw.js` changed byte for byte, so phones with the old worker fetch the new one on their next visit and take over
+  as usual (`e2e/update.spec.mjs` covers the take-over). VERSION is `app-v2`.
+- Test: `e2e/kit-sw.spec.mjs` (opens the app, waits for the worker, then `/kit`, `/kit/`, `/kit/shell/` show the gallery).
