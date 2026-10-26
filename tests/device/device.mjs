@@ -15,6 +15,7 @@
 import { chromium, devices, _android } from 'playwright';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const arg = (k, d) => (process.argv.find(a => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1];
 const URL_ = (process.env.DEVICE_URL || '').replace(/\/$/, '');
@@ -100,11 +101,16 @@ try {
   if (process.env.ANDROID) {
     [android] = await _android.devices();
     if (!android) throw new Error('no Android device (start the emulator first)');
-    await android.shell('am force-stop com.android.chrome');   // a Chrome left over from an earlier run can hide its debugging socket
-    ctxA = await Promise.race([
-      android.launchBrowser({ pkg: 'com.android.chrome' }),
-      sleep(60_000).then(() => { throw new Error('Chrome on the device did not open its debugging socket in 60 s (first-run screen, or Chrome missing from the system image?)'); }),
-    ]);
+    // Playwright's launchBrowser needs Chrome to read its command-line file, which release Chrome ignores on a
+    // non-rooted image (the socket Playwright waits for never appears). Chrome's own devtools socket is always there:
+    // start Chrome, forward that socket, attach over CDP.
+    await android.shell('am force-stop com.android.chrome');
+    await android.shell('am start -a android.intent.action.VIEW -d about:blank com.android.chrome');
+    const port = 9222 + Math.floor(Math.random() * 500);
+    const adb = process.env.ADB || 'adb';
+    await until(() => { try { execFileSync(adb, ['-s', android.serial(), 'forward', `tcp:${port}`, 'localabstract:chrome_devtools_remote']); return true; } catch { return false; } }, 'adb forward', 15_000);
+    const cdp = await until(() => chromium.connectOverCDP(`http://127.0.0.1:${port}`), 'Chrome devtools socket on the device (first-run screen? decline any prompt on the emulator)', 60_000);
+    ctxA = cdp.contexts()[0];
   } else ctxA = await phone();
   const ctxB = await phone();
   const cfg = await config();
