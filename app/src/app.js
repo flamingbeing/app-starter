@@ -10,6 +10,7 @@ import { signedOutScreen } from './screens/signed-out.js';
 import { noAccessScreen } from './screens/no-access.js';
 import { notSetUpScreen } from './screens/not-set-up.js';
 import { listScreen } from './screens/list.js';
+import { settingsSheet } from './settings-sheet.js';
 
 const typing = () => document.activeElement?.tagName === 'INPUT' && !!(/** @type {HTMLInputElement} */ (document.activeElement).value);
 const sheetOpen = () => !!document.querySelector('dialog[open]');
@@ -19,7 +20,7 @@ const sheetOpen = () => !!document.querySelector('dialog[open]');
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
 themeSwitch($('theme-switch'));
-window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn };   // for the tests
+window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn, files: () => app?.files };   // for the tests
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
 updatePrompt($('update-prompt'), { update: app?.update || null });
 
@@ -27,6 +28,8 @@ if (!app) notSetUpScreen().show({ phase: 'not-set-up' });
 else {
   syncChip($('sync-chip'), { sync: app.sync });
   app.sync.status$((/** @type {{ state: string }} */ st) => { window.starter.status = st.state; });
+  let signedIn = false;
+  settingsSheet(app, () => signedIn);
   const list = listScreen(app);
   const show = screenSwitch({
     'signed-out': signedOutScreen(app, { onForget: ok => { if (ok) $('sign-out-msg').textContent = ''; } }),
@@ -44,6 +47,8 @@ else {
     onState(s) {
       $('who').textContent = s.user ? s.user.email : '';
       $('sign-out').hidden = !s.user;
+      $('open-settings').hidden = !s.user;
+      signedIn = !!s.user;
       if (s.user) $('sign-out-msg').textContent = '';
       show(s);
     },
@@ -51,5 +56,6 @@ else {
       list.draw(items, changed);
       window.starter.ready = true;
     },
+    onFiles(by) { list.drawFiles(by); },
   });
 }

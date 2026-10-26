@@ -1,6 +1,7 @@
 // Cloudflare Workers config. The Worker (worker/sites.js) serves this repo's files, decides which folder each address
-// may see (worker/routes.js) and answers /api/claims. No secrets in this file: the service account (SA_EMAIL, SA_KEY)
-// is a Worker secret (wrangler secret put), kept across deploys. tools/fill.mjs sets the name, route and project.
+// may see (worker/routes.js) and answers /api/claims and /api/files/ (the R2 bucket below). No secrets in this file:
+// the service account (SA_EMAIL, SA_KEY) is a Worker secret (wrangler secret put), kept across deploys.
+// tools/fill.mjs sets the name, route, project and bucket name.
 {
   "name": "starter-app",
   "main": "worker/sites.js",
@@ -19,6 +20,9 @@
   "workers_dev": false,
   "keep_vars": true,
   "vars": { "FIREBASE_PROJECT": "demo-starter-app" },
+  // the app's files (@core/files; worker/files.js): one private bucket per app, made once before the first deploy
+  // (README, "Files"); tools/fill.mjs names it after the app
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "starter-app-files" }],
   // the real address, as in worker/routes.js SITES; the first deploy adds the custom domain
   "routes": [{ "pattern": "app.example.com", "custom_domain": true }]
 }

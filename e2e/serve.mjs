@@ -1,5 +1,6 @@
 // The e2e server: the real Worker (worker/sites.js) in Node, with the repo's files as its static assets and the
-// emulators for /api/claims (EMULATOR is honoured on localhost only). node e2e/serve.mjs [port]
+// emulators for /api/claims (EMULATOR is honoured on localhost only), and an in-memory bucket for /api/files/ (one per
+// server run, shared by every test's browser contexts). node e2e/serve.mjs [port]
 // GET /__test/bump makes sw.js look new (a comment changes), so a test can see an update arrive.
 // APP_DIR=dist serves a Vite build (npx vite build) in place of app/: the same tests, on the built page.
 import http from 'node:http';
@@ -7,6 +8,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import worker from '../worker/sites.js';
+import { memoryBucket } from './memory-bucket.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.argv[2] || process.env.PORT || 4173);
@@ -19,6 +21,7 @@ const env = {
   FIREBASE_PROJECT: 'demo-starter-app', EMULATOR: '1',
   AUTH_EMULATOR: process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099',
   FIRESTORE_EMULATOR: process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080',
+  FILES: memoryBucket(),
   ASSETS: { async fetch(req) {
     let file = path.join(ROOT, decodeURIComponent(new URL(req.url).pathname));
     if (APP_DIR && file.startsWith(path.join(ROOT, 'app') + path.sep)) file = path.join(APP_DIR, path.relative(path.join(ROOT, 'app'), file));

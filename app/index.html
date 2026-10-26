@@ -14,6 +14,8 @@
     "@core/update": "https://core.anawj.com/sync/1.0.0/update.js",
     "@core/ui": "./ui/index.js",
     "@core/theme": "./theme/index.js",
+    "@core/files": "./files/index.js",
+    "@core/settings": "./settings/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -60,12 +62,14 @@
           <button type="submit">Add</button>
         </div>
       </form>
+      <p id="count" class="small" role="status" hidden></p>
       <ul id="items" aria-label="Items"></ul>
       <div id="empty"></div>
     </section>
   </main>
   <footer>
     <span id="who"></span>
+    <button id="open-settings" type="button" hidden>Settings</button>
     <button id="sign-out" type="button" hidden>Sign out</button>
     <p id="sign-out-msg" class="error" role="alert"></p>
     <div id="update-prompt"></div>
@@ -74,12 +78,28 @@
 
   <div id="toasts"></div>
 
+  <dialog id="settings" aria-labelledby="settings-title">
+    <h2 id="settings-title">Settings</h2>
+    <p><label><input type="checkbox" id="opt-bigRows"> Larger list rows (this device)</label></p>
+    <p><label><input type="checkbox" id="opt-itemCount"> Show how many items there are (every device)</label></p>
+    <p id="settings-note" class="small">Sign in to change the options that follow your account.</p>
+    <div class="row">
+      <button id="settings-export" type="button">Export settings</button>
+      <label class="file">Import settings <input id="settings-import" type="file" accept="application/json,.json"></label>
+    </div>
+    <p id="settings-msg" class="small" role="status"></p>
+    <div class="row"><button id="settings-close" type="button">Close</button></div>
+  </dialog>
+
   <dialog id="edit" aria-labelledby="edit-title">
     <form method="dialog" id="edit-form">
       <h2 id="edit-title">Edit item</h2>
       <label for="edit-text">Text</label>
       <input id="edit-text" maxlength="500" required>
       <p id="edit-live" class="small" role="status"></p>
+      <ul id="edit-files" class="files" aria-label="Photos and files" hidden></ul>
+      <button id="edit-attach" type="button">Add photo or file</button>
+      <input id="edit-file" type="file" multiple hidden>
       <div class="row">
         <button id="edit-save" value="save">Save</button>
         <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>

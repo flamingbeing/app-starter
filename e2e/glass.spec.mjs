@@ -66,7 +66,8 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
   const page = await phone();
   await signIn(page, 'member');
   for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i}`);
-  await expect(page.locator('#items li')).toHaveCount(14);
+  // (other tests add to the same list in parallel: wait for this test's last item, not a total)
+  await expect(page.getByRole('button', { name: 'Sample item 14', exact: true })).toBeVisible();
   for (const [name, pick] of MODES) {
     await page.getByLabel('Theme').selectOption(pick.theme);
     await page.getByLabel('Dark style').selectOption(pick.dark);
