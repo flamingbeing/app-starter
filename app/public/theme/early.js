@@ -7,7 +7,7 @@
     const kept = JSON.parse(localStorage.getItem('core-theme-paint') || 'null');
     if (!kept || typeof kept.css !== 'string') return;
     const root = document.documentElement;
-    for (const key of ['theme', 'dark', 'preset', 'layout']) {
+    for (const key of ['theme', 'dark', 'preset', 'layout', 'motion']) {
       const value = kept.marks && kept.marks[key];
       if (typeof value === 'string') root.dataset[key] = value;
     }

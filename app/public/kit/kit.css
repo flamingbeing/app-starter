@@ -1,0 +1,15 @@
+/* The gallery page's own layout (the parts' look is ui/gestures.css on the theme's tokens). */
+body { margin: 0 auto; max-width: 48rem; padding: 0 0 calc(var(--tap) * 2 + env(safe-area-inset-bottom, 0px)); }
+.kit-bar-side { flex: 1; display: flex; gap: var(--gap); }
+.kit-end { justify-content: flex-end; }
+.ui-bar button { border: 0; background: none; color: var(--link); padding: 0 var(--gap); min-height: var(--tap); }
+.kit-lede { margin: 0 var(--pad) var(--pad); color: var(--muted); max-width: 36rem; }
+.kit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); margin: 0 var(--pad) var(--pad); }
+.kit-still { display: inline-flex; align-items: center; gap: .4rem; min-height: var(--tap); }
+.ui-screen > button { margin: var(--gap) var(--pad); }
+.ui-screen > .ui-back { margin: var(--gap) 0 0; min-height: var(--tap); }
+.kit-field { display: grid; gap: .25rem; margin-bottom: var(--pad); }
+.kit-chips { display: flex; gap: var(--gap); overflow-x: auto; padding-bottom: var(--gap); margin-bottom: var(--pad); }
+.kit-chips button { flex: none; }
+/* toasts sit above the tab bar */
+.toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }

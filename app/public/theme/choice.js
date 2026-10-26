@@ -1,5 +1,5 @@
 // This device's theme choice (schema.js: theme, dark style, preset, accent, surface, layout, material): kept in
-// localStorage, shown as data-theme / data-dark / data-preset / data-layout and the glass class on <html> and as the palette's custom properties in one
+// localStorage, shown as data-theme / data-dark / data-preset / data-layout / data-motion and the glass class on <html> and as the palette's custom properties in one
 // constructed stylesheet (palette-css.js; constructed, so the Content-Security-Policy needs no inline style). Nothing
 // chosen, an unknown value or no storage: the defaults, so a new option stays off until picked. v0's stored
 // { theme, layout } reads as it did.
@@ -49,6 +49,7 @@ function show(c) {
   mark(root, 'dark', c.dark, 'dark');
   mark(root, 'preset', c.preset, 'default');
   mark(root, 'layout', c.layout, LAYOUTS[0]);
+  mark(root, 'motion', c.motion, 'auto');
   root.classList.toggle('glass', c.material === 'glass');
   // (no constructed stylesheets, as in node or an old browser: theme.css's own values stay)
   if (typeof CSSStyleSheet !== 'function' || !('adoptedStyleSheets' in document)) return;
@@ -57,8 +58,8 @@ function show(c) {
   if (!sheet) { sheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; }
   const css = paletteCss(c, app);
   sheet.replaceSync(css);
-  const { theme, dark, preset, layout } = root.dataset;
-  try { localStorage.setItem(PAINT, JSON.stringify({ marks: { theme, dark, preset, layout }, solid: c.material === 'solid', css })); } catch { /* early.js finds none */ }
+  const { theme, dark, preset, layout, motion } = root.dataset;
+  try { localStorage.setItem(PAINT, JSON.stringify({ marks: { theme, dark, preset, layout, motion }, solid: c.material === 'solid', css })); } catch { /* early.js finds none */ }
 }
 
 /**

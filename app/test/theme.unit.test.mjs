@@ -3,13 +3,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseChoice, chooseTheme, themeChoice, THEMES, LAYOUTS } from '../public/theme/choice.js';
-import { cleanChoice, DARK_STYLES, PRESET_IDS, SURFACE_IDS, MATERIALS } from '../public/theme/schema.js';
+import { cleanChoice, DARK_STYLES, PRESET_IDS, SURFACE_IDS, MATERIALS, MOTIONS } from '../public/theme/schema.js';
 import { contrast, cleanHex, mix, nudge, lightPalette, darkPalette, floor, checkPalette, pairs, glassSamples, frostAlpha, glassStrengths, BACKDROP } from '../public/theme/colour.js';
 import { palettes, paletteCss, shapeTokens, accentOf, glassTokens, DEFAULT_ACCENT } from '../public/theme/palette-css.js';
 import { PRESETS, SURFACES } from '../public/theme/presets.js';
 import { GRID, HUES, SHADES, gridIndex, snap } from '../public/theme/grid.js';
 
-const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', layout: 'comfortable', material: 'glass' };
+const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', layout: 'comfortable', material: 'glass', motion: 'auto' };
 
 test('nothing stored: the defaults, so new options stay off until picked', () => {
   assert.deepEqual(parseChoice(null), DEFAULTS);
@@ -26,7 +26,7 @@ test("v0's stored { theme, layout } still reads as it did", () => {
 });
 
 test('a stored choice is kept, hex lower-cased', () => {
-  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', layout: 'compact', material: 'solid' };
+  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', layout: 'compact', material: 'solid', motion: 'still' };
   assert.deepEqual(parseChoice(JSON.stringify(all)), { ...all, accent: '#abcdef' });
 });
 
@@ -218,4 +218,12 @@ test('glass tokens: the card colour see-through at the palette strengths', () =>
     'glass-clear': `color-mix(in srgb, var(--surface) ${Math.round(at.clear * 100)}%, transparent)`,
   });
   assert.match(paletteCss({}), /--glass: color-mix\(in srgb, var\(--surface\) \d+%, transparent\);/);
+});
+
+test('Still is off until picked on this device; unknown motion reads as auto', () => {
+  assert.equal(MOTIONS[0], 'auto');
+  assert.equal(cleanChoice({}).motion, 'auto');
+  assert.equal(cleanChoice({ motion: 'still' }).motion, 'still');
+  assert.equal(cleanChoice({ motion: 'slow' }).motion, 'auto');
+  assert.equal(parseChoice(JSON.stringify({ theme: 'dark' })).motion, 'auto', 'older choices get auto');
 });

@@ -40,16 +40,38 @@ export const test = base.extend({
       made.push({ context, page, served });
       return page;
     });
-    for (const { context, page, served } of made) {
-      const v = await page.evaluate(() => window.__csp || []).catch(() => []);
-      await context.close();
-      expect(v, 'CSP violations').toEqual([]);
-      if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);
-      if (process.env.APP_DIR) expect(served.built, 'the built bundle (APP_DIR) loaded').toBeGreaterThan(0);
-    }
+    await check(made);
+  },
+  // a touch screen of this width (390 phone, 820 tablet, 1280 laptop with touch): the same CSP check after the test
+  sized: async ({ browser }, use) => {
+    const made = [];
+    await use(async (/** @type {number} */ width) => {
+      const height = width < 600 ? 844 : width < 1000 ? 1180 : 800;
+      const context = await browser.newContext({ viewport: { width, height }, isMobile: width < 1000, hasTouch: true });
+      await context.addInitScript(() => {
+        window.__csp = [];
+        addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+      });
+      const page = await context.newPage();
+      made.push({ context, page, served: null });
+      return page;
+    });
+    await check(made);
   },
 });
 export { expect };
+
+// close each context and fail the test on any CSP report (and, for the phone, on what SYNC_DIR / APP_DIR must have served)
+async function check(made) {
+  for (const { context, page, served } of made) {
+    const v = await page.evaluate(() => window.__csp || []).catch(() => []);
+    await context.close();
+    expect(v, 'CSP violations').toEqual([]);
+    if (!served) continue;
+    if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);
+    if (process.env.APP_DIR) expect(served.built, 'the built bundle (APP_DIR) loaded').toBeGreaterThan(0);
+  }
+}
 
 // Sign in as a new made-up Google account; with a role, an admin "adds" it (the role doc) and the page picks the
 // new claims up by itself. -> { uid, email }

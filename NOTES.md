@@ -7,6 +7,15 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 See README, "Tests". The browser tests use one shared list (`spaces/_/items`), so each test uses its own made-up
 accounts and item texts and checks only those; they run side by side.
 
+## UI kit gestures and the `/kit/` gallery
+
+`@core/ui` has touch gestures (hold menu, select mode, sheets with detents, pushed screens with edge-swipe back,
+shrinking tab bar, collapsing large title), each started only where its markup is. The gallery `/kit/` shows them all
+on made-up data, signed out; its tests are listed in [docs/kit-tests.md](docs/kit-tests.md) and run at 390, 820 and
+1280 px. Stage notes: [docs/ui-kit-progress.md](docs/ui-kit-progress.md). Port rules: hold 500 ms within 10 px, the
+lift's click swallowed; no gesture from fields, dialogs, sideways scrollers, drag handles or screen edges; the tab bar
+never moves with a swipe; Still (this device) or Reduce Motion turns motion off.
+
 ## Later
 
 - Restore from the bin (the bin entries keep the deleted version in `data`).

@@ -26,6 +26,7 @@ dialog.modal p { margin: 0 0 var(--pad); }
 .toast { pointer-events: auto; display: flex; gap: var(--gap); align-items: center; max-width: 30rem; padding: var(--gap) var(--pad);
   background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); }
 .toast button { min-width: var(--tap); padding: 0; border: 0; background: none; }
+.toast .toast-action { padding: 0 var(--gap); color: var(--link); font-weight: 600; }
 
 /* empty state */
 .empty-state { text-align: center; padding: calc(var(--pad) * 2) var(--pad); }
