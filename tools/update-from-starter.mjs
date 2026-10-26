@@ -1,7 +1,7 @@
 // Brings the template's newer commits into an app made from it, and does the steps an app-sync bump needs, in one go.
 //
 //   node tools/update-from-starter.mjs [--dir <app>] [--from <template checkout or git URL>] [--to <ref>] [--base <sha>]
-//                                      [--dry-run] [--no-install]
+//                                      [--find-base] [--dry-run] [--no-install]
 //   node tools/update-from-starter.mjs --sync <x.y.z> [--dir <app>] [--dry-run]   only bump app-sync
 //   node tools/update-from-starter.mjs --behind [<n>] [--dir <app>]               how far behind; exit 1 when over n
 //   node tools/update-from-starter.mjs --refresh [--dir <app>]                     only sw.js SHELL and the CSP hash
@@ -11,7 +11,8 @@
 //
 // How: an app made with "Use this template" shares no git history with the template, so this is a three-way merge
 // per file, not a git merge, and never rewrites the app's history. The base is the template commit the app started
-// from or last updated to (.starter.json "commit"); both template versions get the app's own values first (fill.mjs's
+// from or last updated to (.starter.json "commit"; --find-base picks the template commit closest to the app when it is
+// empty); both template versions get the app's own values first (fill.mjs's
 // swaps), so the only differences left are real changes. For every file the template changed between the base and
 // --to: added -> added (an app file of the same name is merged as if from an empty base), deleted -> deleted unless the
 // app changed it, changed -> `git merge-file` with the app's copy (a template rename is a delete plus an add) (conflicts left as <<<<<<< markers, listed at the end).
@@ -104,8 +105,44 @@ function templateRepo(from) {
 }
 const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C', repo, 'show', `${ref}:${rel}`], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; } };
 
+// every file of a template commit, read in one go: { path: Buffer }
+function treeAt(repo, ref) {
+  const paths = git(repo, ['ls-tree', '-r', '--name-only', ref]).trim().split('\n').filter(Boolean);
+  const out = execFileSync('git', ['-C', repo, 'cat-file', '--batch'], { input: paths.map(p => `${ref}:${p}\n`).join(''), maxBuffer: 256 << 20 });
+  const files = {};
+  let at = 0;
+  for (const p of paths) {
+    const nl = out.indexOf(10, at);
+    const size = Number(out.subarray(at, nl).toString().split(' ')[2]);
+    files[p] = out.subarray(nl + 1, nl + 1 + size);
+    at = nl + 1 + size + 1;
+  }
+  return files;
+}
+
+// the template commit (of the last `limit` before `to`) whose files, with the app's values, match most of the app's
+// files: for an app whose .starter.json has no "commit"
+export function findBase(repo, to, meta, dir, { limit = 200 } = {}) {
+  const shas = git(repo, ['rev-list', `--max-count=${limit}`, to]).trim().split('\n');
+  let best = null;
+  for (const sha of shas) {
+    const files = treeAt(repo, sha);
+    const tpl = JSON.parse(files['.starter.json']?.toString() || 'null')?.app ?? meta.app;
+    const swaps = swapsFor(tpl, meta.app);
+    let same = 0;
+    for (const [rel, buf] of Object.entries(files)) {
+      let ours; try { ours = fs.readFileSync(path.join(dir, rel)); } catch { continue; }
+      let t = buf;
+      if (isText(rel)) { let x = buf.toString('utf8'); for (const [re, v] of swaps) x = x.replace(re, v); t = Buffer.from(fixup(rel, x, meta.app)); }
+      if (ours.equals(t)) same++;
+    }
+    if (!best || same > best.same) best = { sha, same, of: Object.keys(files).length };
+  }
+  return best;
+}
+
 // -> { from, to, behind, changes: [{ action, path, note? }], conflicts: [paths], pins: [...] }
-export function update({ dir = '.', from, to = 'main', base, dryRun = false, install = true, checkLatest = true, log = console.log } = {}) {
+export function update({ dir = '.', from, to = 'main', base, dryRun = false, install = true, checkLatest = true, findBase: findBaseToo = false, log = console.log } = {}) {
   dir = path.resolve(dir);
   const metaPath = path.join(dir, '.starter.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
@@ -114,8 +151,13 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const ref = (r) => git(repo.dir, ['rev-parse', '--verify', `${r}^{commit}`]).trim();
     let newSha;
     try { newSha = ref(to); } catch { newSha = ref(`origin/${to}`); }
-    const baseRef = base ?? meta.commit;
-    if (!baseRef) throw new Error('.starter.json has no "commit" (the template commit the app started from); pass --base <sha>');
+    let baseRef = base ?? meta.commit;
+    if (!baseRef && findBaseToo) {
+      const b = findBase(repo.dir, newSha, meta, dir);
+      log(`base: ${b.sha.slice(0, 7)} (found: ${b.same} of its ${b.of} files match the app's)`);
+      baseRef = b.sha;
+    }
+    if (!baseRef) throw new Error('.starter.json has no "commit" (the template commit the app started from); pass --base <sha> or --find-base');
     const baseSha = ref(baseRef);
     const behind = Number(git(repo.dir, ['rev-list', '--count', `${baseSha}..${newSha}`]).trim());
     const short = newSha.slice(0, 7);
@@ -240,6 +282,7 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--dry-run') out.dryRun = true;
     else if (a === '--refresh') out.refresh = true;
+    else if (a === '--find-base') out.findBase = true;
     else if (a === '--no-install') out.install = false;
     else if (a === '--behind') out.behind = /^\d+$/.test(argv[i + 1] ?? '') ? Number(argv[++i]) : Infinity;
     else if (/^--(dir|from|to|base|sync)$/.test(a)) out[a.slice(2)] = argv[++i];

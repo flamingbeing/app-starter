@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { update, globRe, importMapHash, syncVersions, bumpSync, bumpSyncIn, devkitPins, older, merge3, parseArgs } from '../update-from-starter.mjs';
+import { update, findBase, globRe, importMapHash, syncVersions, bumpSync, bumpSyncIn, devkitPins, older, merge3, parseArgs } from '../update-from-starter.mjs';
 
 const TPL_APP = { name: 'starter-app', host: 'app.example.com', kit: 'homedesign', project: 'demo-starter-app', title: 'Starter app' };
 const APP = { name: 'pet-log', host: 'pets.example.org', kit: 'homedesign', project: 'pet-log-app', title: 'Pet log' };
@@ -121,6 +121,16 @@ test('--behind counts the template commits since the app\'s base', () => {
   commit(tpl, { 'a.md': '2\n' }, 'two');
   assert.equal(update({ dir: app, from: tpl, dryRun: true, checkLatest: false, log: () => {} }).behind, 2);
   assert.throws(() => update({ dir: app, from: tpl, base: 'nope', dryRun: true, checkLatest: false, log: () => {} }));
+});
+
+test('--find-base picks the template commit the app was made from when .starter.json has none', () => {
+  const { tpl, app, base } = setup();
+  commit(tpl, { 'worker/routes.js': '// later\n', 'README.md': 'rewritten\n' }, 'later');
+  const meta = JSON.parse(fs.readFileSync(path.join(app, '.starter.json'), 'utf8'));
+  fs.writeFileSync(path.join(app, '.starter.json'), JSON.stringify({ ...meta, commit: '' }));
+  assert.equal(findBase(tpl, 'main', { ...meta, commit: '' }, app).sha, base);
+  assert.throws(() => update({ dir: app, from: tpl, dryRun: true, checkLatest: false, log: () => {} }), /--find-base/);
+  assert.equal(update({ dir: app, from: tpl, findBase: true, dryRun: true, checkLatest: false, log: () => {} }).from, base.slice(0, 7));
 });
 
 test('--sync bumps app-sync\'s two names and the hash', () => {
