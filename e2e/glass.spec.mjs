@@ -71,6 +71,9 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
     await page.getByLabel('Theme').selectOption(pick.theme);
     await page.getByLabel('Dark style').selectOption(pick.dark);
     await page.getByLabel('Bars and sheets').selectOption(pick.material);
+    // (dismiss the last mode's toast first: its 4 s timer would otherwise end mid-check and move this one under axe)
+    await page.evaluate(() => document.querySelectorAll('.toast button').forEach(b => /** @type {HTMLElement} */ (b).click()));
+    await expect(page.locator('.toast')).toHaveCount(0);
     await add(page, `Toast for ${name}`);
     await expect(page.locator('.toast').last()).toBeVisible();
     await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
