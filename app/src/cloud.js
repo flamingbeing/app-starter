@@ -119,7 +119,9 @@ export async function start({ canReload = null }) {
       // the other devices drop the item from it, and data keeps the deleted version)
       // held: a same-field clash is kept on the phone that made the save until its person chooses (never overwritten);
       // edits: each write records who changed each field and when, for the popup
-      backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits',
+      // commitRetry: a send refused with permission-denied just after sign-in (the role check still catching up) is tried
+      // once more after 500 ms, as app-sync advises for rules that read a document another write is creating
+      backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits', commitRetry: { codes: ['permission-denied'], delay: 500 },
         onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => coll === COLL && !after && before
           ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
@@ -185,6 +187,9 @@ export async function start({ canReload = null }) {
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
     auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
+    // the whole app's status (sync and files): { state, count, unsent }
+    /** @param {(st: { state: string, count: number, unsent: number }) => void} fn */
+    status$: fn => app.status$(fn),
     // from now on: onState with what the page shows, onList with the list once it is shown
     /** @param {Hooks} h */
     follow(h) { hooks = h; void show(); },
