@@ -55,18 +55,24 @@ export default {
 
 // The real project with the service account in Worker secrets; on localhost with EMULATOR set (the e2e server only)
 // the emulators, which need no account and accept only a demo- project.
+function adminFor(env, local, project) {
+  if (local && env.EMULATOR) return admin({ project, emulator: { auth: env.AUTH_EMULATOR, firestore: env.FIRESTORE_EMULATOR } });
+  if (env.SA_EMAIL && env.SA_KEY && project) return admin({ project, sa: { email: env.SA_EMAIL, key: env.SA_KEY } });
+  return null;
+}
 function claims(request, env, url, local, project) {
-  let adm = null;
-  if (local && env.EMULATOR) adm = admin({ project, emulator: { auth: env.AUTH_EMULATOR, firestore: env.FIRESTORE_EMULATOR } });
-  else if (env.SA_EMAIL && env.SA_KEY && project) adm = admin({ project, sa: { email: env.SA_EMAIL, key: env.SA_KEY } });
+  const adm = adminFor(env, local, project);
   return handleClaims(request, { admin: adm, loadClaims, origin: url.origin, limit: env.CLAIMS_LIMIT, emulator: !!(local && env.EMULATOR) });
 }
 
-// The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set).
+// The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set), and the
+// rules' revoked/{uid} gate, read as the service account (without one, no roles are ever issued).
 function files(request, env, url, local, project) {
   const emulator = !!(local && env.EMULATOR);
   const verify = project ? idToken => verifyIdToken(idToken, { project, emulator }) : null;
-  return handleFiles(request, { bucket: env.FILES, verify, origin: url.origin });
+  const adm = project ? adminFor(env, local, project) : null;
+  const revoked = adm ? async (/** @type {string} */ uid) => !!(await adm.getDoc(`revoked/${uid}`)) : null;
+  return handleFiles(request, { bucket: env.FILES, verify, revoked, origin: url.origin });
 }
 
 function withHeaders(res, opts) {

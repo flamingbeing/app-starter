@@ -100,7 +100,7 @@ test('readExif: the date taken; the place only when asked; nothing from other fi
 });
 
 // The module with stand-ins: the engine (auth, sync), ctx (storage, status, events), the Worker (fetch) and the cache.
-function rig({ online = true, answer = () => 201 } = {}) {
+function rig({ online = true, answer = () => 201, gate = (/** @type {string} */ _m) => null } = {}) {
   const on = {}, saved = [], calls = [], copies = new Map(), net = { online };
   let status = null, user = { uid: 'u1' };
   const ctx = {
@@ -118,7 +118,7 @@ function rig({ online = true, answer = () => 201 } = {}) {
   const mod = files({
     collection: 'files', scope: () => '_', cache, now: () => 0,
     token: async force => { tokens.push(!!force); return 'tok'; },
-    fetch: async (url, init) => { calls.push([init.method, url, init.headers.Authorization]); return new Response(null, { status: answer(init.method, url, calls.length) }); },
+    fetch: async (url, init) => { calls.push([init.method, url, init.headers.Authorization]); await gate(init.method); return new Response(null, { status: answer(init.method, url, calls.length) }); },
     win: { navigator: { get onLine() { return net.online; } }, addEventListener() {}, removeEventListener() {} },
   });
   return { mod, ctx, deps: { auth, sync }, saved, calls, cache, net, on, tokens, status: () => status, signOut: () => { user = null; } };
@@ -192,5 +192,43 @@ test('module: remove before upload needs no Worker delete; after upload it queue
   await r.on.switch();
   assert.deepEqual(api.jobs(), []);
   assert.equal(await r.cache.get(`_/${c.id}`), null);
+  r.mod.stop();
+});
+
+// a fetch the test lets go of: gate() holds every call of one method until release()
+function holder(method) {
+  /** @type {(() => void)[]} */ const waiting = [];
+  return {
+    gate: (/** @type {string} */ m) => m === method ? new Promise(res => waiting.push(() => res(undefined))) : null,
+    started: async () => { while (!waiting.length) await new Promise(res => setTimeout(res, 0)); },
+    release: () => { for (const go of waiting.splice(0)) go(); },
+  };
+}
+
+test('module: a remove while the first upload is on its way still deletes it on the Worker', async () => {
+  const h = holder('PUT');
+  const r = rig({ gate: h.gate });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const a = await api.add(new Blob(['a'], { type: 'text/plain' }));
+  await h.started();
+  await api.remove(a.id);
+  assert.deepEqual(api.jobs().map(j => j.op), ['delete']);
+  h.release();
+  await api.kick();
+  assert.deepEqual(r.calls.map(c => c[0]), ['PUT', 'DELETE']);
+  assert.deepEqual(api.jobs(), []);
+  r.mod.stop();
+});
+
+test('module: a fetch that ends after a switch is neither cached nor shown', async () => {
+  const h = holder('GET');
+  const r = rig({ answer: () => 200, gate: h.gate });
+  const api = await r.mod.start(r.ctx, r.deps);
+  const shown = api.url('x1').then(() => 'shown', e => e.status);
+  await h.started();
+  await r.on.switch();
+  h.release();
+  assert.equal(await shown, 401);
+  assert.equal(await r.cache.get('_/x1'), null);
   r.mod.stop();
 });

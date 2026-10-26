@@ -53,6 +53,19 @@ test('access follows the Firestore rule: viewers read, members and admins write,
   assert.equal(defaultAccess({ token: { sub: 'x', g: 'member' }, scope: 's', write: false }), false);
 });
 
+test('the rules\' other gates: no access after the claims\' end (x), none once revoked; a failed lookup is 503', async () => {
+  const b = memoryBucket();
+  const late = { ...TOKENS, ann: { ...TOKENS.ann, x: 1000 } };
+  const lateVerify = async (/** @type {string} */ t) => late[t];
+  assert.equal((await call(b, 'PUT', '/api/files/_/a', { who: 'ann', body: 'x', verify: lateVerify, now: () => 999_999 })).status, 201);
+  assert.equal((await call(b, 'GET', '/api/files/_/a', { who: 'ann', verify: lateVerify, now: () => 1_000_000 })).status, 403);
+  assert.equal((await call(b, 'GET', '/api/files/ann/a', { who: 'ann', verify: lateVerify, now: () => 1_000_000 })).status, 403, 'own files too');
+  const revoked = async (/** @type {string} */ uid) => uid === 'bob';
+  assert.equal((await call(b, 'GET', '/api/files/_/a', { who: 'bob', revoked })).status, 403);
+  assert.equal((await call(b, 'GET', '/api/files/_/a', { who: 'ann', revoked })).status, 200);
+  assert.equal((await call(b, 'GET', '/api/files/_/a', { who: 'ann', revoked: async () => { throw new Error('down'); } })).status, 503);
+});
+
 test('an app passes its own access rule', async () => {
   const b = memoryBucket();
   const access = ({ scope, write }) => scope === 'open' && !write;
@@ -99,7 +112,16 @@ test('sites.js routes /api/files/: 503 without a bucket, then the emulator token
   assert.equal(r.status, 503);
   assert.equal(r.headers.get('X-Robots-Tag'), 'noindex, nofollow', 'with the security headers');
   const FILES = memoryBucket();
-  assert.equal((await put({ ...env, FILES })).status, 201);
+  const realFetch = globalThis.fetch, asked = [];
+  // the revoked/{uid} lookup, as the emulators' admin: not there (404), then there
+  let gone = false;
+  globalThis.fetch = async (url) => { asked.push(String(url)); return gone ? Response.json({ fields: {} }) : new Response(null, { status: 404 }); };
+  try {
+    assert.equal((await put({ ...env, FILES, FIRESTORE_EMULATOR: 'fs' })).status, 201);
+    assert.match(asked[0], /^http:\/\/fs\/v1\/projects\/demo-x\/databases\/\(default\)\/documents\/revoked\/ann$/);
+    gone = true;
+    assert.equal((await put({ ...env, FILES, FIRESTORE_EMULATOR: 'fs' })).status, 403, 'revoked');
+  } finally { globalThis.fetch = realFetch; }
   assert.deepEqual([...FILES.objects.keys()], ['_/a']);
   r = await worker.fetch(new Request('https://app.example.com/api/files/_/a', { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${tok}`, 'Content-Length': '1' } }), { ...env, FILES });
   assert.equal(r.status, 401, 'unsigned tokens only on localhost');

@@ -69,6 +69,8 @@ export function files(options) {
       let stopped = false, again = false;
       /** @type {Promise<void> | null} */
       let busy = null;
+      let gen = 0;   // wipes so far (see wipe)
+      const putting = new Set();   // ids with a PUT on its way
       /** @type {ReturnType<typeof setTimeout> | null} */
       let timer = null;
 
@@ -127,10 +129,12 @@ export function files(options) {
         for (const part of job.parts || []) {
           const blob = await cache.get(keyOf(job.scope, job.id, part === 'thumb'));
           if (!blob) { q.stuck(job.id, 'lost'); return; }   // the browser cleared this site's storage
-          const r = await call('PUT', where(job.scope, job.id, part === 'thumb'), blob);
+          putting.add(job.id);   // may reach the Worker from here on, so a remove() now queues a delete
+          let r;
+          try { r = await call('PUT', where(job.scope, job.id, part === 'thumb'), blob); } finally { putting.delete(job.id); }
+          if (!stillPut(job.id)) return;   // removed meanwhile (its delete took the put's place)
           if (!r.ok) { refusedOrLater(job, r); return; }
           q.sent(job.id, part);
-          if (!stillPut(job.id)) return;   // removed meanwhile (its delete took the put's place)
         }
         await stored(job);
       };
@@ -162,7 +166,8 @@ export function files(options) {
 
       const revoke = () => { for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear(); };
       // another account, or forget(): this device's files go (a throw refuses the switch; the old data stays)
-      const wipe = async () => { q.clear(); revoke(); await cache.clear(); tell(); };
+      // `gen` moves on at each wipe, so a fetch that started before it neither refills the cache nor is shown
+      const wipe = async () => { gen++; fetching.clear(); q.clear(); revoke(); await cache.clear(); tell(); };
 
       const offs = [
         ctx.on('signin', () => { q.wake(); tell(); void kick(); }),
@@ -186,18 +191,21 @@ export function files(options) {
 
       /** @param {string} id @param {{ scope?: string, thumb?: boolean }} [o] @returns {Promise<Blob>} */
       const blob = async (id, { scope, thumb = false } = {}) => {
-        const s = scopeFor(scope), key = keyOf(s, id, thumb);
+        const s = scopeFor(scope), key = keyOf(s, id, thumb), g = gen;
         const have = await cache.get(key);
+        if (g !== gen) throw fail('sign in first', { status: 401 });   // another account since
         if (have) return have;
         if (!fetching.has(key)) {
-          fetching.set(key, (async () => {
+          const run = (async () => {
             if (!me()) throw fail('sign in first', { status: 401 });
             const r = await call('GET', where(s, id, thumb));
             if (!r.ok) throw fail(r.status === 404 ? 'not uploaded yet' : `fetch ${r.status}`, { status: r.status });
             const b = await r.blob();
+            if (g !== gen) throw fail('sign in first', { status: 401 });   // another account since
             await cache.set(key, b).catch(() => {});   // shown anyway; fetched again next time
             return b;
-          })().finally(() => fetching.delete(key)));
+          })().finally(() => { if (fetching.get(key) === run) fetching.delete(key); });
+          fetching.set(key, run);
         }
         return /** @type {Promise<Blob>} */ (fetching.get(key));
       };
@@ -233,7 +241,9 @@ export function files(options) {
           const key = keyOf(scopeFor(o.scope), id, !!o.thumb);
           const have = urls.get(key);
           if (have) return have;
-          const href = URL.createObjectURL(await blob(id, o));
+          const g = gen, b = await blob(id, o);
+          if (g !== gen) throw fail('sign in first', { status: 401 });
+          const href = URL.createObjectURL(b);
           urls.set(key, href);
           return href;
         },
@@ -246,7 +256,7 @@ export function files(options) {
           const cur = typeof x === 'object' ? x : /** @type {FileRecord | null} */ (sync.copyOf(collection, id));
           const put = q.jobs().find(j => j.id === id && j.op === 'put');
           // a file that never left this device needs no delete on the Worker
-          const neverSent = put && (put.parts || []).length === (put.rec?.thumb ? 2 : 1);
+          const neverSent = put && !putting.has(id) && (put.parts || []).length === (put.rec?.thumb ? 2 : 1);
           if (neverSent) q.drop(id); else q.add(u.uid, { id, scope: s, op: 'delete' });
           tell();
           await sync.save(collection, s, { id, _deleted: true }, cur);

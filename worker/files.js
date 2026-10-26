@@ -9,9 +9,10 @@
 // the token's role allows, by the same rule as the app's Firestore rules (claims { g: { <scope>: role } }): any role
 // reads, admin and member write. An app with other rules passes its own access().
 //
-// handleFiles(request, { bucket, verify, maxBytes, access, origin }) is pure: bucket is R2's interface (put, get, delete),
+// handleFiles(request, { bucket, verify, revoked, maxBytes, access, origin, now }) is pure: bucket is R2's interface (put, get, delete),
 // so the unit tests and the e2e server (e2e/serve.mjs) give it an in-memory one (e2e/memory-bucket.mjs).
 //   verify(idToken) -> the token's payload, or throws (sites.js: claims.js's verifyIdToken, shared, not copied)
+//   revoked(uid) -> true once a member was removed (revoked/{uid}, as the rules' notRevoked()); null skips it
 // Answers 201/204 (or the bytes), or { error } with 400/401/403/404/405/411/413/503.
 
 export const MAX_BYTES = 100_000_000;   // the Workers request body limit (Free and Pro plans)
@@ -19,14 +20,16 @@ const PATH = /^\/api\/files\/([A-Za-z0-9_-]{1,128})\/([A-Za-z0-9_-]{1,64})(\.thu
 const TYPE = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}$/;
 const WRITERS = ['admin', 'member'], READERS = ['admin', 'member', 'viewer'];
 
-/** The starter's rule: your own uid, or a shared scope your role allows (writes: admin and member). */
-export function defaultAccess({ token, scope, write }) {
+/** The starter's rule: your own uid, or a shared scope your role allows (writes: admin and member); not after the
+ * access end in the claims (`x`, seconds), the same gate as the rules' live(). */
+export function defaultAccess({ token, scope, write, now = Date.now() }) {
+  if (token.x != null && !(now < Number(token.x) * 1000)) return false;
   if (scope === token.sub) return true;
   const role = token.g && typeof token.g === 'object' ? token.g[scope] : undefined;
   return (write ? WRITERS : READERS).includes(role);
 }
 
-export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTES, access = defaultAccess, origin } = {}) {
+export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTES, access = defaultAccess, origin, revoked = null, now = Date.now } = {}) {
   const m = new URL(request.url).pathname.match(PATH);
   if (!m) return json({ error: 'Not found.' }, 404);
   const [, scope, id, thumb] = m;
@@ -41,7 +44,12 @@ export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTE
   if (!idToken) return json({ error: 'Sign in first.' }, 401);
   let token;
   try { token = await verify(idToken); } catch (e) { return json({ error: 'Sign in again.', why: e?.message }, 401); }
-  if (!access({ token, scope, write: method !== 'GET' })) return json({ error: 'No access to these files.' }, 403);
+  if (!access({ token, scope, write: method !== 'GET', now: now() })) return json({ error: 'No access to these files.' }, 403);
+  if (revoked) {
+    let gone;
+    try { gone = await revoked(token.sub); } catch (e) { return json({ error: 'Try again later.', why: e?.message }, 503); }
+    if (gone) return json({ error: 'No access to these files.' }, 403);
+  }
 
   const key = `${scope}/${id}${thumb || ''}`;
   if (method === 'GET') {

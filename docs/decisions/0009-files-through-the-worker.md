@@ -8,7 +8,8 @@ third app uses it.
 
 - **Bytes go through the Worker**, `/api/files/<scope>/<id>[.thumb]` (`worker/files.js`, routed from `sites.js`), into
   the R2 bucket bound as `FILES`. The Worker checks the same Firebase ID token as `/api/claims` (the shared verifier,
-  not a copy) and the same scope rule as the Firestore rules; no R2 keys exist anywhere. One file is at most 100 MB
+  not a copy) and the same gates as the Firestore rules (scope and role, the access end `x`, `revoked/{uid}` read as the
+  service account); no R2 keys exist anywhere. One file is at most 100 MB
   (the Workers request limit). Presigned URLs and a home server are Later.
 - **Device first:** `add` returns at once. The bytes (and a thumbnail) go to IndexedDB, the metadata record goes
   through `sync.save` in the app's own collection, and an upload job waits in the module's storage until the device
