@@ -29,10 +29,14 @@ are safe from day one. Replace this first paragraph with what the app is once it
   (own import map entry): `add` keeps a photo or file on the device at once (resized, with a thumbnail; date taken
   read first when `exif` is on), saves its record through sync and uploads it through the Worker's `/api/files/`
   (R2 bucket bound as `FILES`, the same ID token check as `/api/claims`, 100 MB cap) when online, with retries; `url`
-  shows it from the device or fetches it; `remove` deletes it. The sample's item sheet attaches photos and files.
+  shows it from the device or fetches it; `remove` deletes it. Uploads need the admin or member role (an account with
+  no role gets 403, even for its own files). The sample's item sheet attaches photos and files.
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
-  the role doc's `v` is ahead of its token.
+  the role doc's `v` is ahead of its token. Admins change and remove roles through the Worker's `/api/members/<uid>`
+  (`worker/members.js`; the page's `members.setRole` and `members.remove`); the rules refuse pages' writes to
+  `members/`. A removal also revokes the account: `revoked/{uid}` (rules and files refuse at once), claims cleared,
+  refresh tokens ended.
 - **Rules** (`app/firestore.app.rules`, built into `app/firestore.rules` with the rules kit's helpers) and their
   emulator tests (`app/test/rules.test.mjs`: the kit's shared cases plus the app's own).
 - **Offline from the first visit**: the service worker installs the page, its files, Firebase and the pinned core

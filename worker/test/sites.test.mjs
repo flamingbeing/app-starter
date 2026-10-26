@@ -106,6 +106,14 @@ test('/api/claims: 503 until the service account is set, 405 on GET', async () =
   assert.equal((await get(`https://${HOST}/api/claims`)).status, 405);
 });
 
+test('/api/members/: 503 until the service account is set, with the headers; 401 without a token on the emulators', async () => {
+  const r = await get(`https://${HOST}/api/members/u1`, { method: 'DELETE' });
+  assert.equal(r.status, 503);
+  assert.equal(r.headers.get('X-Robots-Tag'), 'noindex, nofollow');
+  const e = { ...env, EMULATOR: '1', AUTH_EMULATOR: '127.0.0.1:1', FIRESTORE_EMULATOR: '127.0.0.1:1' };
+  assert.equal((await worker.fetch(new Request('http://localhost/api/members/u1', { method: 'DELETE' }), e)).status, 401);
+});
+
 test('emulator claims only on localhost', async () => {
   const e = { ...env, EMULATOR: '1', AUTH_EMULATOR: '127.0.0.1:1', FIRESTORE_EMULATOR: '127.0.0.1:1' };
   const r = await worker.fetch(new Request(`https://${HOST}/api/claims`, { method: 'POST' }), e);

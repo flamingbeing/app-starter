@@ -40,13 +40,19 @@ test('put, get and delete in a shared scope; the key is <scope>/<id>', async () 
   assert.equal((await call(b, 'GET', '/api/files/_/abc', { who: 'ann' })).status, 404);
 });
 
-test('access follows the Firestore rule: viewers read, members and admins write, no role nothing; own uid always', async () => {
+test('access follows the Firestore rule: viewers read, members and admins write, no role nothing; own uid: read, write with a writer role', async () => {
   const b = memoryBucket();
   assert.equal((await call(b, 'PUT', '/api/files/_/a', { who: 'vic', body: 'x' })).status, 403);
   assert.equal((await call(b, 'PUT', '/api/files/_/a', { who: 'nob', body: 'x' })).status, 403);
   assert.equal((await call(b, 'DELETE', '/api/files/_/a', { who: 'vic' })).status, 403);
   assert.equal((await call(b, 'GET', '/api/files/_/a', { who: 'nob' })).status, 403);
-  assert.equal((await call(b, 'PUT', '/api/files/nob/a', { who: 'nob', body: 'x' })).status, 201, 'a personal file');
+  assert.equal((await call(b, 'PUT', '/api/files/nob/a', { who: 'nob', body: 'x' })).status, 403, 'no role: no uploads, not even personal ones');
+  assert.equal((await call(b, 'DELETE', '/api/files/nob/a', { who: 'nob' })).status, 403);
+  assert.equal((await call(b, 'PUT', '/api/files/vic/a', { who: 'vic', body: 'x' })).status, 403, 'a viewer reads only');
+  assert.equal((await call(b, 'PUT', '/api/files/ann/a', { who: 'ann', body: 'x' })).status, 201, 'a personal file');
+  assert.equal((await call(b, 'PUT', '/api/files/bob/a', { who: 'bob', body: 'x' })).status, 201, "an admin's (the owner's default role)");
+  assert.equal((await call(b, 'GET', '/api/files/nob/a', { who: 'nob' })).status, 404, 'own files still read (none here)');
+  assert.equal((await call(b, 'GET', '/api/files/ann/a', { who: 'ann' })).status, 200);
   assert.equal((await call(b, 'GET', '/api/files/nob/a', { who: 'ann' })).status, 403, "someone else's personal file");
   assert.equal((await call(b, 'GET', '/api/files/other/a', { who: 'ann' })).status, 403, 'a scope the token has no role in');
   assert.equal(defaultAccess({ token: { sub: 'x', g: { s: 'member' } }, scope: 's', write: true }), true);
