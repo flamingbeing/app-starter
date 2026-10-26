@@ -23,6 +23,7 @@ export function listScreen(app) {
       has: (rec, v) => v === 'number' && /\d/.test(itemText(rec)),
       is: (rec, v) => v === 'long' && itemText(rec).length >= 20,
     },
+    onReady: () => api.draw(all, new Set()),   // MiniSearch came in after a search: search again with it
   });
   /** @type {Item[]} */
   let all = [];
@@ -62,6 +63,7 @@ export function listScreen(app) {
   });
 
   input('q').addEventListener('input', () => api.draw(all, new Set()));
+  input('q').addEventListener('focus', () => void search.prepare(), { once: true });
   // "/" jumps to the box on a computer
   document.addEventListener('keydown', e => {
     const t = /** @type {HTMLElement} */ (e.target);

@@ -1,7 +1,15 @@
 // createSearch: an in-memory index over MiniSearch (vendored) for the records an app already holds. Nothing runs on
 // import; the index lives only as long as the object, so build it at start and keep it current from sync's watch.
-import MiniSearch from '../vendor/minisearch/7.2.0/index.js';
+// MiniSearch (~78 KB) loads on first need, not with the page: prepare() (call it when the search box gets focus) or
+// the first search. Until it is in, words match as plain text (no ranking, no typo tolerance) and onReady runs once it
+// is, so the page can search again. loadSearch() loads it ahead (tests, or an app that searches at start).
 import { parseQuery } from './query.js';
+
+/** @type {any} */
+let MiniSearch = null;
+/** @type {Promise<void> | null} */
+let loading = null;
+export const loadSearch = () => loading ??= import('../vendor/minisearch/7.2.0/index.js').then(m => { MiniSearch = m.default; });
 
 /** One field's text for one record: strings as is, arrays joined, anything else empty.
  * @param {Record<string, unknown>} rec @param {string} field */
@@ -11,26 +19,35 @@ const textOf = (rec, field) => {
 };
 
 /** @param {import('./types.d.ts').Options} options @returns {import('./types.d.ts').Search} */
-export function createSearch({ fields, boost = {}, store = [], operators = {}, newest = rec => Number(rec.updatedAt ?? 0) || 0 }) {
-  const index = new MiniSearch({
-    fields: [...fields],
-    storeFields: [...store],
-    idField: 'id',
-    extractField: (doc, f) => textOf(doc, f),
-    searchOptions: { boost, prefix: true, fuzzy: 0.2 },
-  });
+export function createSearch({ fields, boost = {}, store = [], operators = {}, newest = rec => Number(rec.updatedAt ?? 0) || 0, onReady }) {
+  /** @type {any} the MiniSearch index, built from the records once MiniSearch is in */
+  let index = null;
   /** @type {Map<string, Record<string, unknown>>} */
   const records = new Map();
   const names = [...fields, ...Object.keys(operators)];
+  const build = () => {
+    if (index || !MiniSearch) return index;
+    index = new MiniSearch({
+      fields: [...fields],
+      storeFields: [...store],
+      idField: 'id',
+      extractField: (/** @type {Record<string, unknown>} */ doc, /** @type {string} */ f) => textOf(doc, f),
+      searchOptions: { boost, prefix: true, fuzzy: 0.2 },
+    });
+    index.addAll([...records].map(([id, rec]) => ({ ...rec, id })));
+    return index;
+  };
+  let waiting = false;
+  const prepare = () => loadSearch().then(() => { const was = !!index; build(); if (waiting && !was) { waiting = false; onReady?.(); } });
 
   /** @param {Record<string, unknown>} rec */
   const put = rec => {
     const id = String(rec.id);
-    if (index.has(id)) index.replace({ ...rec, id }); else index.add({ ...rec, id });
+    if (index) { if (index.has(id)) index.replace({ ...rec, id }); else index.add({ ...rec, id }); }
     records.set(id, rec);
   };
   /** @param {string} id */
-  const drop = id => { if (index.has(id)) index.discard(id); records.delete(id); };
+  const drop = id => { if (index?.has(id)) index.discard(id); records.delete(id); };
 
   /** ids that match one term, with a score for a plain word
    * @param {import('./query.js').Term} t @returns {Map<string, { score: number, fields: string[] }>} */
@@ -46,6 +63,14 @@ export function createSearch({ fields, boost = {}, store = [], operators = {}, n
         const hit = inFields.filter(f => textOf(rec, f).toLowerCase().includes(t.text));
         if (hit.length) out.set(id, { score: 0, fields: hit });
       }
+    } else if (!build()) {
+      // MiniSearch not in yet: each word as plain text, and search again once it is (onReady)
+      waiting = true; void prepare();
+      const inFields = t.field ? [t.field] : fields, words = t.text.toLowerCase().split(/\s+/).filter(Boolean);
+      for (const [id, rec] of records) {
+        const hit = inFields.filter(f => { const x = textOf(rec, f).toLowerCase(); return words.every(w => x.includes(w)); });
+        if (hit.length) out.set(id, { score: 0, fields: hit });
+      }
     } else {
       const opts = t.field ? { fields: [t.field] } : {};
       for (const r of index.search(t.text, { ...opts, combineWith: 'AND' })) {
@@ -59,8 +84,9 @@ export function createSearch({ fields, boost = {}, store = [], operators = {}, n
     feed(list) { for (const rec of list) put(rec); },
     update(rec) { put(rec); },
     remove(id) { drop(String(id)); },
-    clear() { index.removeAll(); records.clear(); },
+    clear() { index?.removeAll(); records.clear(); },
     get size() { return records.size; },
+    prepare,
     search(q, { limit = 50 } = {}) {
       const { groups, unknown } = parseQuery(q, { fields: names });
       if (!groups.length) return { hits: [], unknown };
