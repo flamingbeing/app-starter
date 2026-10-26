@@ -1,6 +1,6 @@
-// Vite check for @core/settings (shaking): a page that imports settings carries the module, a page that imports only
-// readFile carries the file code but not the module, and a page that imports none of it carries nothing. Builds small
-// pages into a temp folder; nothing is kept.
+// Vite check for the pieces (shaking): a page that imports settings carries the module, a page that imports only readFile
+// carries the file code but not the module, a page that imports only parseQuery from @core/search carries no MiniSearch,
+// and a page that imports none of it carries nothing. Builds small pages into a temp folder; nothing is kept.
 //   node tools/vite-pieces.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -17,6 +17,8 @@ const PAGES = {
   full: "import { settings } from '@core/settings'; console.log(settings({ options: {} }));",
   file: "import { readFile } from '@core/settings'; console.log(readFile);",
   none: "console.log('no settings here');",
+  query: "import { parseQuery } from '@core/search'; console.log(parseQuery('a'));",
+  index: "import { createSearch } from '@core/search'; console.log(createSearch({ fields: ['a'] }));",
 };
 for (const [name, code] of Object.entries(PAGES)) {
   fs.writeFileSync(path.join(SRC, `${name}.js`), code);
@@ -25,8 +27,8 @@ for (const [name, code] of Object.entries(PAGES)) {
 
 await build({
   configFile: false, root: SRC, base: './', logLevel: 'warn',
-  resolve: { alias: { '@core/settings': path.join(ROOT, 'app/public/settings/index.js') } },
-  build: { outDir: OUT, emptyOutDir: true, target: 'es2022', rollupOptions: { input: Object.fromEntries(Object.keys(PAGES).map(n => [n, path.join(SRC, `${n}.html`)])) } },
+  resolve: { alias: { '@core/settings': path.join(ROOT, 'app/public/settings/index.js'), '@core/search': path.join(ROOT, 'app/public/search/index.js') } },
+  build: { outDir: OUT, emptyOutDir: true, target: 'es2022', rollupOptions: { output: { experimentalMinChunkSize: 0 }, input: Object.fromEntries(Object.keys(PAGES).map(n => [n, path.join(SRC, `${n}.html`)])) } },
 });
 
 // every script a built page loads: its module scripts and, from each, the chunks it imports
@@ -40,12 +42,15 @@ function carried(page) {
   for (const m of fs.readFileSync(path.join(OUT, `${page}.html`), 'utf8').matchAll(/<script[^>]+type="module"[^>]+src="([^"]+)"/g)) visit(path.join(OUT, m[1]));
   return [...seen].map(f => fs.readFileSync(f, 'utf8')).join('\n');
 }
-const full = carried('full'), file = carried('file'), none = carried('none');
+const full = carried('full'), file = carried('file'), none = carried('none'), query = carried('query'), index = carried('index');
 const problems = [];
 if (!full.includes(MODULE) || !full.includes(FILE)) problems.push('the page that uses settings does not carry it');
 if (file.includes(MODULE)) problems.push('a page that imports only readFile carries module.js');
 if (!file.includes(FILE)) problems.push('a page that imports readFile does not carry it');
 if (none.includes(MODULE) || none.includes(FILE)) problems.push('a page that uses none of it carries it');
+if (!index.includes('removeAll') || !index.includes('discard')) problems.push('the page that uses createSearch does not carry MiniSearch');
+if (query.includes('removeAll') || query.includes('discard')) problems.push('a page that imports only parseQuery carries MiniSearch');
+if (none.includes('removeAll') || none.includes('discard') || none.includes('editDistance')) problems.push('a page that uses none of search carries it');
 fs.rmSync(SRC, { recursive: true, force: true }); fs.rmSync(OUT, { recursive: true, force: true });
 if (problems.length) { console.error(`vite-pieces: ${problems.join('; ')}`); process.exit(1); }
-console.log('vite-pieces: @core/settings shakes: a page carries only what it imports');
+console.log('vite-pieces: @core/settings and @core/search shake: a page carries only what it imports');

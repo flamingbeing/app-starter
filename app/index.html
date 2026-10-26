@@ -16,6 +16,7 @@
     "@core/theme": "./theme/index.js",
     "@core/files": "./files/index.js",
     "@core/settings": "./settings/index.js",
+    "@core/search": "./search/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -54,6 +55,11 @@
       <div id="conflict-sheet"></div>
       <div id="refused-list"></div>
       <p id="edit-msg" class="small" role="status"></p>
+      <div id="search">
+        <label for="q">Search</label>
+        <input id="q" type="search" autocomplete="off" placeholder="word, &quot;phrase&quot;, -leave out, has:number, is:long">
+        <p id="search-msg" class="small" role="status"></p>
+      </div>
       <form id="add" autocomplete="off">
         <label for="new-text">New item</label>
         <div class="row">
