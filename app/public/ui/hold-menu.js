@@ -23,6 +23,21 @@ export function placeMenu(r, menu, view, at) {
   return { left, top, previewTop, below: top > previewTop };
 }
 
+// a look whose menus come up as a sheet (data-menu="sheet" on <html>, looks.js) shows them so on phones
+export const SHEET_BELOW = 840;
+
+/**
+ * The sheet menu's place (pure): along the bottom edge; the preview stays put unless the sheet would cover it, then
+ * it moves up to sit just above.
+ * @param {{ top: number, height: number }} r  the element's rect @param {{ h: number }} menu @param {{ h: number }} view
+ * @returns {{ top: number, previewTop: number }}
+ */
+export function placeSheetMenu(r, menu, view) {
+  const gap = 10, edge = 8;
+  const top = view.h - edge - menu.h;
+  return { top, previewTop: Math.max(edge, Math.min(r.top, top - gap - r.height)) };
+}
+
 /**
  * Starts hold menus for every [data-hold-menu] inside root (now or added later).
  * @param {ParentNode} [root]
@@ -97,10 +112,14 @@ export function holdMenus(root = document) {
     menu.querySelectorAll('.ui-menu-item').forEach(b => { b.setAttribute('role', 'menuitem'); if (b instanceof HTMLButtonElement) b.type = 'button'; });
     layer.append(preview, menu);
     layer.classList.add('is-open');   // before measuring: a closed layer is display:none, so the menu would measure 0
-    const p = placeMenu(r, { w: menu.offsetWidth, h: menu.offsetHeight }, { w: innerWidth, h: innerHeight }, at);
-    menu.style.left = `${p.left}px`;
+    const sheet = html.dataset.menu === 'sheet' && innerWidth < SHEET_BELOW;
+    menu.classList.toggle('is-sheet', sheet);   // (before measuring: the sheet is wider)
+    const view = { w: innerWidth, h: innerHeight };
+    const p = sheet ? placeSheetMenu(r, { h: menu.offsetHeight }, view)
+      : placeMenu(r, { w: menu.offsetWidth, h: menu.offsetHeight }, view, at);
+    if ('left' in p) menu.style.left = `${p.left}px`; else menu.style.removeProperty('left');
     menu.style.top = `${p.top}px`;
-    menu.style.setProperty('--ui-menu-origin', p.below ? '50% 0' : '50% 100%');
+    menu.style.setProperty('--ui-menu-origin', 'below' in p && !p.below ? '50% 100%' : '50% 0');
     html.classList.add('ui-menu-open');
     requestAnimationFrame(() => {
       preview.style.top = `${p.previewTop}px`;

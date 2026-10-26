@@ -1,23 +1,23 @@
-// @core/theme: the switch sets this device's theme and layout, and the choice survives a reload.
+// @core/theme: the switch sets this device's theme and density, and the choice survives a reload.
 import AxeBuilder from './axe.mjs';
 import { test, expect, APP } from './fixtures.mjs';
 
-test('theme and layout switch: kept on this device, accessible in dark', async ({ phone }) => {
+test('theme and density switch: kept on this device, accessible in dark', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP);
   const root = page.locator('html');
   await expect(root).not.toHaveAttribute('data-theme');
-  await expect(root).not.toHaveAttribute('data-layout');
+  await expect(root).not.toHaveAttribute('data-density');
 
   await page.getByLabel('Theme').selectOption('dark');
-  await page.getByLabel('Layout').selectOption('compact');
+  await page.getByLabel('Density').selectOption('compact');
   await expect(root).toHaveAttribute('data-theme', 'dark');
-  await expect(root).toHaveAttribute('data-layout', 'compact');
+  await expect(root).toHaveAttribute('data-density', 'compact');
   expect(await AxeBuilder(page)).toEqual([]);
 
   await page.reload();
   await expect(root).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByLabel('Layout')).toHaveValue('compact');
+  await expect(page.getByLabel('Density')).toHaveValue('compact');
 
   await page.getByLabel('Theme').selectOption('auto');
   await expect(root).not.toHaveAttribute('data-theme');
@@ -66,15 +66,15 @@ test('accent: a picked colour is kept on this device, Reset goes back to the loo
   await page.goto(APP);
   const reset = page.getByRole('button', { name: 'Reset colour' });
   await expect(reset).toBeHidden();
-  await expect(page.getByLabel('Colour')).toHaveValue('#3a6390');   // the app's (config.js)
-  await page.getByLabel('Colour').fill('#c2417a');
+  await expect(page.locator('#accent-pick')).toHaveValue('#3a6390');   // the app's (config.js)
+  await page.locator('#accent-pick').fill('#c2417a');
   await expect(reset).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Colour')).toHaveValue('#c24179');   // (snapped to 6 bits a channel)
+  await expect(page.locator('#accent-pick')).toHaveValue('#c24179');   // (snapped to 6 bits a channel)
   expect(await cssVar(page, '--accent')).not.toBe('');
   await page.getByRole('button', { name: 'Reset colour' }).click();
   await expect(reset).toBeHidden();
-  await expect(page.getByLabel('Colour')).toHaveValue('#3a6390');
+  await expect(page.locator('#accent-pick')).toHaveValue('#3a6390');
 });
 
 test('every look passes axe in light, dark and OLED', async ({ phone }) => {

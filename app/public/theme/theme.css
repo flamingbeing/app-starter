@@ -1,8 +1,9 @@
 /* @core/theme: the custom properties every kit part and app screen draws with, and the base look on them. The values
    below are the no-script ones (light from the home design tokens, tokens.css, with plain fallbacks; dark the kit's
    own): applyTheme() replaces them with the device's chosen palette (palette-css.js) before the first paint. The theme
-   follows the device (Auto) unless one was chosen on this device (data-theme on <html>); the layout is Comfortable
-   unless Compact was. */
+   follows the device (Auto) unless one was chosen on this device (data-theme on <html>); the density is Regular (50 px
+   rows) unless Comfortable (60) or Compact (44; taps stay 44 px high) was (data-density). The look's tokens (looks.js)
+   default here to plain ones, for a browser without constructed stylesheets. */
 :root {
   color-scheme: light dark;
   --font: var(--home-font, system-ui, sans-serif);
@@ -46,17 +47,25 @@
   --gap: .5rem;
   --pad: 1rem;
   --tap: 44px;
+  --row: 50px;
+  /* the look's tokens (palette-css.js puts the picked look's over these) */
+  --look-font-head: inherit;
+  --title-size: 2rem; --title-weight: 700; --title-track: 0; --bar-line: transparent;
+  --card-r: 0; --list-inset: 0; --list-edge: var(--line); --list-sep: color-mix(in srgb, var(--line) 40%, transparent); --list-shadow: none;
+  --row-weight: 400; --control-r: var(--radius); --pill-r: calc(var(--radius-l) * 2); --menu-r: var(--radius-l);
+  --sheet-r: var(--radius-l); --tick-size: 22px; --tab-active: var(--selection); --glass-tint: 0%;
 }
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) { :root { --d-spring: 1ms; } }
 :root[data-motion="still"] { --d-spring: 1ms; }
-:root[data-layout="compact"] { --gap: .25rem; --pad: .5rem; font-size: 93.75%; }
+:root[data-density="comfortable"] { --row: 60px; --tap: 48px; --gap: .625rem; --pad: 1.125rem; font-size: 106.25%; }
+:root[data-density="compact"] { --row: 44px; --gap: .25rem; --pad: .75rem; font-size: 93.75%; }
 
 body { font-family: var(--font); line-height: var(--leading); background: var(--bg); color: var(--text); }
 h1, h2, h3 { font-family: var(--font-head); line-height: 1.2; }
 button, input, select { font: inherit; color: inherit; }
-button { min-height: var(--tap); padding: 0 var(--pad); cursor: pointer; border-radius: var(--radius); }
+button { min-height: var(--tap); padding: 0 var(--pad); cursor: pointer; border-radius: var(--control-r); }
 button, select { background: var(--surface); border: var(--border) solid var(--line); }
 input[type="color"] { min-height: var(--tap); min-width: var(--tap); padding: 2px; border: var(--border) solid var(--line);
   border-radius: var(--radius); background: var(--surface); }

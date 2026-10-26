@@ -7,10 +7,10 @@
 
 html.glass {
   /* what the parts draw with: the palette's glass, or the solid card colour where glass is turned down below */
-  --glass-bg: var(--glass);
-  --glass-bg-thick: var(--glass-thick);
+  --glass-bg: color-mix(in srgb, var(--glass), var(--accent) var(--glass-tint));
+  --glass-bg-thick: color-mix(in srgb, var(--glass-thick), var(--accent) var(--glass-tint));
   --glass-bg-clear: var(--glass-clear);
-  --glass-r: calc(var(--radius-l) * 2);
+  --glass-r: var(--sheet-r);
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   html.glass { --glass-bg: var(--surface); --glass-bg-thick: var(--surface); --glass-bg-clear: var(--surface);
@@ -64,6 +64,18 @@ html.glass {
 /* ---------- controls: a small spring when pressed ---------- */
 .glass button { transition: transform var(--d-spring) var(--spring-snappy); }
 .glass button:active { transform: scale(.96); }
+
+/* ---------- a look with glass on its floating pills only (data-glass="pill", looks.js) ---------- */
+/* the bar, menus, sheets and dialogs are solid card colour; the toasts, the action bar and a floating tab bar keep the
+   glass. (Glass stays within the two blur tiers and three layers: the scroll edge, a bar or pill, a menu or sheet.) */
+html.glass[data-glass="pill"] :is(.bar, dialog, .sheet, .glass-panel, .ui-bar, .ui-menu),
+html.glass[data-glass="pill"][data-tabbar="edge"] .ui-tabbar {
+  --glass-bg: var(--surface); --glass-bg-thick: var(--surface); --glass-blur: none; --glass-blur-thick: none;
+  --glass-rim: 0 0 0 var(--border) var(--line); --glass-shadow: 0 0 0 transparent;
+}
+html.glass[data-glass="pill"] body::before { content: none; }
+html.glass[data-glass="pill"] .bar { position: static; margin: 0 0 var(--gap); border-radius: 0; box-shadow: none;
+  border-bottom: var(--border) solid var(--bar-line); }
 
 @keyframes glass-in { from { opacity: 0; transform: translateY(.75rem) scale(.96); } }
 @keyframes glass-fade { from { opacity: 0; } }

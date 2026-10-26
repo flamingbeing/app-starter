@@ -1,10 +1,28 @@
 // The gallery: starts every gesture part on the page's made-up plants, signed out. Relative imports, so the page needs
 // no import map. ?edge=always turns the edge swipe on outside the iPhone home-screen app (for tests and desktops);
-// window.kit is the started parts, for the tests.
+// ?look=a|b|c and ?density=comfortable|regular|compact show that look or density on this page without keeping it
+// (links and screenshots; the switcher on the page keeps a pick on this device); ?guard=again forgets the glass
+// guard's verdict so it runs again. window.kit is the started parts, for the tests.
 import { startGestures, toaster } from '../ui/index.js';
-import { applyTheme, chooseTheme, themeChoice } from '../theme/index.js';
+import { applyTheme, chooseTheme, previewTheme, themeChoice, lookSwitch, keepGlassVerdict } from '../theme/index.js';
 
+const params = new URLSearchParams(location.search);
+if (params.get('guard') === 'again') keepGlassVerdict(null);
 applyTheme();
+/** @type {Record<string, string>} */
+const preview = {};
+for (const k of ['look', 'density']) { const v = params.get(k); if (v) preview[k] = v; }
+const shown = Object.keys(preview).length ? previewTheme(preview) : themeChoice();
+lookSwitch(/** @type {HTMLElement} */ (document.getElementById('kit-looks')), () => {
+  // a pick is kept and replaces the link's preview: the address loses ?look= and ?density=
+  const url = new URL(location.href);
+  url.searchParams.delete('look'); url.searchParams.delete('density');
+  history.replaceState(history.state, '', url);
+});
+for (const k of /** @type {const} */ (['look', 'density'])) {
+  const pick = /** @type {HTMLSelectElement | null} */ (document.getElementById(`${k}-pick`));
+  if (pick) pick.value = shown[k];
+}
 const edge = new URLSearchParams(location.search).get('edge');
 if (edge === 'always' || edge === 'off') document.documentElement.dataset.edgeBack = edge;
 

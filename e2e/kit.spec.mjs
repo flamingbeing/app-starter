@@ -136,6 +136,8 @@ for (const width of [390, 820, 1280]) {
       await expect(page.locator('[data-select-count]')).toHaveText('1 selected');
       expect(await depth(page)).toBe(0);   // a tap ticks, it doesn't open
 
+      // (rows 1–4 clear of the bottom edge, where a drag scrolls on: the look's title and list sizes move them)
+      await rows.nth(1).evaluate(e => scrollBy(0, e.getBoundingClientRect().top - 160));
       const f = await finger(page);
       const list = await page.locator('#plants').boundingBox();
       const a = await centre(rows.nth(1)), b = await centre(rows.nth(4));

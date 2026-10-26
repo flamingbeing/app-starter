@@ -2,36 +2,41 @@
 // contrast floor (colour.js, palette-css.js), the presets and the accent grid. node --test app/test/theme.unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseChoice, chooseTheme, themeChoice, THEMES, LAYOUTS } from '../public/theme/choice.js';
+import { parseChoice, chooseTheme, themeChoice, THEMES, DENSITIES } from '../public/theme/choice.js';
+import { LOOKS } from '../public/theme/looks.js';
 import { cleanChoice, DARK_STYLES, PRESET_IDS, SURFACE_IDS, MATERIALS, MOTIONS } from '../public/theme/schema.js';
 import { contrast, cleanHex, mix, nudge, lightPalette, darkPalette, floor, checkPalette, pairs, glassSamples, frostAlpha, glassStrengths, BACKDROP } from '../public/theme/colour.js';
 import { palettes, paletteCss, shapeTokens, accentOf, glassTokens, DEFAULT_ACCENT } from '../public/theme/palette-css.js';
 import { PRESETS, SURFACES } from '../public/theme/presets.js';
 import { GRID, HUES, SHADES, gridIndex, snap } from '../public/theme/grid.js';
 
-const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', layout: 'comfortable', material: 'glass', motion: 'auto' };
+const DEFAULTS = { theme: 'auto', dark: 'dark', preset: 'default', accent: '', surface: '', look: '', density: 'regular', material: 'glass', motion: 'auto' };
+// what show() puts on <html> for look A (the default), besides the marks a choice sets
+const LOOK_A = { look: 'a', header: 'plain', menu: 'popover', glass: 'bars', tick: 'round', tabbar: 'float' };
 
 test('nothing stored: the defaults, so new options stay off until picked', () => {
   assert.deepEqual(parseChoice(null), DEFAULTS);
   assert.equal(THEMES[0], 'auto');
-  assert.equal(LAYOUTS[0], 'comfortable');
+  assert.equal(DENSITIES[0], 'regular');
   assert.equal(DARK_STYLES[0], 'dark');
   assert.equal(PRESET_IDS[0], 'default');
   assert.equal(SURFACE_IDS[0], '');
 });
 
 test("v0's stored { theme, layout } still reads as it did", () => {
-  assert.deepEqual(parseChoice('{"theme":"dark","layout":"compact"}'), { ...DEFAULTS, theme: 'dark', layout: 'compact' });
+  assert.deepEqual(parseChoice('{"theme":"dark","layout":"compact"}'), { ...DEFAULTS, theme: 'dark', density: 'compact' });
+  assert.deepEqual(parseChoice('{"layout":"comfortable"}'), DEFAULTS, "v0's Comfortable was today's Regular");
+  assert.equal(parseChoice('{"density":"comfortable","layout":"compact"}').density, 'comfortable', 'density wins');
   assert.deepEqual(parseChoice('{"theme":"light"}'), { ...DEFAULTS, theme: 'light' });
 });
 
 test('a stored choice is kept, hex lower-cased', () => {
-  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', layout: 'compact', material: 'solid', motion: 'still' };
+  const all = { theme: 'light', dark: 'oled', preset: 'paper', accent: '#ABCDEF', surface: 'sepia', look: 'c', density: 'compact', material: 'solid', motion: 'still' };
   assert.deepEqual(parseChoice(JSON.stringify(all)), { ...all, accent: '#abcdef' });
 });
 
 test('unknown values or unreadable storage: the defaults', () => {
-  assert.deepEqual(parseChoice('{"theme":"neon","layout":7,"dark":"amoled","preset":"nuhs","accent":"red","surface":"plaid"}'), DEFAULTS);
+  assert.deepEqual(parseChoice('{"theme":"neon","layout":7,"look":"z","density":"huge","dark":"amoled","preset":"nuhs","accent":"red","surface":"plaid"}'), DEFAULTS);
   assert.deepEqual(parseChoice('not json'), DEFAULTS);
   assert.deepEqual(parseChoice('null'), DEFAULTS);
   assert.deepEqual(parseChoice('[1,2]'), DEFAULTS);
@@ -46,15 +51,21 @@ test('storage refused: picks on this page still build on each other', () => {
   const classList = { toggle: (/** @type {string} */ c, /** @type {boolean} */ on) => { if (on) classes.add(c); else classes.delete(c); } };
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { documentElement: { dataset: {}, classList } } });
   chooseTheme({ theme: 'dark' });
-  chooseTheme({ layout: 'compact' });
+  chooseTheme({ density: 'compact' });
   chooseTheme({ dark: 'oled', preset: 'eye' });
-  assert.deepEqual(themeChoice(), { ...DEFAULTS, theme: 'dark', layout: 'compact', dark: 'oled', preset: 'eye' });
-  assert.deepEqual(document.documentElement.dataset, { theme: 'dark', layout: 'compact', dark: 'oled', preset: 'eye' });
+  assert.deepEqual(themeChoice(), { ...DEFAULTS, theme: 'dark', density: 'compact', dark: 'oled', preset: 'eye' });
+  assert.deepEqual(document.documentElement.dataset, { ...LOOK_A, theme: 'dark', density: 'compact', dark: 'oled', preset: 'eye' });
   assert.ok(classes.has('glass'), 'glass by default');
   chooseTheme({ material: 'solid' });
   assert.ok(!classes.has('glass'), 'Solid takes the glass class off');
-  chooseTheme({ theme: 'auto', dark: 'dark', preset: 'default', layout: 'comfortable', material: 'glass' });
-  assert.deepEqual(document.documentElement.dataset, {});
+  chooseTheme({ theme: 'auto', dark: 'dark', preset: 'default', density: 'regular', material: 'glass' });
+  assert.deepEqual(document.documentElement.dataset, LOOK_A);
+  assert.ok(classes.has('glass'));
+  chooseTheme({ look: 'b' });
+  assert.equal(document.documentElement.dataset.header, 'band');
+  assert.ok(!classes.has('glass'), "look B has no glass");
+  chooseTheme({ look: 'c', material: 'always' });
+  assert.equal(document.documentElement.dataset.glass, 'pill');
   assert.ok(classes.has('glass'));
 });
 
@@ -134,7 +145,7 @@ test('presets: 8 classic, unique ids, known grounds, no NUHS colours', () => {
 });
 
 test('shape tokens: corners, borders, shadow, headings, line height', () => {
-  assert.deepEqual(shapeTokens({}), { 'radius-s': '.25rem', radius: '.4rem', 'radius-l': '.75rem', border: '1px', shadow: '0 1px 3px rgb(0 0 0 / .14)', 'font-head': 'inherit', leading: '1.5' });
+  assert.deepEqual(shapeTokens({}), { 'radius-s': '.25rem', radius: '.4rem', 'radius-l': '.75rem', border: '1px', shadow: '0 1px 3px rgb(0 0 0 / .14)', 'font-head': 'var(--look-font-head, inherit)', leading: '1.5' });
   assert.equal(shapeTokens({ preset: 'soft' }).radius, '.8rem');
   assert.equal(shapeTokens({ preset: 'flat' }).shadow, 'none');
   assert.equal(shapeTokens({ preset: 'contrast' }).border, '2px');
@@ -145,12 +156,12 @@ test('shape tokens: corners, borders, shadow, headings, line height', () => {
 test('paletteCss: light on :root, dark for a dark device (unless Light) and for Dark; only known tokens', () => {
   const css = paletteCss({ dark: 'oled' });
   const [root, auto, dark] = css.split('\n');
-  assert.match(root, /^:root \{ --radius-s: .*--bg: #[0-9a-f]{6};/);
+  assert.match(root, /^:root \{ --look-font-head: .*--radius-s: .*--bg: #[0-9a-f]{6};/, "the look's tokens first, so the style's corners follow");
   assert.match(auto, /^@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\) \{ .*--bg: #000000;/);
   assert.match(dark, /^:root\[data-theme="dark"\] \{ .*--bg: #000000;/);
   const names = new Set([...css.matchAll(/--([a-z-]+):/g)].map(m => m[1]));
   const allowed = ['bg', 'surface', 'text', 'muted', 'line', 'accent', 'on-accent', 'danger', 'ok', 'warn', 'fill', 'on-fill', 'link', 'focus', 'selection',
-    'radius-s', 'radius', 'radius-l', 'border', 'shadow', 'font-head', 'leading', 'glass', 'glass-thick', 'glass-clear'];
+    'radius-s', 'radius', 'radius-l', 'border', 'shadow', 'font-head', 'leading', 'glass', 'glass-thick', 'glass-clear', ...Object.keys(LOOKS[0].tokens)];
   assert.deepEqual([...names].sort(), allowed.sort());
   assert.ok(!paletteCss({ accent: '</style><script>', surface: '} body {' }).includes('<'), 'only cleaned values reach the CSS');
 });
@@ -166,7 +177,7 @@ test('the accent grid: 13 rows of 8, named cells, snap to 6 bits a channel', () 
 });
 
 test('Solid: a per-device choice, glass unless picked; unknown values are glass', () => {
-  assert.deepEqual(MATERIALS, ['glass', 'solid']);
+  assert.deepEqual(MATERIALS, ['glass', 'solid', 'always']);
   assert.equal(cleanChoice({}).material, 'glass');
   assert.equal(cleanChoice({ material: 'solid' }).material, 'solid');
   assert.equal(cleanChoice({ material: 'frosted' }).material, 'glass');
