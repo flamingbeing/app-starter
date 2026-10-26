@@ -87,3 +87,9 @@ test('search: update, remove, empty query', () => {
   s.clear();
   assert.equal(s.size, 0);
 });
+
+test('parseQuery: a camelCase field is found whatever the case typed', () => {
+  const { groups, unknown } = parseQuery('ownerName:Kim ownername:lee', { fields: ['ownerName'] });
+  assert.deepEqual(unknown, []);
+  assert.deepEqual(groups.flat().map(t => t.field), ['ownerName', 'ownerName']);
+});

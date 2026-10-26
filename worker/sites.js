@@ -44,7 +44,8 @@ export default {
       // no such file, but a folder of that name: send the browser to the address with a "/" (as GitHub Pages does)
       let dir = await asset(env, url, file + '/index.html');
       if (dir.status === 404 && publicFile(file + '/index.html')) dir = await asset(env, url, /** @type {string} */ (publicFile(file + '/index.html')));
-      if (dir.status === 200) return finish(redirect(url, url.pathname + '/'));
+      // one leading "/" only: "//search/" would send the browser to the host "search"
+      if (dir.status === 200) return finish(redirect(url, url.pathname.replace(/^\/+/, '/') + '/'));
     }
     if (res.status === 404) return finish(notFound());
     res = new Response(res.body, res);
@@ -56,10 +57,14 @@ export default {
 
 // The real project with the service account in Worker secrets; on localhost with EMULATOR set (the e2e server only)
 // the emulators, which need no account and accept only a demo- project.
+// One per isolate, so its access token (an hour) serves every request rather than an exchange with Google per request.
+const admins = new Map();
 function adminFor(env, local, project) {
   if (local && env.EMULATOR) return admin({ project, emulator: { auth: env.AUTH_EMULATOR, firestore: env.FIRESTORE_EMULATOR } });
-  if (env.SA_EMAIL && env.SA_KEY && project) return admin({ project, sa: { email: env.SA_EMAIL, key: env.SA_KEY } });
-  return null;
+  if (!(env.SA_EMAIL && env.SA_KEY && project)) return null;
+  const key = `${project}\n${env.SA_EMAIL}\n${env.SA_KEY}`;
+  if (!admins.has(key)) admins.set(key, admin({ project, sa: { email: env.SA_EMAIL, key: env.SA_KEY } }));
+  return admins.get(key);
 }
 function claims(request, env, url, local, project) {
   const adm = adminFor(env, local, project);
