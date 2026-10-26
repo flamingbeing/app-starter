@@ -4,6 +4,7 @@ body { margin: 0 auto; max-width: 80rem; padding: 0 0 calc(var(--tap) * 2 + env(
 .ui-bar .kit-home { flex: 1; text-decoration: none; }
 .kit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap) var(--pad); margin: 0 var(--pad) var(--pad); }
 .kit-looks .theme-switch { display: flex; flex-wrap: wrap; gap: var(--gap) var(--pad); }
+.kit-looks select { min-height: 32px; }
 .kit-check { display: inline-flex; align-items: center; gap: .4em; min-height: var(--tap-s); cursor: pointer; }
 .kit-check input { width: 1.1em; height: 1.1em; margin: 0; }
 .kit-screen { padding: 0 var(--pad) var(--pad); }
