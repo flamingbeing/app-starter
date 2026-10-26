@@ -22,6 +22,11 @@ are safe from day one. Replace this first paragraph with what the app is once it
   palettes worked out from one accent with a contrast floor, applied from `src/boot.js` before the first paint; the
   app's default colour is `APP.accent` in `src/config.js`, `fill.mjs --accent`), v0 in `app/public/ui/` and `app/public/theme/`, each its
   own import map entry. The screens are one file each in `app/src/screens/`; a new app replaces only those.
+- **Files** ([decision 0009](docs/decisions/0009-files-through-the-worker.md)): `@core/files` v0 in `app/public/files/`
+  (own import map entry): `add` keeps a photo or file on the device at once (resized, with a thumbnail; date taken
+  read first when `exif` is on), saves its record through sync and uploads it through the Worker's `/api/files/`
+  (R2 bucket bound as `FILES`, the same ID token check as `/api/claims`, 100 MB cap) when online, with retries; `url`
+  shows it from the device or fetches it; `remove` deletes it. The sample's item sheet attaches photos and files.
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
   the role doc's `v` is ahead of its token.
@@ -46,7 +51,9 @@ are safe from day one. Replace this first paragraph with what the app is once it
 3. `npm ci`, then the tests (README, "Tests"); all green before the first change.
 4. Replace the sample screen (`app/src/app.js`, `app/index.html`) with the app. Keep the wiring in `app/src/cloud.js`
    (one `createApp`, every save through the sync module) and the rules that bite in `AGENTS.md`.
-5. After adding or removing a file the page loads: `node tools/sw-files.mjs app` (CI fails until the list is current).
+5. Before the first deploy, make the files bucket once: `npx wrangler r2 bucket create <name>-files` (the deploy fails
+   without it). An app with no files drops `@core/files` from `cloud.js` and the import map, and the `r2_buckets` line.
+6. After adding or removing a file the page loads: `node tools/sw-files.mjs app` (CI fails until the list is current).
 
 ## Fill (make it a new app)
 

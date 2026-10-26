@@ -20,7 +20,7 @@ const sheetOpen = () => !!document.querySelector('dialog[open]');
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
 themeSwitch($('theme-switch'));
-window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn };   // for the tests
+window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn, files: () => app?.files };   // for the tests
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
 updatePrompt($('update-prompt'), { update: app?.update || null });
 
@@ -56,5 +56,6 @@ else {
       list.draw(items, changed);
       window.starter.ready = true;
     },
+    onFiles(by) { list.drawFiles(by); },
   });
 }
