@@ -44,8 +44,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
 
 // (Playwright can't emulate prefers-reduced-transparency; glass.css turns glass down for it in the same query)
 test('asked for more contrast: solid card colour, no blur', async ({ phone }) => {
-  const page = await phone();
-  await page.emulateMedia({ contrast: 'more' });
+  const page = await phone({ contrast: 'more' });   // at context creation: Firefox does not restyle for page.emulateMedia
   await page.goto(APP);
   await expect(page.locator('html')).toHaveClass(/\bglass\b/);
   expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
@@ -96,8 +95,7 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
 
 test('a change of screen is a view transition, unless motion is reduced', async ({ phone }) => {
   for (const reducedMotion of ['no-preference', 'reduce']) {
-    const page = await phone();
-    await page.emulateMedia({ reducedMotion });
+    const page = await phone({ reducedMotion });
     await page.addInitScript(() => {
       window.__vt = 0;
       const start = document.startViewTransition?.bind(document);
@@ -105,7 +103,9 @@ test('a change of screen is a view transition, unless motion is reduced', async 
     });
     await signIn(page, null);   // signed out -> no access: one change of screen
     const n = await page.evaluate(() => window.__vt);
-    if (reducedMotion === 'reduce') expect(n).toBe(0);
+    // Playwright's Firefox (142) has no document.startViewTransition: the app falls back to a plain change there
+    const supported = await page.evaluate(() => typeof document.startViewTransition === 'function');
+    if (reducedMotion === 'reduce' || !supported) expect(n).toBe(0);
     else expect(n).toBeGreaterThan(0);
   }
 });

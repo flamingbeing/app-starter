@@ -39,8 +39,9 @@ export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
   phone: async ({ browser, browserName }, use) => {
     const made = [];
-    await use(async () => {
-      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...touch(browserName) });
+    // options: context options such as { contrast: 'more' } (Firefox restyles only for media set at context creation, not by page.emulateMedia)
+    await use(async (options = {}) => {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...touch(browserName), ...options });
       await context.addInitScript(seed);
       const served = { n: 0, built: 0 };
       if (SYNC_DIR) await routeSync(context, served);
