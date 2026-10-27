@@ -47,13 +47,14 @@ async function newContext(browser, browserName, options, blobs = false) {
   return context;
 }
 
-// Offline for a context. WebKit's setOffline also fails the reload that the service worker should answer ("WebKit
-// encountered an internal error") and blob: images; a route that aborts the page's other requests does neither.
+// Offline for a context. In WebKit, setOffline also fails the reload that the service worker should answer ("WebKit
+// encountered an internal error") and blob: images; in Firefox that reload can hang. A route that aborts the page's other
+// requests does neither. (Chromium keeps setOffline.)
 const routed = new WeakMap(), NETWORK = /^https?:/;
 export async function setOffline(context, offline) {
-  const webkitContext = !context.browser() || context.browser().browserType().name() === 'webkit';   // (no browser: a persistent profile, WebKit only)
-  if (!webkitContext) return context.setOffline(offline);
-  const handler = route => route.request().resourceType() === 'document' ? route.continue() : route.abort('internetdisconnected');   // (a navigation is the worker's to answer; WebKit's route sees it first)
+  const engine = context.browser()?.browserType().name() ?? 'webkit';   // (no browser: a persistent profile, WebKit only)
+  if (engine === 'chromium') return context.setOffline(offline);
+  const handler = route => route.request().resourceType() === 'document' ? route.continue() : route.abort('internetdisconnected');   // (a navigation is the worker's to answer; the route sees it first)
   if (offline && !routed.has(context)) { routed.set(context, handler); await context.route(NETWORK, handler); }
   else if (!offline && routed.has(context)) { await context.unroute(NETWORK, routed.get(context)); routed.delete(context); }
 }
