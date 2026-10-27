@@ -242,7 +242,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       // .ts and the template-owned .mjs files (fill's KEEP) merge as text too; they only skip fill's swaps
       const textual = isText(rel) || /\.(m?js|ts)$/.test(rel);
       // a checkout with CRLF line endings (Windows autocrlf) against the template's LF: compare and merge as LF, write back CRLF
-      const crlf = textual && /\r\n/.test(ours.toString('utf8')) && !/\r\n/.test(newT.toString('utf8'));
+      const crlf = textual && /\r\n/.test(ours.toString('utf8')) && !/(^|[^\r])\n/.test(ours.toString('utf8')) && !/\r\n/.test(newT.toString('utf8'));   // all CRLF: a file with mixed endings is left as it is
       const lf = t => crlf ? t.replace(/\r\n/g, '\n') : t;
       const toApp = t => crlf ? t.replace(/\r?\n/g, '\r\n') : t;
       const o = lf(ours.toString('utf8'));
