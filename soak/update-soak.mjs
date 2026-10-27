@@ -185,7 +185,11 @@ async function realApp(appSrc) {
     const d = copyApp(appSrc, `${app}-full`);
     const r = update(d, [], log);
     must(r.code === 0 || r.code === 1, `exit ${r.code}`);
-    must(r.code === 0 || true, '');
+    // conflicts are the owner's to resolve; here both sides are kept (markers dropped) so the copy can be built
+    for (const f of r.out.split('\n').slice(r.out.split('\n').findIndex(l => /file\(s\) with conflicts/.test(l)) + 1).map(l => l.trim()).filter(Boolean)) {
+      const fp = path.join(d, f);
+      if (fs.existsSync(fp)) fs.writeFileSync(fp, fs.readFileSync(fp, 'utf8').split('\n').filter(l => !/^(<{7}|={7}|>{7})( |$)/.test(l)).join('\n'));
+    }
     const steps = [['npm', ['install', '--no-audit', '--no-fund']], ['npm', ['run', 'typecheck']],
       ['npm', ['test']], ['npx', ['vite', 'build']]];
     for (const [c, a] of steps) {
