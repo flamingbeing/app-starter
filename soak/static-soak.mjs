@@ -3,7 +3,7 @@
 // the soak specs. Made-up data only; no Firebase, no secrets, no deploy.
 //
 //   node soak/static-soak.mjs [--loops 3] [--seed 1] [--browsers chromium[,firefox,webkit]] [--workers 4]
-//        [--repeat 3] [--work <dir>] [--skip check,sw,unit,tsc,vite,e2e,dist,soak] [--keep] [--starter <dir>]
+//        [--repeat 3] [--throttle 4] [--work <dir>] [--skip check,sw,unit,tsc,vite,e2e,dist,soak] [--keep] [--starter <dir>]
 //
 // One summary line per loop; at the end `PASS n/N`, or the first failing seed and its log folder. Needs network once
 // (npm ci, app-devkit) and a Chromium (PW_CHROMIUM or Playwright's own); firefox/webkit run in the pw-box image.
@@ -23,6 +23,8 @@ const SEED = +opt('seed', 1);
 const BROWSERS = opt('browsers', 'chromium').split(',');
 const WORKERS = opt('workers', String(Math.max(1, Math.min(4, os.cpus().length))));
 const REPEAT = +opt('repeat', 3);
+const THROTTLE = +opt('throttle', 1);
+if (!(THROTTLE >= 1)) { console.log('FAIL --throttle wants a number >= 1'); process.exit(2); }   // Chromium CPU slowdown factor (CDP Emulation.setCPUThrottlingRate); 1 = off
 const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'static-soak')));
 const SKIP = new Set(opt('skip', '').split(',').filter(Boolean));
 const KEEP = argv.includes('--keep');
@@ -40,7 +42,7 @@ const tail = (r, re) => ((r.stdout || '') + (r.stderr || '')).split('\n').filter
 // the pieces every seed shares: .devkit/ and node_modules/ (same lock, same pins), made once
 function prepare() {
   const base = path.join(WORK, '_base');
-  const stamp = '.ready-' + crypto.createHash('sha1').update(fs.readFileSync(path.join(STARTER, 'package-lock.json'))).update(fs.readFileSync(path.join(STARTER, '.github/workflows/checks.yml'))).digest('hex').slice(0, 10);   // a new lock or devkit pin remakes it
+  const stamp = '.ready-' + crypto.createHash('sha1').update(BROWSERS.join() + (env.PW_CHROMIUM || '')).update(fs.readFileSync(path.join(STARTER, 'package-lock.json'))).update(fs.readFileSync(path.join(STARTER, '.github/workflows/checks.yml'))).digest('hex').slice(0, 10);   // a new lock or devkit pin remakes it
   if (fs.existsSync(path.join(base, stamp))) return base;
   fs.rmSync(base, { recursive: true, force: true });
   copyTree(STARTER, base);
@@ -51,7 +53,7 @@ function prepare() {
   // browsers: Playwright's own downloads, unless a Chromium is given (PW_CHROMIUM) and only chromium is asked for
   const want = BROWSERS.filter(b => b !== 'chromium' || !env.PW_CHROMIUM);
   if (want.length) {
-    const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log') });
+    const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log'), timeout: 3_600_000 });
     if (c.status !== 0) throw new Error(`playwright install ${want} failed (see ${WORK}/_browsers.log)`);
   }
   fs.writeFileSync(path.join(base, stamp), '');
@@ -103,10 +105,19 @@ function generate(seed, dir, logs) {
   return { kit, ok: g.status === 0 && f.status === 0, idem: second.status === 0 };
 }
 
+// the starter's config pins its projects to Chromium (and `--browser` is refused beside projects): a sibling config per engine
+const engineConfig = (dir, b) => {
+  const f = `pw-${b}.config.mjs`;
+  fs.writeFileSync(path.join(dir, f), `import base from './playwright.config.mjs';
+export default { ...base, use: { ...base.use, launchOptions: {} }, projects: base.projects.map(p => ({ ...p, use: { ...p.use, browserName: '${b}'${b === 'firefox' ? ', isMobile: false' : ''} } })) };
+`);
+  return f;
+};
 const pw = (dir, logs, tag, args, extra = {}) => {
+  if (THROTTLE > 1) extra = { SOAK_THROTTLE: String(THROTTLE), ...extra };
   const out = [];
   for (const b of BROWSERS) {
-    const r = run('npx', ['playwright', 'test', ...(b === 'chromium' ? [] : [`--browser=${b}`]), `--workers=${WORKERS}`, '--reporter=list', ...args], { cwd: dir, log: path.join(logs, `${tag}-${b}.log`), extra, timeout: 1_500_000 });
+    const r = run('npx', ['playwright', 'test', ...(b === 'chromium' ? [] : [`--config=${engineConfig(dir, b)}`]), `--workers=${WORKERS}`, '--reporter=list', ...args], { cwd: dir, log: path.join(logs, `${tag}-${b}.log`), extra, timeout: 1_500_000 });
     const m = ((r.stdout || '') + (r.stderr || ''));
     const n = k => +(m.match(new RegExp(`(\\d+) ${k}`))?.[1] || 0);
     out.push({ b, ok: r.status === 0, passed: n('passed'), failed: n('failed'), flaky: n('flaky') });

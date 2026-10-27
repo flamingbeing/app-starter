@@ -3,29 +3,41 @@
 // whatever the page did, a reload ends in a working list.
 import { test, expect, setOffline, uniq, signIn, add } from './fixtures.mjs';
 
+const engine = page => page.context().browser()?.browserType().name();
+// SOAK_THROTTLE=n: Chromium runs n times slower (a cheap phone); other browsers ignore it
+const slow = async page => {
+  const n = +process.env.SOAK_THROTTLE || 1;
+  if (n > 1 && engine(page) === 'chromium') await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: n });
+  return page;
+};
+// the app reloads itself when a new worker takes over; a test reload that lands on that one is aborted, not a failure
+// (then wait for that reload's document). Firefox: page.reload can hang when the worker answers (see setOffline in
+// fixtures.mjs), so it goes to the same URL (the app's URLs carry no hash)
+const reload = page => (engine(page) === 'firefox' ? page.goto(page.url(), { waitUntil: 'domcontentloaded' }) : page.reload({ waitUntil: 'domcontentloaded' }))
+  .catch(async e => { if (!/ERR_ABORTED|interrupted by another navigation/.test(e.message)) throw e; await page.waitForLoadState('domcontentloaded'); });
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
 const texts = page => page.locator('#items').evaluate(el => el.textContent);
 
 test('offline: saves made with no network are there after an offline reload', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page, 'member', { path: '/app/?test&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await setOffline(page.context(), true);
   const t = [uniq('off'), uniq('off'), uniq('off')];
   for (const x of t) await add(page, x);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   for (const x of t) await expect(page.locator('#items')).toContainText(x);
   await setOffline(page.context(), false);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   for (const x of t) await expect(page.locator('#items')).toContainText(x);
 });
 
 test('reload in the middle of a save: shown means kept, never doubled', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page);
   const kept = [];
   for (let i = 0; i < 8; i++) {
@@ -34,7 +46,7 @@ test('reload in the middle of a save: shown means kept, never doubled', async ({
     await page.click('#add button[type=submit]');
     if (i % 2) await page.waitForTimeout(i * 7);   // 0..49 ms: the reload lands before, during or after the write
     const shown = await page.locator('#items').evaluate((el, x) => el.textContent.includes(x), x).catch(() => false);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await reload(page);
     await ready(page);
     const body = await texts(page);
     if (shown) { expect(body, `${x} was shown before the reload`).toContain(x); kept.push(x); }
@@ -45,7 +57,7 @@ test('reload in the middle of a save: shown means kept, never doubled', async ({
 });
 
 test('IndexedDB deleted under a running page: no crash, a reload gives an empty working list', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await signIn(page);
@@ -54,19 +66,19 @@ test('IndexedDB deleted under a running page: no crash, a reload gives an empty 
   await page.evaluate(async () => {
     for (const { name } of await indexedDB.databases()) await new Promise(r => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => r(); });
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).not.toContainText(x);
   const y = uniq('after');
   await add(page, y);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(y);
   expect(errors, 'page errors').toEqual([]);
 });
 
 test('IndexedDB refuses writes (quota): the page keeps working, the next start is clean', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await signIn(page);
@@ -82,12 +94,12 @@ test('IndexedDB refuses writes (quota): the page keeps working, the next start i
   await page.click('#add button[type=submit]');
   await page.waitForTimeout(300);
   await expect(page.locator('#list-view')).toBeVisible();   // still there, not a blank page
-  await page.reload({ waitUntil: 'domcontentloaded' });     // new document: the stub is gone
+  await reload(page);     // new document: the stub is gone
   await ready(page);
   await expect(page.locator('#items')).toContainText(before);
   const y = uniq('ok');
   await add(page, y);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(y);
 });
@@ -106,7 +118,7 @@ const NO_STORAGE = {
 for (const [how, stub] of Object.entries(NO_STORAGE)) {
   test(`storage unavailable (${how}): the list works for the page, no crash`, async ({ phone }) => {
     test.fixme(how === 'indexedDB getter throws' && !process.env.SOAK_STRICT, 'app-sync store.js: typeof indexedDB throws');
-    const page = await phone();
+    const page = await slow(await phone());
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.context().addInitScript(`(${stub})()`);
@@ -120,7 +132,7 @@ for (const [how, stub] of Object.entries(NO_STORAGE)) {
 }
 
 test('a new version found while the list has saved items: nothing lost, online or offline', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page, 'member', { path: '/app/?test&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   const x = uniq('upd');
@@ -128,11 +140,11 @@ test('a new version found while the list has saved items: nothing lost, online o
   await page.request.get('/__test/bump');
   await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
   await page.waitForTimeout(500);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
   await setOffline(page.context(), true);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
 });
