@@ -97,6 +97,19 @@ test('brings in the template\'s changes with the app\'s values, merging with the
   assert.deepEqual(JSON.parse(read('.starter.json')).app, APP);
 });
 
+test('a file the template moved into a module\'s recipe stays in the app that has it, and the module is recorded', () => {
+  const { tpl, app } = setup();
+  const to = commit(tpl, {
+    'old.md': null,
+    'recipes/old.json': JSON.stringify({ module: 'old', root: 'recipes/old', files: [{ from: 'old.md' }] }),
+    'recipes/old/old.md': 'to be deleted\n',
+  }, 'old.md becomes the old recipe');
+  const r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: () => {} });
+  assert.equal(fs.readFileSync(path.join(app, 'old.md'), 'utf8'), 'to be deleted\n', 'kept, though the app never changed it');
+  assert.deepEqual(r.changes.filter(c => c.path === 'old.md').map(c => c.action), ['kept']);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(app, '.starter.json'), 'utf8')).modules.old, `x/app-starter@${to.slice(0, 7)}:recipes/old.json`);
+});
+
 test('a line changed on both sides is a conflict; --dry-run changes nothing; ignore and rename from .starter.json', () => {
   const { tpl, app } = setup();
   commit(tpl, { 'README.md': ['# Template', ...lines(20).slice(1)].join('\n') + '\n', 'icon.png': Buffer.from([9]), 'worker/routes.js': '// moved\n' }, 'next');
