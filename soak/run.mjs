@@ -15,6 +15,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+process.env.METADATA_SERVER_DETECTION ??= 'none';
+if (!process.env.PW_CHROMIUM && fs.existsSync('/opt/pw-browsers/chromium')) process.env.PW_CHROMIUM = '/opt/pw-browsers/chromium';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = Object.fromEntries(process.argv.slice(2).join(' ').split(/\s*--/).filter(Boolean).map(a => {
   const [k, ...v] = a.trim().split(/\s+/); return [k, v.length ? v.join(' ') : true];
