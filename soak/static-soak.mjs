@@ -3,7 +3,7 @@
 // the soak specs. Made-up data only; no Firebase, no secrets, no deploy.
 //
 //   node soak/static-soak.mjs [--loops 3] [--seed 1] [--browsers chromium[,firefox,webkit]] [--workers 4]
-//        [--repeat 3] [--work <dir>] [--skip check,sw,unit,tsc,vite,e2e,dist,soak] [--keep] [--starter <dir>]
+//        [--repeat 3] [--throttle 4] [--work <dir>] [--skip check,sw,unit,tsc,vite,e2e,dist,soak] [--keep] [--starter <dir>]
 //
 // One summary line per loop; at the end `PASS n/N`, or the first failing seed and its log folder. Needs network once
 // (npm ci, app-devkit) and a Chromium (PW_CHROMIUM or Playwright's own); firefox/webkit run in the pw-box image.
@@ -23,6 +23,7 @@ const SEED = +opt('seed', 1);
 const BROWSERS = opt('browsers', 'chromium').split(',');
 const WORKERS = opt('workers', String(Math.max(1, Math.min(4, os.cpus().length))));
 const REPEAT = +opt('repeat', 3);
+const THROTTLE = +opt('throttle', 1);   // Chromium CPU slowdown factor (CDP Emulation.setCPUThrottlingRate); 1 = off
 const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'static-soak')));
 const SKIP = new Set(opt('skip', '').split(',').filter(Boolean));
 const KEEP = argv.includes('--keep');
@@ -51,7 +52,7 @@ function prepare() {
   // browsers: Playwright's own downloads, unless a Chromium is given (PW_CHROMIUM) and only chromium is asked for
   const want = BROWSERS.filter(b => b !== 'chromium' || !env.PW_CHROMIUM);
   if (want.length) {
-    const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log') });
+    const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log'), timeout: 3_600_000 });
     if (c.status !== 0) throw new Error(`playwright install ${want} failed (see ${WORK}/_browsers.log)`);
   }
   fs.writeFileSync(path.join(base, stamp), '');
@@ -104,6 +105,7 @@ function generate(seed, dir, logs) {
 }
 
 const pw = (dir, logs, tag, args, extra = {}) => {
+  if (THROTTLE > 1) extra = { SOAK_THROTTLE: String(THROTTLE), ...extra };
   const out = [];
   for (const b of BROWSERS) {
     const r = run('npx', ['playwright', 'test', ...(b === 'chromium' ? [] : [`--browser=${b}`]), `--workers=${WORKERS}`, '--reporter=list', ...args], { cwd: dir, log: path.join(logs, `${tag}-${b}.log`), extra, timeout: 1_500_000 });

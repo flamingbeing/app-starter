@@ -3,13 +3,19 @@
 // whatever the page did, a reload ends in a working list.
 import { test, expect, setOffline, uniq, signIn, add } from './fixtures.mjs';
 
+// SOAK_THROTTLE=n: Chromium runs n times slower (a cheap phone); other browsers ignore it
+const slow = async page => {
+  const n = +process.env.SOAK_THROTTLE || 1;
+  if (n > 1 && page.context().browser()?.browserType().name() === 'chromium') await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: n });
+  return page;
+};
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
 const texts = page => page.locator('#items').evaluate(el => el.textContent);
 
 test('offline: saves made with no network are there after an offline reload', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page, 'member', { path: '/app/?test&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await setOffline(page.context(), true);
@@ -25,7 +31,7 @@ test('offline: saves made with no network are there after an offline reload', as
 });
 
 test('reload in the middle of a save: shown means kept, never doubled', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page);
   const kept = [];
   for (let i = 0; i < 8; i++) {
@@ -45,7 +51,7 @@ test('reload in the middle of a save: shown means kept, never doubled', async ({
 });
 
 test('IndexedDB deleted under a running page: no crash, a reload gives an empty working list', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await signIn(page);
@@ -66,7 +72,7 @@ test('IndexedDB deleted under a running page: no crash, a reload gives an empty 
 });
 
 test('IndexedDB refuses writes (quota): the page keeps working, the next start is clean', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await signIn(page);
@@ -106,7 +112,7 @@ const NO_STORAGE = {
 for (const [how, stub] of Object.entries(NO_STORAGE)) {
   test(`storage unavailable (${how}): the list works for the page, no crash`, async ({ phone }) => {
     test.fixme(how === 'indexedDB getter throws' && !process.env.SOAK_STRICT, 'app-sync store.js: typeof indexedDB throws');
-    const page = await phone();
+    const page = await slow(await phone());
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.context().addInitScript(`(${stub})()`);
@@ -120,7 +126,7 @@ for (const [how, stub] of Object.entries(NO_STORAGE)) {
 }
 
 test('a new version found while the list has saved items: nothing lost, online or offline', async ({ phone }) => {
-  const page = await phone();
+  const page = await slow(await phone());
   await signIn(page, 'member', { path: '/app/?test&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   const x = uniq('upd');
