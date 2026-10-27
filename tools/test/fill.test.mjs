@@ -12,6 +12,10 @@ const SKIP = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwr
 function copy() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));
   fs.cpSync(ROOT, dir, { recursive: true, filter: src => !SKIP.has(path.basename(src)) });
+  // these tests are the starter's own: an app that took in this file (tools/update-from-starter.mjs) has modules, which a fresh render refuses
+  const metaPath = path.join(dir, '.starter.json');
+  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  if (meta.modules) { delete meta.modules; fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n'); }
   return dir;
 }
 const read = (dir, f) => fs.readFileSync(path.join(dir, f), 'utf8');
