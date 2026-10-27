@@ -1,7 +1,7 @@
 // Soak runner: lean app-starter + `add` recipes in every order (made-up data, no Firebase project, no secrets).
 //
 //   node soak/run.mjs [--loops N] [--seed S] [--recipes files,search,...] [--steps unit,tsc,rules,e2e] [--browser chromium|firefox|webkit]
-//                     [--browsers chromium,firefox,webkit] [--vite] [--box <pw-box.sh>] [--docker] [--keep] [--out DIR]
+//                     [--browsers chromium,firefox,webkit] [--combo files>search] [--pw <spec file>] [--repeat N] [--vite] [--box <pw-box.sh>] [--docker] [--keep] [--out DIR]
 //
 // Each loop takes the next combo of recipes (none, then every subset in every order; a recipe with no recipes/<name>.json
 // is skipped, once, with a note), copies this checkout to a scratch dir, fills it as a throwaway app (seed -> name),
@@ -34,8 +34,9 @@ if (missing.length) console.log(`note: no recipes/<name>.json for ${missing.join
 
 const perms = list => list.length ? list.flatMap((x, i) => perms([...list.slice(0, i), ...list.slice(i + 1)]).map(p => [x, ...p])) : [[]];
 const subsets = list => list.reduce((acc, x) => [...acc, ...acc.map(s => [...s, x])], [[]]);
-const COMBOS = subsets(have).flatMap(perms).filter((c, i, all) => all.findIndex(d => d.join() === c.join()) === i)
+let COMBOS = subsets(have).flatMap(perms).filter((c, i, all) => all.findIndex(d => d.join() === c.join()) === i)
   .sort((a, b) => a.length - b.length);
+if (args.combo) COMBOS = [String(args.combo) === 'none' ? [] : String(args.combo).split('>')];
 const HAS_JAVA = spawnSync('java', ['-version']).status === 0;
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
 
@@ -68,7 +69,8 @@ for (let n = START; n < START + LOOPS; n++) {
   if (STEPS.includes('unit')) step('unit', `node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'`);
   if (STEPS.includes('tsc')) step('tsc', `npm run typecheck`);
   if (STEPS.includes('rules') && (!args.box || HAS_JAVA)) step('rules', `npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-${name} "node --test test/rules.test.mjs"`, path.join(dir, 'app'));
-  const e2e = args.box ? `bash "${args.box}" ${args.docker ? '--docker ' : ''}-b ${args.browsers ?? 'chromium'}` : 'npx playwright test';
+  const pwArgs = `${args.pw ? ' ' + args.pw : ''}${args.repeat ? ' --repeat-each ' + args.repeat : ''}`;
+  const e2e = (args.box ? `bash "${args.box}" ${args.docker ? '--docker ' : ''}-b ${args.browsers ?? 'chromium'}${pwArgs ? ' --' : ''}` : 'npx playwright test') + pwArgs;
   if (STEPS.includes('e2e')) step('e2e', `${fire}${e2e}`, dir, e2eEnv);
 
   const s = Math.round((Date.now() - t0) / 1000);
