@@ -57,7 +57,8 @@ export function globRe(glob) {
 export function importMapHash(html) {
   const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
   if (!m) throw new Error('app/index.html has no import map');
-  return `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`;
+  // the browser hashes the script as parsed (newlines normalised to LF), so a CRLF checkout must hash the same
+  return `'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n?/g, '\n')).digest('base64')}'`;
 }
 
 // app-sync's version as the import map and package.json name it

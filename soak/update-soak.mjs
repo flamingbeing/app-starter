@@ -58,8 +58,8 @@ function copyApp(src, name) {
 }
 
 // run the updater, return { code, out }
-function update(dir, extra, log) {
-  const r = run('node', [UPDATE, '--dir', dir, '--from', args.starter, '--no-install', '--to', HEAD, ...extra], dir, { env: { ...process.env, ...gitEnv } });
+function update(dir, extra, log, install = false) {
+  const r = run('node', [UPDATE, '--dir', dir, '--from', args.starter, ...(install ? [] : ['--no-install']), '--to', HEAD, ...extra], dir, { env: { ...process.env, ...gitEnv } });
   const out = `$ update-from-starter ${extra.join(' ')}\n${r.stdout}${r.stderr}\n[exit ${r.status}]\n`;
   fs.appendFileSync(log, out);
   return { code: r.status, out: r.stdout + r.stderr };
@@ -183,14 +183,26 @@ async function realApp(appSrc) {
 
   if (args.full) await scenario(app, 'updated-copy-passes', async log => {
     const d = copyApp(appSrc, `${app}-full`);
-    const r = update(d, [], log);
+    // a dev checkout has its node_modules (sw.js's SHELL is generated from app-sync / app-ui in them)
+    const pre = run(win ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], d, { shell: win });
+    fs.appendFileSync(log, `$ npm install (before)\n${pre.stderr.slice(-1500)}[exit ${pre.status}]\n`);
+    must(pre.status === 0, 'npm install before the update failed');
+    const r = update(d, [], log, true);
     must(r.code === 0 || r.code === 1, `exit ${r.code}`);
-    // conflicts are the owner's to resolve; here both sides are kept (markers dropped) so the copy can be built
-    for (const f of r.out.split('\n').slice(r.out.split('\n').findIndex(l => /file\(s\) with conflicts/.test(l)) + 1).map(l => l.trim()).filter(Boolean)) {
+    // conflicts are the owner's to resolve; here the app's side of each is kept so the copy can be built
+    const lns = r.out.split('\n');
+    for (const f of lns.slice(lns.findIndex(l => /file\(s\) with conflicts/.test(l)) + 1).map(l => l.trim()).filter(l => l && !l.startsWith('['))) {
       const fp = path.join(d, f);
-      if (fs.existsSync(fp)) fs.writeFileSync(fp, fs.readFileSync(fp, 'utf8').split('\n').filter(l => !/^(<{7}|={7}|>{7})( |$)/.test(l)).join('\n'));
+      if (!fs.existsSync(fp)) continue;
+      let mode = 0;
+      fs.writeFileSync(fp, fs.readFileSync(fp, 'utf8').split('\n').filter(l => {
+        if (/^<{7}( |$)/.test(l)) { mode = 1; return false; }
+        if (mode === 1 && /^={7}$/.test(l)) { mode = 2; return false; }
+        if (mode === 2 && /^>{7}( |$)/.test(l)) { mode = 0; return false; }
+        return mode !== 2;
+      }).join('\n'));
     }
-    const steps = [['npm', ['install', '--no-audit', '--no-fund']], ['npm', ['run', 'typecheck']],
+    const steps = [['npm', ['run', 'typecheck']],
       ['npm', ['test']], ['npx', ['vite', 'build']]];
     for (const [c, a] of steps) {
       const x = run(c === 'npx' ? (win ? 'npx.cmd' : 'npx') : c, a, d, { shell: win });

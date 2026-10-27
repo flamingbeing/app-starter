@@ -149,6 +149,10 @@ test('an app checkout with CRLF line endings merges line by line and keeps CRLF'
   assert.ok(text.startsWith('# Pet log\r\n') && text.includes('line 10, reworded\r\n') && !/[^\r]\n/.test(text));
 });
 
+test('the import map\'s CSP hash is the same for a CRLF checkout', () => {
+  assert.equal(importMapHash(html('1.3.10').replace(/\n/g, '\r\n')), importMapHash(html('1.3.10')));
+});
+
 test('--behind counts the template commits since the app\'s base', () => {
   const { tpl, app } = setup();
   commit(tpl, { 'a.md': '1\n' }, 'one');
