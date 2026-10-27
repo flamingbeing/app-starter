@@ -2,6 +2,11 @@
 
 Made from [app-starter](https://github.com/flamingbeing/app-starter), a template for small offline-first web apps that
 are safe from day one. Replace this first paragraph with what the app is once it is filled.
+<!-- static{
+> **A static app** ("Pick a starter"): no sign-in and no Firebase; the list stays on this device (IndexedDB,
+> `app/src/local.js`). The parts below on sign-in, roles, rules, the emulators and Firebase are the cloud app's:
+> `node tools/add.mjs cloud --project <firebase-project-id>` makes this app the cloud app.
+}static -->
 
 ## What you get
 
@@ -52,6 +57,26 @@ are safe from day one. Replace this first paragraph with what the app is once it
   other actions pinned by SHA, `permissions: contents: read` by default, gitleaks, grouped Dependabot, `ubuntu-24.04`.
 - **Decisions** in [docs/decisions/](docs/decisions/), numbered; a reversed one is marked superseded, never deleted.
 
+## Pick a starter
+
+One template, two flavours, with the same Worker, PWA, offline start, kit, tests and CI
+([decision 0013](docs/decisions/0013-static-flavour.md)):
+
+- **Cloud** (the template as it is): Google sign-in, roles, Firestore sync between devices, rules. For data that is
+  shared, or must outlive a lost phone.
+- **Static** (`fill.mjs ... --static`, no Firebase project): no sign-in; the list stays on the device in IndexedDB
+  (app-sync's local store), works offline and installs, and other open tabs follow along. For one person's tool on
+  one device, or a first version.
+
+A static app is the template rendered by `tools/flavour.mjs` from `flavours/static.json`: the cloud-only files go,
+lines between `cloud{` and `}cloud` marks go, and `flavours/static/` puts in its own files (`app/src/local.js`,
+`local-store.js`, its `app.js`, `options.js`, e2e spec and Playwright config). `.starter.json` records `"flavour":
+"static"`, and `update-from-starter.mjs` renders both template commits the same way, so the app takes only the changes
+to what it has. `node tools/add.mjs cloud --project <firebase-project-id>` later makes it the cloud app: the cloud
+files come in, the static files it never changed go (changed ones stay and are listed), and fill sets the project;
+then the steps under "Fill". The device's list is not uploaded. In the template, a cloud-only line in a shared file
+goes inside marks; CI's `static` jobs fill a scratch copy as a static app and run its whole suite.
+
 ## Start an app
 
 1. On GitHub, "Use this template" (never a fork), then clone the new repo. Go through the
@@ -70,6 +95,7 @@ are safe from day one. Replace this first paragraph with what the app is once it
 ```bash
 node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs --project <firebase-project-id> \
   [--title "<Title>"] [--web-config sdkconfig.json] [--commit <template sha>]
+node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs --static   # a static app (above)
 ```
 
 It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/src/config.js` (with the web

@@ -13,6 +13,15 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 
 ## Rules that bite
 
+<!-- static{
+- A static app: the list is this device's, in IndexedDB (`app/src/local.js`, `local-store.js`); every save goes
+  through `local.js`. The rules below on Firestore, roles, claims and Firebase are the cloud app's (`node
+  tools/add.mjs cloud --project <id>`, README "Pick a starter").
+}static -->
+<!-- cloud{ the template's own rule -->
+- The template has two flavours (README, "Pick a starter"): a line only the cloud app needs, in a file both have,
+  goes between `cloud{` and `}cloud` marks; a static app's own files live in `flavours/static/`.
+<!-- }cloud -->
 - Every save goes through the write queue (`app/src/cloud.js`); never write to Firestore around it, or sign-out can't
   tell what is unsent.
 - Roles come from claims, cached from `members/{uid}`. Bump the doc's `v` on every role change. No email in rules.
