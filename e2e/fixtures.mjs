@@ -46,6 +46,17 @@ async function newContext(browser, browserName, options) {
   return context;
 }
 
+// Offline for a context. WebKit's setOffline also fails the reload that the service worker should answer ("WebKit
+// encountered an internal error") and blob: images; a route that aborts the page's other requests does neither.
+const routed = new WeakMap();
+export async function setOffline(context, offline) {
+  const webkitContext = !context.browser() || context.browser().browserType().name() === 'webkit';   // (no browser: a persistent profile, WebKit only)
+  if (!webkitContext) return context.setOffline(offline);
+  const handler = route => route.request().resourceType() === 'document' ? route.continue() : route.abort('internetdisconnected');   // (a navigation is the worker's to answer; WebKit's route sees it first)
+  if (offline && !routed.has(context)) { routed.set(context, handler); await context.route('**/*', handler); }
+  else if (!offline && routed.has(context)) { await context.unroute('**/*', routed.get(context)); routed.delete(context); }
+}
+
 export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
   phone: async ({ browser, browserName }, use) => {
