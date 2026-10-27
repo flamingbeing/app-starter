@@ -9,6 +9,8 @@ const slow = async page => {
   if (n > 1 && page.context().browser()?.browserType().name() === 'chromium') await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: n });
   return page;
 };
+// the app reloads itself when a new worker takes over; a test reload that lands on that one is aborted, not a failure
+const reload = page => page.reload({ waitUntil: 'domcontentloaded' }).catch(e => { if (!/ERR_ABORTED|detached/.test(e.message)) throw e; });
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
@@ -21,11 +23,11 @@ test('offline: saves made with no network are there after an offline reload', as
   await setOffline(page.context(), true);
   const t = [uniq('off'), uniq('off'), uniq('off')];
   for (const x of t) await add(page, x);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   for (const x of t) await expect(page.locator('#items')).toContainText(x);
   await setOffline(page.context(), false);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   for (const x of t) await expect(page.locator('#items')).toContainText(x);
 });
@@ -40,7 +42,7 @@ test('reload in the middle of a save: shown means kept, never doubled', async ({
     await page.click('#add button[type=submit]');
     if (i % 2) await page.waitForTimeout(i * 7);   // 0..49 ms: the reload lands before, during or after the write
     const shown = await page.locator('#items').evaluate((el, x) => el.textContent.includes(x), x).catch(() => false);
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await reload(page);
     await ready(page);
     const body = await texts(page);
     if (shown) { expect(body, `${x} was shown before the reload`).toContain(x); kept.push(x); }
@@ -60,12 +62,12 @@ test('IndexedDB deleted under a running page: no crash, a reload gives an empty 
   await page.evaluate(async () => {
     for (const { name } of await indexedDB.databases()) await new Promise(r => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => r(); });
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).not.toContainText(x);
   const y = uniq('after');
   await add(page, y);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(y);
   expect(errors, 'page errors').toEqual([]);
@@ -88,12 +90,12 @@ test('IndexedDB refuses writes (quota): the page keeps working, the next start i
   await page.click('#add button[type=submit]');
   await page.waitForTimeout(300);
   await expect(page.locator('#list-view')).toBeVisible();   // still there, not a blank page
-  await page.reload({ waitUntil: 'domcontentloaded' });     // new document: the stub is gone
+  await reload(page);     // new document: the stub is gone
   await ready(page);
   await expect(page.locator('#items')).toContainText(before);
   const y = uniq('ok');
   await add(page, y);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(y);
 });
@@ -134,11 +136,11 @@ test('a new version found while the list has saved items: nothing lost, online o
   await page.request.get('/__test/bump');
   await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
   await page.waitForTimeout(500);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
   await setOffline(page.context(), true);
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reload(page);
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
 });
