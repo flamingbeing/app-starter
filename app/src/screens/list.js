@@ -1,7 +1,7 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
 // list of saves the server refused. Each item shows its photos' thumbnails (and a clip for other files).
 import { conflictSheet, refusedList, toaster, emptyState } from '@core/ui';
-import { COLL, REFUSED } from '../cloud.js';
+import { COLL, REFUSED, itemText } from '../cloud.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
 import { thumbOf } from './attachments.js';
@@ -13,9 +13,6 @@ import { modules } from '../modules.js';
  * The list's tools slot (modules.js "listFilter"; the search recipe fills it): draws into the slot and narrows the list.
  * @typedef {(o: { slot: HTMLElement, redraw: () => void }) => { feed: (items: Item[]) => void, pick: (items: Item[]) => Item[] | null }} ListFilter
  */
-
-/** @param {unknown} record  an item, or a refused save's record -> its text */
-const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
 
 /** @param {import('../cloud.js').Started} app */
 export function listScreen(app) {

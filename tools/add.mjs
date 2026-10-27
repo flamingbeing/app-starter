@@ -37,15 +37,17 @@ const MAP_RE = /(<script type="importmap">\n)([\s\S]*?)(\n\s*<\/script>)/;
 const INCLUDE_RE = /("include":\s*)(\[.*\])/;
 const CSS_MARK = '/* add: cssVars */';
 
-/** a source's files: { recipe, read(rel) -> Buffer | null, list(rel) -> [rel], app, done() } */
-export function openSource(source, dir, github = 'https://github.com') {
+/** a source's files: { recipe, read(rel) -> Buffer | null, list(rel) -> [rel], app, done() }; `clones` shares one
+ * clone per repo between sources (their done() is then the caller's: closeClones) */
+export function openSource(source, dir, github = 'https://github.com', clones = null) {
   const remote = source.match(REMOTE);
   if (remote) {
     const [, repo, ref, rel] = remote;
-    const r = templateRepo(`${github}/${repo}`);
+    const url = `${github}/${repo}`;
+    const r = clones ? clones.get(url) ?? clones.set(url, templateRepo(url)).get(url) : templateRepo(url);
     const read = file => show(r.dir, ref, file);
     const list = file => execFileSync('git', ['-C', r.dir, 'ls-tree', '-r', '--name-only', ref, '--', file], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-    return withRecipe({ read, list, done: r.done }, rel, source);
+    return withRecipe({ read, list, done: clones ? () => {} : r.done }, rel, source);
   }
   const file = path.resolve(dir, source);
   const root = path.dirname(path.dirname(file));
@@ -58,6 +60,7 @@ export function openSource(source, dir, github = 'https://github.com') {
   };
   return withRecipe({ read, list: walk, done() {} }, path.relative(root, file), source);
 }
+export const closeClones = clones => { for (const r of clones.values()) r.done(); clones.clear(); };
 function withRecipe(src, rel, source) {
   const text = src.read(rel);
   if (!text) { src.done(); throw new Error(`no recipe at ${source}`); }
@@ -72,18 +75,39 @@ export function resolveSource(name, meta) {
   return meta.commit ? `${meta.template}@${meta.commit}:recipes/${name}.json` : `recipes/${name}.json`;
 }
 
-/** text with `line` after the line holding `anchor`; a line starting with `key` is replaced (one per key) */
-export function putLine(text, anchor, line, key = line) {
-  const lines = dropLine(text, key).split('\n');
+/** a recorded source as a pristine copy: a local recipe inside the app itself (the template records
+ * recipes/search.json) means the template's recipe at the app's commit; null when there is no commit (the template) */
+export function pinned(source, meta, dir) {
+  if (REMOTE.test(source)) return source;
+  const rel = path.relative(dir, path.resolve(dir, source));
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return source;
+  return meta.commit ? `${meta.template}@${meta.commit}:${rel.split(path.sep).join('/')}` : null;
+}
+
+// lines compared without spaces, quote style or a trailing ; or , (a formatter's changes)
+const norm = l => l.replace(/\s+/g, '').replace(/"/g, "'").replace(/[;,]$/, '');
+/** the lines of the block an anchor opens: from the line after it to the first blank line or closing brace */
+function block(lines, anchor) {
   const at = lines.findIndex(l => l.includes(anchor));
-  if (at < 0) throw new Error(`no line holding ${anchor}`);
-  lines.splice(at + 1, 0, line);
+  if (at < 0) return null;
+  let end = at + 1;
+  while (end < lines.length && lines[end].trim() && !/^[}\]]/.test(lines[end].trim())) end++;
+  return { at, end };
+}
+/** text with `line` after the line holding `anchor`; a line in its block starting with `key` is replaced */
+export function putLine(text, anchor, line, key = line) {
+  const lines = dropLine(text, key, anchor).split('\n');
+  const b = block(lines, anchor);
+  if (!b) throw new Error(`no line holding ${anchor}`);
+  lines.splice(b.at + 1, 0, line);
   return lines.join('\n');
 }
-/** text without the line whose trimmed text starts with `key` */
-export function dropLine(text, key) {
-  const k = key.trim();
-  return text.split('\n').filter(l => !l.trim().startsWith(k)).join('\n');
+/** text without the lines in `anchor`'s block (the whole text when the anchor is gone) starting with `key` */
+export function dropLine(text, key, anchor) {
+  const k = norm(key.trim());
+  const lines = text.split('\n');
+  const b = anchor ? block(lines, anchor) : null;
+  return lines.filter((l, i) => (b && (i <= b.at || i >= b.end)) || !norm(l.trim()).startsWith(k)).join('\n');
 }
 
 /** app/index.html with the import map's entries set (value) or taken out (null) */
@@ -154,21 +178,25 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   const recorded = meta.modules ?? {};
   if (remove && !recorded[source]) throw new Error(`.starter.json records no module ${source}`);
-  const from = remove ? recorded[source] : resolveSource(source, meta);
-  const src = openSource(from, dir, github);
-  const result = { module: src.recipe.module, changes: [], conflicts: [] };
-  const opened = [src];
+  const clones = new Map();
+  const from = remove ? pinned(recorded[source], meta, dir) ?? recorded[source] : resolveSource(source, meta);
+  const opened = [];
   try {
+    const src = openSource(from, dir, github, clones);
+    opened.push(src);
+    const result = { module: src.recipe.module, changes: [], conflicts: [] };
     const { recipe } = src;
-    const prevSource = !remove && recorded[recipe.module] && recorded[recipe.module] !== from ? recorded[recipe.module] : null;
-    const prev = prevSource ? openSource(prevSource, dir, github) : null;
+    const was = !remove && recorded[recipe.module] ? pinned(recorded[recipe.module], meta, dir) : null;
+    const prevSource = was && was !== from ? was : null;
+    const prev = prevSource ? openSource(prevSource, dir, github, clones) : null;
     if (prev) opened.push(prev);
     log(`${remove ? 'remove' : 'add'} ${recipe.module} (${from})`);
     const note = (action, p, extra) => { result.changes.push({ action, path: p, ...(extra ? { note: extra } : {}) }); log(`  ${action.padEnd(9)} ${p}${extra ? `  (${extra})` : ''}`); };
-    const read = rel => { try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };
-    const write = (rel, buf) => { if (dryRun) return; fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), buf); };
+    const staged = new Map();   // --dry-run: the writes, so later edits see earlier ones
+    const read = rel => { if (staged.has(rel)) return staged.get(rel); try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };
+    const write = (rel, buf) => { if (dryRun) return void staged.set(rel, Buffer.from(buf)); fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), buf); };
     const unlink = rel => {
-      if (dryRun) return;
+      if (dryRun) return void staged.set(rel, null);
       fs.rmSync(path.join(dir, rel));
       for (let d = path.dirname(rel); d !== '.' && fs.readdirSync(path.join(dir, d)).length === 0; d = path.dirname(d)) fs.rmdirSync(path.join(dir, d));
     };
@@ -180,7 +208,16 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     };
 
     // copied files: added, merged with the copy recorded before, or (remove) deleted when unchanged
-    for (const c of copies(src, recipe)) {
+    const toCopy = copies(src, recipe);
+    // files the previous recipe copied and this one doesn't: deleted when the app left them as copied
+    if (prev) for (const c of copies(prev, prev.recipe)) {
+      if (toCopy.some(n => n.to === c.to)) continue;
+      const ours = read(c.to);
+      if (ours === null) continue;
+      if (ours.equals(filled(prev, c.from, meta.app))) { unlink(c.to); note('deleted', c.to, 'not in the recipe now'); }
+      else note('kept', c.to, 'not in the recipe now; the app changed it');
+    }
+    for (const c of toCopy) {
       const theirs = filled(src, c.from, meta.app);
       const ours = read(c.to);
       if (remove) {
@@ -206,7 +243,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
       const css = e.anchor === CSS_MARK && !remove ? read(e.file)?.toString('utf8') ?? '' : null;
       if (css !== null && !css.includes(CSS_MARK)) { write(e.file, `${css && css.replace(/\n*$/, '\n\n')}:root {\n  ${CSS_MARK}\n}\n`); note('edited', e.file); }
       if (remove && read(e.file) === null) continue;
-      editText(e.file, t => remove ? dropLine(t, e.key) : putLine(t, e.anchor, e.line, e.key));
+      editText(e.file, t => remove ? dropLine(t, e.key, e.anchor) : putLine(t, e.anchor, e.line, e.key));
     }
 
     if (!dryRun) {
@@ -223,7 +260,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     }
     if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
     return result;
-  } finally { for (const s of opened) s.done(); }
+  } finally { for (const s of opened) s.done(); closeClones(clones); }
 }
 
 export function parseArgs(argv) {

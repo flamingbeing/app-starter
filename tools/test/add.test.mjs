@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { add, putLine, dropLine, editImportMap, editInclude, resolveSource, parseArgs } from '../add.mjs';
+import { add, putLine, dropLine, editImportMap, editInclude, resolveSource, pinned, parseArgs } from '../add.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKIP = new Set(['.git', 'node_modules', '.devkit', 'dist', 'test-results', 'playwright-report']);
@@ -123,5 +123,52 @@ test('a source <owner/repo>@<sha>; re-added from a newer one, a file the app cha
     assert.equal(JSON.parse(read(app, '.starter.json')).modules.thing, `o/mods@${v2}:recipes/thing.json`);
     const gone = add({ source: 'thing', remove: true, ...opts });
     assert.deepEqual(gone.changes.map(c => `${c.action} ${c.path}`), ['kept thing/a.txt', 'edited app/public/app.css', 'edited app/src/modules.js']);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(app, { recursive: true, force: true }); }
+});
+
+test('pinned: the template\'s own recipe in a filled app is the template\'s at its commit; outside paths and remotes stay', () => {
+  const meta = { template: 'o/app-starter', commit: 'abc1234' };
+  assert.equal(pinned('recipes/search.json', meta, '/app'), 'o/app-starter@abc1234:recipes/search.json');
+  assert.equal(pinned('recipes/search.json', { ...meta, commit: '' }, '/app'), null);
+  assert.equal(pinned('/elsewhere/recipes/x.json', meta, '/app'), '/elsewhere/recipes/x.json');
+  assert.equal(pinned('o/r@v1:recipes/x.json', meta, '/app'), 'o/r@v1:recipes/x.json');
+});
+
+test('putLine / dropLine: a reformatted line is still the same line; only the anchor\'s block is touched', () => {
+  const js = '// add: imports\nimport { a } from "./a.js"\n\nconst x = 1;\n';
+  assert.equal(putLine(js, '// add: imports', "import { a } from './a.js';"), "// add: imports\nimport { a } from './a.js';\n\nconst x = 1;\n");
+  assert.equal(dropLine(js, "import { a } from './a.js';", '// add: imports'), '// add: imports\n\nconst x = 1;\n');
+  const css = ':root {\n  /* add: cssVars */\n  --t: 1rem;\n}\n@media (x) { :root {\n  --t: 2rem;\n} }\n';
+  assert.equal(putLine(css, '/* add: cssVars */', '  --t: 3rem;', '--t:'), css.replace('1rem', '3rem'));
+  assert.equal(dropLine(css, '--t:', '/* add: cssVars */'), css.replace('  --t: 1rem;\n', ''));
+});
+
+test('--dry-run changes nothing, even when it has to make the cssVars block first', () => {
+  const { base, app, v1 } = recipeRepos();
+  try {
+    const r = add({ source: `o/mods@${v1}:recipes/thing.json`, dir: app, github: base, refresh: false, dryRun: true, log: quiet });
+    assert.deepEqual(r.changes.map(c => c.action), ['added', 'edited', 'edited', 'edited']);
+    assert.ok(!fs.existsSync(path.join(app, 'app/public/app.css')));
+    assert.ok(!fs.existsSync(path.join(app, 'thing')));
+  } finally { fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(app, { recursive: true, force: true }); }
+});
+
+test('re-added from a recipe that dropped a file: the file goes when unchanged, stays when the app changed it', () => {
+  const { base, app, v1 } = recipeRepos();
+  const repo = path.join(base, 'o/mods');
+  const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).trim();
+  try {
+    const opts = { dir: app, github: base, refresh: false, log: quiet };
+    git('checkout', '-q', v1);
+    fs.writeFileSync(path.join(repo, 'thing/b.txt'), 'b\n');
+    fs.writeFileSync(path.join(repo, 'thing/c.txt'), 'c\n');
+    git('add', '-A'); git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'b c');
+    const withBC = git('rev-parse', 'HEAD');
+    git('rm', '-q', 'thing/b.txt', 'thing/c.txt'); git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'no b c');
+    const without = git('rev-parse', 'HEAD');
+    add({ source: `o/mods@${withBC}:recipes/thing.json`, ...opts });
+    fs.writeFileSync(path.join(app, 'thing/c.txt'), 'c (app)\n');
+    const r = add({ source: `o/mods@${without}:recipes/thing.json`, ...opts });
+    assert.deepEqual(r.changes.map(c => `${c.action} ${c.path}`), ['deleted thing/b.txt', 'kept thing/c.txt']);
   } finally { fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(app, { recursive: true, force: true }); }
 });

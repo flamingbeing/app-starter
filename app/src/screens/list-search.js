@@ -2,11 +2,9 @@
 // @core/search, with the sample operators has:number and is:long. It fills the list's tools slot (#list-tools) and
 // "/" jumps to the box on a computer.
 import { createSearch } from '@core/search';
+import { itemText } from '../cloud.js';
 
 /** @typedef {import('../cloud.js').Item} Item */
-
-/** @param {unknown} record  an item -> its text */
-const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
 
 /** the box, its label and its status line */
 function drawBox(/** @type {HTMLElement} */ slot) {

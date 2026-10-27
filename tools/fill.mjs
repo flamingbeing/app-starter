@@ -123,7 +123,10 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
   }
   write('app/src/config.js', configJs(app, web, accent));
   const commit = opts.commit ?? meta.commit;   // the template commit this app started from (the new-app job passes it)
-  write('.starter.json', JSON.stringify({ ...meta, commit, app }, null, 2) + '\n');
+  // the template's own module recipes become the template's at that commit, so add.mjs has a pristine copy to compare
+  const modules = meta.modules && commit ? Object.fromEntries(Object.entries(meta.modules).map(([m, s]) =>
+    [m, /^recipes\/[\w.-]+\.json$/.test(s) ? `${meta.template}@${commit}:${s}` : s])) : meta.modules;
+  write('.starter.json', JSON.stringify({ ...meta, commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
   return { changed, app };
 }
 
