@@ -44,7 +44,7 @@ const SYNC_DEP = /("app-sync":\s*"github:flamingbeing\/app-sync#v)(\d+\.\d+\.\d+
 const PIN_RE = /flamingbeing\/app-devkit\/([\w./-]+?)@(v\d+\.\d+\.\d+)|devkit-ref:\s*(v\d+\.\d+\.\d+)/g;
 
 const defaultExec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit' });
-const git = (cwd, args, opts = {}) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
+const git = (cwd, args, opts = {}) => execFileSync('git', ['-C', cwd, '-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
 
 // '<glob>' -> RegExp: ** any folders, * anything but /, ? one character
 export function globRe(glob) {
@@ -109,7 +109,7 @@ export const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C'
 
 // every file of a template commit, read in one go: { path: Buffer }
 function treeAt(repo, ref) {
-  const paths = git(repo, ['ls-tree', '-r', '--name-only', ref]).trim().split('\n').filter(Boolean);
+  const paths = git(repo, ['ls-tree', '-r', '-z', '--name-only', ref]).split('\0').filter(Boolean);
   const out = execFileSync('git', ['-C', repo, 'cat-file', '--batch'], { input: paths.map(p => `${ref}:${p}\n`).join(''), maxBuffer: 256 << 20 });
   const files = {};
   let at = 0;
@@ -194,9 +194,10 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     }
     const moved = new Map();
 
-    const diff = git(repo.dir, ['diff', '--name-status', '--no-renames', baseSha, newSha]).trim();
-    for (const line of diff ? diff.split('\n') : []) {
-      const [status, rel] = line.split('\t');
+    // -z: a path with non-ASCII characters, a quote or a newline is otherwise printed quoted and never found again
+    const diff = git(repo.dir, ['diff', '--name-status', '-z', '--no-renames', baseSha, newSha]).split('\0').filter(Boolean);
+    for (let i = 0; i + 1 < diff.length; i += 2) {
+      const [status, rel] = [diff[i], diff[i + 1]];
       const target = appPath(rel);
       if (ignore.some(re => re.test(rel) || re.test(target))) { note('ignored', target); continue; }
       const oldT = filled(rel, show(repo.dir, baseSha, rel), swapsBase);
@@ -217,11 +218,15 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       if (ours.equals(newT)) continue;
       if (oldT && ours.equals(oldT)) { write(target, newT); note('updated', target); continue; }
       if (!isText(rel)) { result.conflicts.push(target); note('conflict', target, 'binary, changed on both sides: the app\'s kept'); continue; }
-      const o = ours.toString('utf8');
-      const m = merge3(hold(rel, o), hold(rel, (oldT ?? Buffer.from('')).toString('utf8')), hold(rel, newT.toString('utf8')),
+      // a checkout with CRLF line endings (Windows autocrlf) against the template's LF: merge as LF, write back CRLF
+      const crlf = /\r\n/.test(ours.toString('utf8')) && !/\r\n/.test(newT.toString('utf8'));
+      const lf = t => crlf ? t.replace(/\r\n/g, '\n') : t;
+      const o = lf(ours.toString('utf8'));
+      const m = merge3(hold(rel, o), hold(rel, lf((oldT ?? Buffer.from('')).toString('utf8'))), hold(rel, newT.toString('utf8')),
         ['app', `template ${result.from}`, `template ${short}`]);
-      const text = putBack(rel, m.text, o);
-      if (text === o) continue;
+      let text = putBack(rel, m.text, o);
+      if (crlf) text = text.replace(/\r?\n/g, '\r\n');
+      if (text === ours.toString('utf8')) continue;
       write(target, text);
       if (m.conflicts) { result.conflicts.push(target); note('conflict', target, `${m.conflicts} to resolve`); }
       else note('merged', target);

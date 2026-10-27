@@ -128,6 +128,27 @@ test('a line changed on both sides is a conflict; --dry-run changes nothing; ign
   assert.ok(!fs.existsSync(path.join(app, 'worker/routes.js')));
 });
 
+test('files with non-ASCII names are brought in, not crashed on', () => {
+  const { tpl, app } = setup();
+  commit(tpl, { 'docs/café notes.md': 'accent\n', 'docs/"quoted".md': 'q\n' }, 'odd names');
+  const r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: () => {} });
+  assert.deepEqual(r.conflicts, []);
+  assert.equal(fs.readFileSync(path.join(app, 'docs/café notes.md'), 'utf8'), 'accent\n');
+  assert.equal(fs.readFileSync(path.join(app, 'docs/"quoted".md'), 'utf8'), 'q\n');
+});
+
+test('an app checkout with CRLF line endings merges line by line and keeps CRLF', () => {
+  const { tpl, app } = setup();
+  const readme = lines(20); readme[10] = 'line 10, reworded';
+  commit(tpl, { 'README.md': readme.join('\n') + '\n' }, 'edit');
+  const own = ['# Pet log', ...lines(20).slice(1)]; 
+  fs.writeFileSync(path.join(app, 'README.md'), own.join('\r\n') + '\r\n');
+  const r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: () => {} });
+  assert.deepEqual(r.conflicts, []);
+  const text = fs.readFileSync(path.join(app, 'README.md'), 'utf8');
+  assert.ok(text.startsWith('# Pet log\r\n') && text.includes('line 10, reworded\r\n') && !/[^\r]\n/.test(text));
+});
+
 test('--behind counts the template commits since the app\'s base', () => {
   const { tpl, app } = setup();
   commit(tpl, { 'a.md': '1\n' }, 'one');
