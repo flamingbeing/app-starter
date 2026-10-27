@@ -50,7 +50,7 @@ export function csp({ kit = KIT, project = '', local = false, framedBySelf = fal
 // -> [name, value] pairs to set on an answer
 // helper: Firebase's sign-in helper pages (/__/auth/, /__/firebase/), passed on from firebaseapp.com. They are
 // Firebase's code, with their own inline script, and Firebase sends no policy for them: the app's policy would block
-// that script once enforced, so they get only the framing rule.
+// that script once enforced, so they get only the framing rule (and no opener policy).
 export function securityHeaders({ kit = KIT, project = '', local = false, enforce = CSP_ENFORCE, framedBySelf = false, helper = false } = {}) {
   return [
     ...(helper ? [['Content-Security-Policy', `frame-ancestors ${framedBySelf ? "'self'" : "'none'"}`]]
@@ -61,7 +61,8 @@ export function securityHeaders({ kit = KIT, project = '', local = false, enforc
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
     ['X-Frame-Options', framedBySelf ? 'SAMEORIGIN' : 'DENY'],   // (authDomain is this host, so Firebase's auth iframe is framed by us)
     ['Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'],
-    // the Google sign-in popup must be able to hand back to this page
-    ['Cross-Origin-Opener-Policy', 'same-origin-allow-popups'],
+    // the Google sign-in popup must be able to hand back to this page; the helper pages (Firebase's, which send none) must
+    // keep window.opener across accounts.google.com, so they get no opener policy
+    ...(helper ? [] : [['Cross-Origin-Opener-Policy', 'same-origin-allow-popups']]),
   ];
 }
