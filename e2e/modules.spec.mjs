@@ -114,6 +114,8 @@ test('check for updates: a new version takes over at once', async ({ phone }) =>
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; });
   await page.request.get('/__test/bump');
+  await page.click('#open-settings');   // the version line is in Settings
   await page.click('#check-update');
+  await page.click('#settings-close');   // the reload waits while a sheet is open
   await expect.poll(() => page.evaluate(() => window.__same).catch(() => undefined), { timeout: 30_000 }).toBeUndefined();
 });
