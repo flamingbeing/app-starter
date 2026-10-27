@@ -2,6 +2,7 @@
 //
 //   node tools/add.mjs <source> [--dir <app>] [--dry-run]
 //   node tools/add.mjs --remove <module> [--dir <app>] [--dry-run]
+//   node tools/add.mjs cloud --project <firebase-project-id> [--dir <app>] [--dry-run]   a static app made the cloud app
 //
 // <source> is a recipe: a local path (`recipes/search.json`), `<owner/repo>@<tag|sha>:recipes/<module>.json`, or a
 // bare module name, which means the template's recipe at the commit the app was made from (.starter.json "template"
@@ -33,8 +34,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { swapsFor, fixup, isText } from './fill.mjs';
-import { after, merge3, templateRepo, show } from './update-from-starter.mjs';
+import { swapsFor, fixup, isText, fill } from './fill.mjs';
+import { after, merge3, templateRepo, show, update } from './update-from-starter.mjs';
 
 const REMOTE = /^([\w.-]+\/[\w.-]+)@([\w./-]+):(.+\.json)$/;
 const MAP_RE = /(<script type="importmap">\n)([\s\S]*?)(\n\s*<\/script>)/;
@@ -306,6 +307,23 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
   } finally { for (const s of opened) s.done(); closeClones(clones); }
 }
 
+// A static app (.starter.json "flavour") made the cloud app: the template's cloud files at the app's commit come in as an
+// update from the static render to the cloud tree (the app's own changes merged, the static files it never changed
+// taken out), then fill.mjs sets the Firebase project and writes config.js with its web config. -> update's result
+export function toCloud({ dir = '.', project, from, to, dryRun = false, install = true, log = console.log } = {}) {
+  const meta = JSON.parse(fs.readFileSync(path.join(dir, '.starter.json'), 'utf8'));
+  if (!meta.flavour) throw new Error('this app is the cloud app already (.starter.json has no "flavour")');
+  if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(project ?? '')) throw new Error('--project <id>: the Firebase project id (6-30 lowercase letters, digits, hyphens)');
+  if (!meta.commit && !to) throw new Error('.starter.json has no "commit" (the template commit the app started from)');
+  const r = update({ dir, from, to: to ?? meta.commit, dryRun, install, checkLatest: false, unflavour: { project }, log });
+  if (!dryRun) {
+    fill({ dir, log });
+    for (const m of ['NEEDS-YOU: the Firebase project\'s web app config: node tools/fill.mjs --web-config <file> (README, "Fill")',
+      'then: npm test, npm run typecheck and npm run e2e (the emulators) before the PR']) log(m);
+  }
+  return r;
+}
+
 export function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -313,6 +331,7 @@ export function parseArgs(argv) {
     if (a === '--dry-run') out.dryRun = true;
     else if (a === '--remove') { out.remove = true; out.source = argv[++i]; }
     else if (a === '--dir') out.dir = argv[++i];
+    else if (a === '--project') out.project = argv[++i];
     else if (!a.startsWith('--') && !out.source) out.source = a;
     else throw new Error(`unknown argument ${a}`);
   }
@@ -322,7 +341,9 @@ export function parseArgs(argv) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const r = add(parseArgs(process.argv.slice(2)));
+    const o = parseArgs(process.argv.slice(2));
+    if (o.project && o.source !== 'cloud') throw new Error('--project is for `add.mjs cloud`');
+    const r = o.source === 'cloud' && !o.remove ? toCloud(o) : add(o);
     if (r.conflicts.length) process.exit(1);
   } catch (e) {
     console.error(`add: ${e.message}`);
