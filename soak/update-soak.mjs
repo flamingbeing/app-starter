@@ -37,6 +37,7 @@ const win = process.platform === 'win32';
 const run = (cmd, a, cwd, extra = {}) => spawnSync(cmd, a, { cwd, encoding: 'utf8', maxBuffer: 128 << 20, shell: win && cmd === 'npm', ...extra });
 const git = (cwd, a) => { const r = run('git', a, cwd); if (r.status !== 0) throw new Error(`git ${a.join(' ')}: ${r.stderr}`); return r.stdout; };
 const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+const HEAD = git(args.starter, ['rev-parse', 'HEAD']).trim();
 const gitEnv = { ...process.env, GIT_AUTHOR_NAME: 'soak', GIT_AUTHOR_EMAIL: 'soak@example.invalid', GIT_COMMITTER_NAME: 'soak', GIT_COMMITTER_EMAIL: 'soak@example.invalid' };
 
 function walk(dir, rel = '', out = {}) {
@@ -58,7 +59,7 @@ function copyApp(src, name) {
 
 // run the updater, return { code, out }
 function update(dir, extra, log) {
-  const r = run('node', [UPDATE, '--dir', dir, '--from', args.starter, '--no-install', ...extra], dir, { env: { ...process.env, ...gitEnv } });
+  const r = run('node', [UPDATE, '--dir', dir, '--from', args.starter, '--no-install', '--to', HEAD, ...extra], dir, { env: { ...process.env, ...gitEnv } });
   const out = `$ update-from-starter ${extra.join(' ')}\n${r.stdout}${r.stderr}\n[exit ${r.status}]\n`;
   fs.appendFileSync(log, out);
   return { code: r.status, out: r.stdout + r.stderr };

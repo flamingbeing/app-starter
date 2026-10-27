@@ -16,7 +16,9 @@ function copy() {
 }
 const read = (dir, f) => fs.readFileSync(path.join(dir, f), 'utf8');
 const ARGS = { name: 'pet-log', host: 'pets.example.org', kit: 'nuhs', project: 'pet-log-app' };
+const { project: _, ...STATIC } = ARGS;   // a static app has no Firebase project
 
+// cloud{ the cloud's own files (a static app has no live smoke test, rules or web config)
 test('the live smoke test\'s secret names follow the app name', () => {
   const dir = copy();
   fill({ dir, ...ARGS });
@@ -50,6 +52,7 @@ test('fills name, host, kit and project everywhere', () => {
   assert.deepEqual(JSON.parse(read(dir, '.starter.json')).app, { ...ARGS, title: 'Pet log' });
   for (const f of ['worker/claims.js', 'worker/custom-token.js']) assert.equal(read(dir, f), read(ROOT, f), `${f} is app-devkit's`);
 });
+// }cloud
 
 test('running it again changes nothing; --check says so', () => {
   const dir = copy();
@@ -58,6 +61,7 @@ test('running it again changes nothing; --check says so', () => {
   assert.deepEqual(fill({ dir, ...ARGS }).changed, []);
 });
 
+// cloud{ the web config (a static app has none)
 test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   const dir = copy();
   const web = path.join(dir, 'web.json');
@@ -70,6 +74,7 @@ test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   assert.match(read(dir, 'app/src/config.js'), /"apiKey": "AIzaFAKE"/);
   assert.match(read(dir, 'app/index.html'), /<title>Pets<\/title>/);
 });
+// }cloud
 
 test("--accent sets the default look's colour, kept on a re-run; a bad one is refused", () => {
   const dir = copy();
@@ -83,12 +88,65 @@ test("--accent sets the default look's colour, kept on a re-run; a bad one is re
   assert.deepEqual(parseArgs(['--accent', '#123456']), { accent: '#123456' });
 });
 
+// cloud{
 test('a web config for another project is refused', () => {
   const dir = copy();
   const web = path.join(dir, 'web.json');
   fs.writeFileSync(web, JSON.stringify({ projectId: 'other-project', apiKey: 'x', appId: 'y' }));
   assert.throws(() => fill({ dir, ...ARGS, 'web-config': web }), /for project other-project/);
 });
+
+test('--static renders the static app, then fills it: no Firebase, sw.js and the import-map hash follow', () => {
+  const dir = copy();
+  const { changed } = fill({ dir, ...STATIC, static: true });
+  assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, 'static');
+  assert.equal(JSON.parse(read(dir, '.starter.json')).app.project, '', 'no Firebase project until add cloud');
+  assert.match(read(dir, 'wrangler.jsonc'), /"FIREBASE_PROJECT": ""/);
+  assert.ok(changed.includes('app/src/config.js'));
+  const cfg = read(dir, 'app/src/config.js');
+  assert.doesNotMatch(cfg, /firebaseConfig/);
+  assert.match(cfg, /"name":"pet-log"/);
+  for (const f of ['app/src/cloud.js', 'app/firestore.rules', 'app/public/vendor/firebase', 'flavours', 'e2e/sync.spec.mjs'])
+    assert.ok(!fs.existsSync(path.join(dir, f)), f);
+  const html = read(dir, 'app/index.html');
+  assert.doesNotMatch(html, /firebase\/|@core\/auth|@core\/sync"|cloud\{|static\{|id="sign-out"/);
+  assert.match(html, /"@core\/store": "https:\/\/core\.anawj\.com\/sync\/[^/]+\/src\/store\.js"/);
+  assert.match(read(dir, 'app/public/sw.js'), /src\/store\.js/);
+  assert.match(read(dir, 'playwright.config.mjs'), /^(?![\s\S]*emulator)/);
+  assert.equal(JSON.parse(read(dir, 'package.json')).scripts.rules, undefined);
+  assert.deepEqual(fill({ dir, ...STATIC, check: true }).changed, [], 'a re-run changes nothing');
+  assert.deepEqual(fill({ dir, ...STATIC, static: true, check: true }).changed, [], '--static again: already static');
+  const web = path.join(dir, 'web.json');
+  fs.writeFileSync(web, JSON.stringify({ projectId: 'pet-log-app', apiKey: 'x', appId: 'y' }));
+  assert.throws(() => fill({ dir, ...STATIC, 'web-config': web }), /static app has no web config/);
+});
+
+test('--static checks the values before it renders anything', () => {
+  const dir = copy();
+  assert.throws(() => fill({ dir, ...STATIC, static: true, name: 'Bad Name' }), /--name/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, accent: 'teal' }), /--accent/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, check: true }), /--check with --static/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, title: '  ' }), /--title/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, 'web-config': 'web.json' }), /no web config/);
+  assert.ok(fs.existsSync(path.join(dir, 'app/src/cloud.js')));
+  assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, undefined);
+});
+// }cloud
+/* static{
+test('fills name, host and kit everywhere; no Firebase config', () => {
+  const dir = copy();
+  const { changed } = fill({ dir, ...STATIC });
+  assert.ok(changed.includes('app/src/config.js') && changed.includes('wrangler.jsonc') && changed.includes('worker/routes.js'));
+  const cfg = read(dir, 'app/src/config.js');
+  assert.doesNotMatch(cfg, /firebaseConfig/);
+  assert.match(cfg, /KIT = 'https:\/\/design\.anawj\.com\/v1\/'/);
+  for (const f of ['app/index.html', 'app/public/sw.js', 'worker/routes.js', 'wrangler.jsonc', 'package.json'])
+    assert.doesNotMatch(read(dir, f), /starter-app|app\.example\.com|design\.flamingbeing\.com/, f);
+  const web = path.join(dir, 'web.json');
+  fs.writeFileSync(web, JSON.stringify({ projectId: 'pet-log-app', apiKey: 'x', appId: 'y' }));
+  assert.throws(() => fill({ dir, ...STATIC, 'web-config': web }), /static app has no web config/);
+});
+}static */
 
 test('bad values are refused before anything changes', () => {
   const dir = copy();
@@ -101,5 +159,6 @@ test('bad values are refused before anything changes', () => {
 
 test('arguments', () => {
   assert.deepEqual(parseArgs(['--name', 'a', '--check']), { name: 'a', check: true });
+  assert.deepEqual(parseArgs(['--static']), { static: true });
   assert.throws(() => parseArgs(['--nope']), /unknown argument/);
 });

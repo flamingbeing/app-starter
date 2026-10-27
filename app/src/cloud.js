@@ -26,19 +26,17 @@ import { firebaseConfig, APP } from './config.js';
 import { emulator, configured, roleOf, needsClaims } from './roles.js';
 import { OPTIONS, SETTINGS_COLL } from './options.js';
 import { dataModules } from './data-modules.js';
+import { COLL } from './items.js';
 
 export { usingEmulator } from './roles.js';
 const SPACE = '_';
-export const COLL = 'items';
-/** @param {unknown} record  an item, or a refused save's record -> its text (the list, its sheets and search) */
-export const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
-/** what the page says when the server refused a save at once (its copy waits in the refused list) */
-export const REFUSED = 'The server refused that. A copy is kept in the refused list.';
+// (the list's shared bits live in items.js, the same in a static app; named here too for the files recipe)
+export { COLL, itemText, REFUSED } from './items.js';
 
-/** @typedef {{ id: string, text: string, updatedAt?: unknown, _deleted?: boolean } & Record<string, unknown>} Item */
-/** @typedef {{ uid: string, email: string, name: string }} User */
-/** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
-/** @typedef {{ phase: Phase, user?: User, role?: string }} State */
+/** @typedef {import('./items.js').Item} Item */
+/** @typedef {import('./items.js').User} User */
+/** @typedef {import('./items.js').Phase} Phase */
+/** @typedef {import('./items.js').State} State */
 
 /** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;

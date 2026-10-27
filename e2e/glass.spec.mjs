@@ -96,6 +96,7 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
   }
 });
 
+// cloud{ (a static app has one screen)
 test('a change of screen is a view transition, unless motion is reduced', async ({ phone }) => {
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const page = await phone();
@@ -113,3 +114,4 @@ test('a change of screen is a view transition, unless motion is reduced', async 
     else expect(n).toBeGreaterThan(0);
   }
 });
+// }cloud
