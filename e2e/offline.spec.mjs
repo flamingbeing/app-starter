@@ -6,7 +6,8 @@ import { test, expect, setOffline, uniq, signIn, add, synced, serverHas } from '
 // before the cache is full: going offline then leaves the page without the files that were still on their way)
 const shellCached = page => page.evaluate(async () => {
   const text = await (await fetch('sw.js', { cache: 'no-store' })).text();
-  const list = text.match(/const SHELL = \[([\s\S]*?)\];/)[1].match(/'([^']+)'/g).map(q => new URL(q.slice(1, -1), location.href.split('?')[0]).href);
+  const list = (text.match(/const SHELL = \[([\s\S]*?)\];/)[1].match(/'([^']+)'/g) ?? []).map(q => new URL(q.slice(1, -1), location.href.split('?')[0]).href.split('?')[0]);
+  if (!list.some(u => /\/vendor\/firebase\/[^/]+\/firebase-firestore\.js$/.test(u)) || !list.some(u => /core\.anawj\.com\/sync\/[^/]+\/src\/runner\.js$/.test(u))) throw new Error('SHELL list not read from sw.js');
   const cached = new Set();
   for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) cached.add(r.url.split('?')[0]);
   return list.filter(u => !cached.has(u));
