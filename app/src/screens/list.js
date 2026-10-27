@@ -80,8 +80,6 @@ export function listScreen(app) {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
     draw,
-    /** the list could not load: the message and a Retry @param {string} message @param {() => unknown} retry */
-    failed: (message, retry) => loading.failed(message, retry),
     /** @param {Map<string, unknown[]>} by  every item's files */
     drawFiles(by) { files?.feed(by); draw(all, new Set()); sheet.redraw(); },
   };
