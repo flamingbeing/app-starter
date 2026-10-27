@@ -2,19 +2,23 @@
 // Firebase and the pinned core files), so a phone that has opened the app once starts it with no network at all.
 import { test, expect, setOffline, uniq, signIn, add, synced, serverHas } from './fixtures.mjs';
 
+// every file of sw.js's SHELL is in a cache (the worker takes charge, and WebKit's and Firefox's even report a controller,
+// before the cache is full: going offline then leaves the page without the files that were still on their way)
+const shellCached = page => page.evaluate(async () => {
+  const text = await (await fetch('sw.js', { cache: 'no-store' })).text();
+  const list = (text.match(/const SHELL = \[([\s\S]*?)\];/)[1].match(/'([^']+)'/g) ?? []).map(q => new URL(q.slice(1, -1), location.href.split('?')[0]).href.split('?')[0]);
+  if (!list.some(u => /\/vendor\/firebase\/[^/]+\/firebase-firestore\.js$/.test(u)) || !list.some(u => /core\.anawj\.com\/sync\/[^/]+\/src\/runner\.js$/.test(u))) throw new Error('SHELL list not read from sw.js');
+  const cached = new Set();
+  for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) cached.add(r.url.split('?')[0]);
+  return list.filter(u => !cached.has(u));
+});
+const shellFilled = page => expect.poll(() => shellCached(page), { message: 'every SHELL file cached', timeout: 30_000 }).toEqual([]);
+
 test('with no network, the app starts from the service worker and shows the saved list', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member', { path: '/app/?emulator&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
-  // every SHELL file is in the cache once the worker is in charge (vendored Firebase among them; WebKit's worker takes
-  // charge before it has finished filling the cache, so poll)
-  const cachedUrls = () => page.evaluate(async () => {
-    const urls = [];
-    for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) urls.push(r.url);
-    return urls;
-  });
-  await expect.poll(async () => (await cachedUrls()).some(u => /\/vendor\/firebase\/[^/]+\/firebase-firestore\.js$/.test(u)), { message: 'vendored Firebase precached', timeout: 30_000 }).toBe(true);
-  await expect.poll(async () => (await cachedUrls()).some(u => /core\.anawj\.com\/sync\/[^/]+\/src\/runner\.js$/.test(u)), { message: 'core files precached', timeout: 30_000 }).toBe(true);
+  await shellFilled(page);
   const t = uniq('kept');
   await add(page, t);
   await synced(page);
@@ -29,6 +33,7 @@ test('with no network and an expired sign-in token, the app still starts and sho
   const page = await phone();
   await signIn(page, 'member', { path: '/app/?emulator&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
+  await shellFilled(page);
   const t = uniq('kept');
   await add(page, t);
   await synced(page);
