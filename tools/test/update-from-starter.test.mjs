@@ -142,6 +142,44 @@ test('--sync bumps app-sync\'s two names and the hash', () => {
   assert.throws(() => bumpSyncIn(app, 'v1', { log: () => {} }));
 });
 
+test('--sync takes prerelease pins, in both names', () => {
+  const { app } = setup();
+  const was = fs.readFileSync(path.join(app, 'app/index.html'), 'utf8');
+  fs.writeFileSync(path.join(app, 'app/index.html'), was.replace('1.3.10', '1.4.0-rc.1'));
+  fs.writeFileSync(path.join(app, 'package.json'), pkg('1.4.0-rc.1').replace('starter-app', 'pet-log'));
+  assert.deepEqual(syncVersions(fs.readFileSync(path.join(app, 'app/index.html'), 'utf8'), fs.readFileSync(path.join(app, 'package.json'), 'utf8')), { map: ['1.4.0-rc.1'], dep: '1.4.0-rc.1' });
+  bumpSyncIn(app, '1.4.0', { install: false, log: () => {} });
+  assert.deepEqual(syncVersions(fs.readFileSync(path.join(app, 'app/index.html'), 'utf8'), fs.readFileSync(path.join(app, 'package.json'), 'utf8')), { map: ['1.4.0'], dep: '1.4.0' });
+  bumpSyncIn(app, '1.5.0-rc.2', { install: false, log: () => {} });
+  assert.deepEqual(syncVersions(fs.readFileSync(path.join(app, 'app/index.html'), 'utf8'), fs.readFileSync(path.join(app, 'package.json'), 'utf8')), { map: ['1.5.0-rc.2'], dep: '1.5.0-rc.2' });
+  assert.throws(() => bumpSyncIn(app, '1.5.0-', { install: false, log: () => {} }));
+});
+
+test('--sync moves the lock to the new tag with npm install of that tag', () => {
+  const { app } = setup();
+  const calls = [];
+  bumpSyncIn(app, '1.4.0', { log: () => {}, exec: (cmd, args) => { calls.push([cmd, ...args]); } });
+  assert.deepEqual(calls.filter(c => c[0] === 'npm'), [['npm', 'install', '--save-dev', '--no-audit', '--no-fund', 'app-sync@github:flamingbeing/app-sync#v1.4.0']]);
+});
+
+test('--sync refreshes the e2e core fixtures: the pinned version\'s folder, then the download', () => {
+  const { app } = setup();
+  writeAll(app, { 'e2e/fixtures/core/sync/1.3.10/app.js': 'old\n', 'e2e/fixtures/core/ui/1.0.0/index.js': 'ui\n', 'tools/refresh-core-fixtures.sh': '#!/bin/sh\n' });
+  const calls = [];
+  bumpSyncIn(app, '1.4.0', { log: () => {}, exec: (cmd, args) => { calls.push([cmd, ...args]); } });
+  assert.ok(fs.existsSync(path.join(app, 'e2e/fixtures/core/sync/1.4.0/app.js')));
+  assert.ok(!fs.existsSync(path.join(app, 'e2e/fixtures/core/sync/1.3.10')));
+  assert.ok(fs.existsSync(path.join(app, 'e2e/fixtures/core/ui/1.0.0/index.js')), 'other kits left alone');
+  assert.ok(calls.some(c => c[0] === 'bash' && c[1] === 'tools/refresh-core-fixtures.sh'));
+  // --no-install: the folder is renamed, nothing downloaded
+  const second = setup().app;
+  writeAll(second, { 'e2e/fixtures/core/sync/1.3.10/app.js': 'old\n', 'tools/refresh-core-fixtures.sh': '#!/bin/sh\n' });
+  const none = [];
+  bumpSyncIn(second, '1.4.0', { install: false, log: () => {}, exec: (...a) => none.push(a) });
+  assert.deepEqual(none, []);
+  assert.ok(fs.existsSync(path.join(second, 'e2e/fixtures/core/sync/1.4.0/app.js')));
+});
+
 test('helpers', () => {
   assert.ok(globRe('docs/**').test('docs/a/b.md'));
   assert.ok(globRe('**/*.png').test('a/b/c.png') && globRe('**/*.png').test('c.png'));
