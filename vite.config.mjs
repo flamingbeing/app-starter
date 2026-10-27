@@ -4,6 +4,13 @@
 // loads core, Firebase (vendored) and register.js through the map, at the versions it pins.
 import { defineConfig } from 'vite';
 
+// Where each local module's source is, for builds that bundle core from source (tools/vite-pieces.mjs); this build
+// keeps them external like the rest of core. `node tools/add.mjs <recipe>` writes the lines after the mark.
+export const SOURCE_ALIAS = {
+  // add: viteAlias
+  '@core/search': './app/public/search/index.js',
+};
+
 export default defineConfig({
   root: 'app',
   base: './',

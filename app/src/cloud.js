@@ -32,6 +32,8 @@ import { OPTIONS, SETTINGS_COLL } from './options.js';
 export { usingEmulator } from './roles.js';
 const SPACE = '_';
 export const COLL = 'items';
+/** @param {unknown} record  an item, or a refused save's record -> its text (the list, its sheets and search) */
+export const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
 /** what the page says when the server refused a save at once (its copy waits in the refused list) */
 export const REFUSED = 'The server refused that. A copy is kept in the refused list.';
 export const FILES = 'files';

@@ -114,7 +114,7 @@ app-sync's CI runs these tests that way against each candidate (its consumer tes
 ```text
 app/        the app (served at the root of its address): index.html (import map) and
   src/      config.js, cloud.js (wiring), app.js (shell), screen-switch.js, screens/ (one file per screen), dom.js,
-            roles.js, boot.js, globals.d.ts (types for the check)
+            roles.js, boot.js, modules.js (the optional modules' slots), globals.d.ts (types for the check)
   public/   sw.js, app.css, manifest, icons, files/ (@core/files), search/ (@core/search), vendor/firebase/<version>/: served
             as if beside index.html (the Worker looks here on a miss), as Vite's public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
@@ -122,7 +122,8 @@ e2e/        browser tests and their server; fixtures/outside-package/ (a page th
 tools/      fill.mjs, sw-files.mjs (sw.js's file list), vendor-firebase.mjs (+ firebase.lock.json), stamp-versions.mjs
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
             vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
-            to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps)
+            to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps), add.mjs (modules)
+recipes/    one JSON file per optional module (README, "Modules")
 docs/       decisions
 ```
 
@@ -141,6 +142,24 @@ fixture entries in `tsconfig.json`.
 4. **Offline:** `node tools/sw-files.mjs app` lists the file in `sw.js`'s SHELL (CI runs its `--check`).
 5. **Vite:** add `resolve.alias: { <name>: '<the vendored file>' }` to `vite.config.mjs` (an npm dependency of the same
    version works too); `tools/vite-outside-package.mjs` shows the build keeps it out of pages that do not import it.
+
+## Modules
+
+Optional parts come in and go out with one command each, so an app carries only what it uses:
+
+```bash
+node tools/add.mjs search                          # the template's recipe at the commit this app was made from
+node tools/add.mjs <owner/repo>@<tag|sha>:recipes/<module>.json   # a recipe from another repo (where the module was born)
+node tools/add.mjs --remove search                 # takes it out again; a file the app changed is kept and listed
+```
+
+A recipe (`recipes/search.json` is the first; its fields are listed at the top of `tools/add.mjs`) names the module's
+import map entries, vendored folders, files, tsconfig `paths` and `include`, Vite source alias, CSS custom
+properties, owner steps (printed as NEEDS-YOU lines) and notes. The glue goes into `app/src/modules.js`: one import and
+one slot per module (search fills the list's `listFilter` slot; `#list-tools` holds its box). Every edit is idempotent;
+re-adding from a newer source merges three-way into files the app changed. Afterwards `sw.js`'s list and the import
+map's CSP hash are regenerated, and `.starter.json` `"modules"` records where each module came from. CI's `add` job
+takes search out of a scratch copy, checks the lean app, puts search back and expects this repo's files exactly.
 
 ## Update from the template
 
