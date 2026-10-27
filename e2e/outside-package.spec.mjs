@@ -2,6 +2,7 @@
 // service worker's SHELL. The fixture page is served on its own (not through the app's Worker); the starter app
 // imports none of it.
 import { test, expect } from '@playwright/test';
+import { setOffline } from './fixtures.mjs';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -29,13 +30,13 @@ test.beforeAll(async () => {
 test.afterAll(() => new Promise(resolve => server.close(resolve)));
 
 test('an outside package runs from the import map, and again after an offline reload', async ({ page, context }) => {
-  await page.goto(`${origin}/`);
+  await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#out')).toHaveText(/^zod ok/);
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   const cached = await page.evaluate(async () => (await (await caches.open('outside-package-v1')).keys()).map(r => r.url));
   expect(cached.some(u => u.endsWith('/vendor/zod/3.23.8/index.mjs')), 'zod precached').toBe(true);
-  await context.setOffline(true);
-  await page.reload();
+  await setOffline(context, true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#out')).toHaveText(/^zod ok/);
-  await context.setOffline(false);
+  await setOffline(context, false);
 });

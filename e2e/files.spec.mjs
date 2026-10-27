@@ -3,7 +3,7 @@
 // unsent upload for the same account's next sign-in, and another account signing in wipes this device's files.
 import zlib from 'node:zlib';
 import axe from './axe.mjs';
-import { test, expect, uniq, signIn, signInAgain, add, db, synced } from './fixtures.mjs';
+import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced } from './fixtures.mjs';
 
 // A small solid-colour PNG, made here (no binary fixture in the repo).
 function png(w, h, [r, g, b]) {
@@ -22,7 +22,7 @@ function png(w, h, [r, g, b]) {
     chunk('IDAT', zlib.deflateSync(Buffer.concat(Array.from({ length: h }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const openItem = async (page, text) => { await page.getByRole('button', { name: text, exact: true }).click(); await expect(page.locator('#edit')).toBeVisible(); };
+const openItem = (page, text) => clickOpens(page.getByRole('button', { name: text, exact: true }), page.locator('#edit'));
 const attach = (page, name, buffer, mimeType = 'image/png') => page.setInputFiles('#edit-file', { name, mimeType, buffer });
 // the shared space's file records on the server (db.list leaves document ids out)
 const records = async name => (await db.list('spaces/_/files')).filter(d => d.name === name);
@@ -41,12 +41,12 @@ const cached = page => page.evaluate(() => new Promise((ok, no) => {
 const loaded = img => expect.poll(() => img.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
 
 test('a photo added offline shows at once, uploads online, opens on another phone, and remove takes it off both', async ({ phone }) => {
-  const a = await phone();
+  const a = await phone({ blobs: true });
   const { email } = await signIn(a);
   const t = uniq('photo');
   await add(a, t);
   // (offline before the sheet opens: an item's live watch losing its connection is app-sync's to settle)
-  await a.context().setOffline(true);
+  await setOffline(a.context(), true);
   await openItem(a, t);
   await attach(a, `${t}.png`, png(800, 600, [200, 40, 40]));
   const row = a.locator('#edit-files li', { hasText: `${t}.png` });
@@ -57,12 +57,12 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   await loaded(a.locator('#items li', { hasText: t }).locator('img.thumb'));
   expect(await axe(a), 'the list with a thumbnail').toEqual([]);
 
-  await a.context().setOffline(false);
+  await setOffline(a.context(), false);
   await expect.poll(async () => (await records(`${t}.png`))[0]?.state, { timeout: 15_000 }).toBe('stored');
   const [rec] = await records(`${t}.png`);
   expect(rec).toMatchObject({ type: 'image/webp', w: 800, h: 600, thumb: true });
 
-  const b = await phone();
+  const b = await phone({ blobs: true });
   await signInAgain(b, email);
   await loaded(b.locator('#items li', { hasText: t }).locator('img.thumb'));   // fetched from the Worker
   await openItem(b, t);
@@ -79,12 +79,12 @@ test('a photo added offline shows at once, uploads online, opens on another phon
 });
 
 test('a file that is not a picture is kept as it is; sign-out keeps an unsent upload, another account wipes the files', async ({ phone }) => {
-  const page = await phone();
+  const page = await phone({ blobs: true });
   const { email } = await signIn(page);
   const t = uniq('doc');
   await add(page, t);
   // (offline before the sheet opens: an item's live watch losing its connection is app-sync's to settle)
-  await page.context().setOffline(true);
+  await setOffline(page.context(), true);
   await openItem(page, t);
   await attach(page, `${t}.txt`, Buffer.from('made-up notes'), 'text/plain');
   await expect(page.locator('#edit-files li', { hasText: `${t}.txt` })).toBeVisible();
@@ -97,7 +97,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   const [job] = await page.evaluate(() => window.starter.files().jobs());
   expect(job).toMatchObject({ op: 'put', rec: { name: `${t}.txt` } });
   expect(await cached(page)).toContain(`${job.scope}/${job.id}`);
-  await page.context().setOffline(false);
+  await setOffline(page.context(), false);
   await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#list-view')).toBeVisible();
   await expect.poll(async () => (await records(`${t}.txt`))[0]?.state, { timeout: 15_000 }).toBe('stored');

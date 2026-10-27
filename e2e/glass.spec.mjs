@@ -1,8 +1,8 @@
 // @core/theme glass + motion: glass bars, toasts and sheets by default, Solid per device (kept, and put back before
 // the modules run), solid where the device asks for less transparency or more contrast, axe on glass, the screen
 // switch as a view transition. Screenshots of the sample in light, dark, OLED and Solid go to test-results/ for the PR.
-import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, add, APP } from './fixtures.mjs';
+import AxeBuilder, { byTool } from './axe.mjs';
+import { test, expect, clickOpens, signIn, add, APP } from './fixtures.mjs';
 
 /** @param {import('@playwright/test').Page} page @param {string} sel @param {string} prop */
 const style = (page, sel, prop) => page.locator(sel).first().evaluate((e, p) => getComputedStyle(e).getPropertyValue(p), prop);
@@ -18,7 +18,7 @@ const surface = page => page.evaluate(() => {
 
 test('glass by default; Solid in the switch takes it off, kept on reload and before the modules run', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP);
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
   const root = page.locator('html');
   await expect(root).toHaveClass(/\bglass\b/);
   expect(await style(page, '.bar', 'backdrop-filter')).toContain('blur');
@@ -27,7 +27,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
   await page.getByLabel('Bars and sheets').selectOption('solid');
   await expect(root).not.toHaveClass(/\bglass\b/);
   expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(root).not.toHaveClass(/\bglass\b/);
   await expect(page.getByLabel('Bars and sheets')).toHaveValue('solid');
 
@@ -36,7 +36,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await expect(root).not.toHaveClass(/\bglass\b/);
   await page.unroute('**/theme/index.js');
-  await page.goto(APP);
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
 
   await page.getByLabel('Bars and sheets').selectOption('glass');
   await expect(root).toHaveClass(/\bglass\b/);
@@ -45,8 +45,11 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
 // (Playwright can't emulate prefers-reduced-transparency; glass.css turns glass down for it in the same query)
 test('asked for more contrast: solid card colour, no blur', async ({ phone }) => {
   const page = await phone();
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await page.emulateMedia({ contrast: 'more' });
-  await page.goto(APP);
+  // Firefox: a media change by emulation does not re-cascade the sheets already loaded (a context option is not honoured
+  // either); switching them off and on does
+  await page.evaluate(() => document.querySelectorAll('link[rel=stylesheet]').forEach(l => { l.disabled = true; l.disabled = false; }));
   await expect(page.locator('html')).toHaveClass(/\bglass\b/);
   expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
   expect(await style(page, '.bar', 'background-color')).toBe(await surface(page));
@@ -82,13 +85,12 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
     await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
     await settled(page);
     expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`glass-${name}.png`) });
+    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
 
-    await page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }).click();
-    await expect(page.locator('#edit')).toBeVisible();
+    await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#edit'));
     await settled(page);
     expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) });
+    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
     await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('#edit')).toBeHidden();
   }
@@ -105,7 +107,9 @@ test('a change of screen is a view transition, unless motion is reduced', async 
     });
     await signIn(page, null);   // signed out -> no access: one change of screen
     const n = await page.evaluate(() => window.__vt);
-    if (reducedMotion === 'reduce') expect(n).toBe(0);
+    // Playwright's Firefox (142) has no document.startViewTransition: the app falls back to a plain change there
+    const supported = await page.evaluate(() => typeof document.startViewTransition === 'function');
+    if (reducedMotion === 'reduce' || !supported) expect(n).toBe(0);
     else expect(n).toBeGreaterThan(0);
   }
 });

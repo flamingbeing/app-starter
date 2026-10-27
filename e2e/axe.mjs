@@ -2,15 +2,29 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const src = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+
+// Run a tool that works inside the page (axe, a screenshot: Playwright's WebKit screenshot adds an inline <style>), and
+// drop the CSP reports it caused: they are the tool's, not the page's. The events arrive asynchronously, in WebKit well
+// after the call, so wait until no more come.
+export async function byTool(page, fn) {
+  const before = await page.evaluate(() => (window.__csp || []).length);
+  const out = await fn();
+  await page.evaluate(() => new Promise(res => {
+    let last = (window.__csp || []).length, quiet = 0;
+    const t = setInterval(() => { const n = (window.__csp || []).length; quiet = n === last ? quiet + 1 : 0; last = n; if (quiet >= 6) { clearInterval(t); res(); } }, 50);
+  }));
+  await page.evaluate(n => { if (window.__csp) window.__csp.length = n; }, before);
+  return out;
+}
+
 export default async function axe(page) {
-  // (evaluated, not a script tag; axe's own inline style is the tool's, not the page's, so its CSP reports are dropped)
   // a sheet, dialog or toast fades in: axe reads the colours as they are blended mid-animation, so wait for the running
   // (finite) animations to end rather than measure a half-faded page
   await page.evaluate(() => Promise.all(document.getAnimations().filter(a => Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a => a.finished.catch(() => {}))));
-  const before = await page.evaluate(() => (window.__csp || []).length);
-  await page.evaluate(src);
-  const r = await page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
-  await new Promise(res => setTimeout(res, 100));   // (violation events arrive asynchronously)
-  await page.evaluate(n => { if (window.__csp) window.__csp.length = n; }, before);
+  // (evaluated, not a script tag)
+  const r = await byTool(page, async () => {
+    await page.evaluate(src);
+    return page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
+  });
   return r.violations.filter(v => ['serious', 'critical'].includes(v.impact)).flatMap(v => v.nodes.map(n => `${v.id}: ${n.target.join(' ')}`));
 }

@@ -1,6 +1,6 @@
 // The 1.0 engine features the starter shows: sign-out keeps this device's data, forget wipes it, refused saves wait
 // in a list, the edit sheet follows its item live (watchDoc), the list marks what changed, and "Check for updates".
-import { test, expect, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP } from './fixtures.mjs';
 
 const kept = page => page.evaluate(async () => {
   let n = 0;
@@ -80,7 +80,7 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   await add(a, t);
   await expect(b.locator('#items')).toContainText(t);
   await expect.poll(() => b.evaluate(t => window.changedSeen.some(x => x.includes(t)), t)).toBe(true);
-  await b.getByRole('button', { name: t }).click();
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
   const itemId = await itemIdOf(t);
   const doc = await db.get(`spaces/_/items/${itemId}`);
   const noNulls = JSON.parse(JSON.stringify(doc, (k, v) => v === null ? undefined : v));   // (the admin helper can't write null)
@@ -98,7 +98,7 @@ test('a delete elsewhere keeps a draft in the edit sheet; saving it adds it back
   const t = uniq('draft');
   await add(a, t);
   await expect(b.locator('#items')).toContainText(t);
-  await b.getByRole('button', { name: t }).click();
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
   await b.fill('#edit-text', t + '-typed');
   await db.del(`spaces/_/items/${await itemIdOf(t)}`);
   await expect(b.locator('#edit-live')).toContainText('deleted on another device');
@@ -110,7 +110,7 @@ test('a delete elsewhere keeps a draft in the edit sheet; saving it adds it back
 
 test('check for updates: a new version takes over at once', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP + '&sw');
+  await page.goto(APP + '&sw', { waitUntil: 'domcontentloaded' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; });
   await page.request.get('/__test/bump');
