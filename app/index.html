@@ -36,9 +36,12 @@
 <body>
   <header class="bar">
     <h1>Starter app</h1>
+    <!-- cloud{ the sync chip: a static app's list is never unsent -->
     <span id="sync-chip"></span>
+    <!-- }cloud -->
   </header>
   <main>
+    <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
     <section id="signed-out" hidden>
       <p>Sign in to see the list.</p>
       <div id="sign-in-sheet" class="sheet"></div>
@@ -50,6 +53,7 @@
     <section id="not-set-up" hidden>
       <p>This app isn't connected to its Firebase project yet (see README, "Fill").</p>
     </section>
+    <!-- }cloud -->
     <section id="list-view" hidden>
       <div id="conflict-sheet"></div>
       <div id="refused-list"></div>
@@ -69,10 +73,14 @@
     </section>
   </main>
   <footer>
+    <!-- cloud{ -->
     <span id="who"></span>
+    <!-- }cloud -->
     <button id="open-settings" type="button" hidden>Settings</button>
+    <!-- cloud{ -->
     <button id="sign-out" type="button" hidden>Sign out</button>
     <p id="sign-out-msg" class="error" role="alert"></p>
+    <!-- }cloud -->
     <div id="update-prompt"></div>
     <div id="theme-switch"></div>
   </footer>
@@ -82,8 +90,13 @@
   <dialog id="settings" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
     <p><label><input type="checkbox" id="opt-bigRows"> Larger list rows (this device)</label></p>
+    <!-- cloud{ -->
     <p><label><input type="checkbox" id="opt-itemCount"> Show how many items there are (every device)</label></p>
     <p id="settings-note" class="small">Sign in to change the options that follow your account.</p>
+    <!-- }cloud -->
+    <!-- static{
+    <p><label><input type="checkbox" id="opt-itemCount"> Show how many items there are (this device)</label></p>
+    }static -->
     <div class="row">
       <button id="settings-export" type="button">Export settings</button>
       <label class="file">Import settings <input id="settings-import" type="file" accept="application/json,.json"></label>
