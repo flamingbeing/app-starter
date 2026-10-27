@@ -1,7 +1,7 @@
 // Soak runner: lean app-starter + `add` recipes in every order (made-up data, no Firebase project, no secrets).
 //
 //   node soak/run.mjs [--loops N] [--seed S] [--recipes files,search,...] [--steps unit,tsc,rules,e2e] [--browser chromium|firefox|webkit]
-//                     [--browsers chromium,firefox,webkit] [--combo files>search] [--pw <spec file>] [--repeat N] [--vite] [--box <pw-box.sh>] [--docker] [--keep] [--out DIR]
+//                     [--browsers chromium,firefox,webkit] [--static] [--combo files>search] [--pw <spec file>] [--repeat N] [--vite] [--box <pw-box.sh>] [--docker] [--keep] [--out DIR]
 //
 // Each loop takes the next combo of recipes (none, then every subset in every order; a recipe with no recipes/<name>.json
 // is skipped, once, with a note), copies this checkout to a scratch dir, fills it as a throwaway app (seed -> name),
@@ -36,6 +36,7 @@ const perms = list => list.length ? list.flatMap((x, i) => perms([...list.slice(
 const subsets = list => list.reduce((acc, x) => [...acc, ...acc.map(s => [...s, x])], [[]]);
 let COMBOS = subsets(have).flatMap(perms).filter((c, i, all) => all.findIndex(d => d.join() === c.join()) === i)
   .sort((a, b) => a.length - b.length);
+if (args.static) COMBOS = [[], ...COMBOS.map(c => ['cloud', ...c])];   // a static base: alone, or made the cloud app first
 if (args.combo) COMBOS = [String(args.combo) === 'none' ? [] : String(args.combo).split('>')];
 const HAS_JAVA = spawnSync('java', ['-version']).status === 0;
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
@@ -60,15 +61,16 @@ for (let n = START; n < START + LOOPS; n++) {
   const step = (label, cmd, cwd = dir, env = {}) => { if (!failed && !run(cmd, cwd, log, env)) failed = label; };
 
   step('copy', `mkdir -p "${dir}" && tar --exclude=.git --exclude=node_modules --exclude=.devkit --exclude=test-results --exclude=soak -cf - . | tar -xf - -C "${dir}" && ${args.box ? 'cp -a' : 'ln -s'} "${ROOT}/node_modules" "${dir}/node_modules" && cp -a "${ROOT}/.devkit" "${dir}/.devkit"`, ROOT);
-  step('fill', `node tools/fill.mjs --name ${name} --host ${name}.example.org --kit homedesign --project ${name}-demo`);
-  for (const m of combo) step(`add ${m}`, `node tools/add.mjs recipes/${m}.json`);
-  step('rules-build', `node .devkit/tools/build-rules.mjs app/firestore.app.rules`);
+  step('fill', `node tools/fill.mjs --name ${name} --host ${name}.example.org --kit homedesign ${args.static ? '--static' : `--project ${name}-demo`}`);
+  for (const m of combo) step(`add ${m}`, m === 'cloud' ? `node tools/add.mjs cloud --project ${name}-demo` : `node tools/add.mjs recipes/${m}.json`);
+  const cloud = !args.static || combo.includes('cloud');
+  if (cloud) step('rules-build', `node .devkit/tools/build-rules.mjs app/firestore.app.rules`);
   step('sw', `node tools/sw-files.mjs app --check`);
   const fire = args.vite ? 'npm run vite && ' : '';
   const e2eEnv = args.vite ? { APP_DIR: 'dist' } : {};
   if (STEPS.includes('unit')) step('unit', `node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'`);
   if (STEPS.includes('tsc')) step('tsc', `npm run typecheck`);
-  if (STEPS.includes('rules') && (!args.box || HAS_JAVA)) step('rules', `npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-${name} "node --test test/rules.test.mjs"`, path.join(dir, 'app'));
+  if (cloud && STEPS.includes('rules') && (!args.box || HAS_JAVA)) step('rules', `npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-${name} "node --test test/rules.test.mjs"`, path.join(dir, 'app'));
   const pwArgs = `${args.pw ? ' ' + args.pw : ''}${args.repeat ? ' --repeat-each ' + args.repeat : ''}`;
   const e2e = (args.box ? `bash "${args.box}" ${args.docker ? '--docker ' : ''}-b ${args.browsers ?? 'chromium'}${pwArgs ? ' --' : ''}` : 'npx playwright test') + pwArgs;
   if (STEPS.includes('e2e')) step('e2e', `${fire}${e2e}`, dir, e2eEnv);
