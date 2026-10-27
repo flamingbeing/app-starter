@@ -1,7 +1,8 @@
 // Shared steps for the specs. Every test uses its own made-up accounts and its own item texts, so tests run side by
 // side on the one shared list. A page that reports a Content-Security-Policy violation fails its test.
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, webkit } from '@playwright/test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
@@ -35,12 +36,22 @@ const seed = () => {
 // Firefox has no mobile emulation (isMobile throws); touch and the viewport work everywhere
 const touch = (browserName, mobile = true) => ({ hasTouch: true, ...(mobile && browserName !== 'firefox' ? { isMobile: true } : {}) });
 
+// A fresh context. WebKit's ephemeral contexts cannot keep a Blob in IndexedDB (the write fails with a null error, so the
+// files module's add() throws), a persistent profile can: there each context is its own browser on a new temp profile.
+async function newContext(browser, browserName, options) {
+  if (browserName !== 'webkit') return browser.newContext(options);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-webkit-'));
+  const context = await webkit.launchPersistentContext(dir, options);
+  context.once('close', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return context;
+}
+
 export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
   phone: async ({ browser, browserName }, use) => {
     const made = [];
     await use(async () => {
-      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...touch(browserName) });
+      const context = await newContext(browser, browserName, { viewport: { width: 390, height: 844 }, ...touch(browserName) });
       await context.addInitScript(seed);
       const served = { n: 0, built: 0 };
       if (SYNC_DIR) await routeSync(context, served);
@@ -57,7 +68,7 @@ export const test = base.extend({
     const made = [];
     await use(async (/** @type {number} */ width) => {
       const height = width < 600 ? 844 : width < 1000 ? 1180 : 800;
-      const context = await browser.newContext({ viewport: { width, height }, ...touch(browserName, width < 1000) });
+      const context = await newContext(browser, browserName, { viewport: { width, height }, ...touch(browserName, width < 1000) });
       await context.addInitScript(seed);
       const page = await context.newPage();
       made.push({ context, page, served: null });
