@@ -21,10 +21,13 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - `worker/claims.js` and `worker/custom-token.js` are app-devkit's: never edit them here (CI compares them).
 - Shared modules (app-sync, app-update) and app-devkit blocks are pinned to exact versions; bump on purpose, after the
   tests pass. No moving `@v1` pins.
+- app-ui (`@core/ui`, `@core/theme`, `@core/settings`) is pinned like app-sync: the version in `app/index.html` (import
+  map entries and the `core.anawj.com/ui/<version>/` links) and the `app-ui` devDependency tag move together; change the
+  kit in app-ui, never here ([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)).
 - app-sync's version is named twice, bumped together: `app/index.html`'s import map and the `app-sync` devDependency
   tag in `package.json` (its `.d.ts` are what `npm run typecheck` checks `app/src` against, under `strict`).
 - `app/public/sw.js`'s SHELL list is generated: after adding or removing a file the page loads, or bumping app-sync,
-  run `node tools/sw-files.mjs app`. Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
+  run `node tools/sw-files.mjs app` (after a map change, also the import map hash in `worker/headers.js`). Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
   (never edit `app/public/vendor/`). Both have a `--check` in CI ([decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
 - New library, own-host sign-in, live smoke test, template updates: go through
   [docs/new-app-checklist.md](docs/new-app-checklist.md). `@core/files` `url()` is a page-local `blob:` URL; hand a

@@ -17,14 +17,15 @@ are safe from day one. Replace this first paragraph with what the app is once it
   `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
   map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).
   Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt`).
-- **UI kit** ([decision 0008](docs/decisions/0008-ui-kit-and-theme-in-the-starter.md)): `@core/ui` (sync chip with
+- **UI kit** ([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)): `@core/ui` (sync chip with
   overridable state words `LABELS`, sign-in sheet, conflict sheet, update prompt, refused list) and `@core/theme`
-  (custom properties; this device's look (A tinted glass, B colour band, C dense and quiet: [docs/ui-kit.md](docs/ui-kit.md),
+  (custom properties; this device's look (A tinted glass, B colour band, C dense and quiet: [ui-kit.md](https://github.com/flamingbeing/app-ui/blob/main/docs/ui-kit.md),
   [decision 0010](docs/decisions/0010-looks-are-data.md)),
   theme, dark style incl. OLED, style from 8 presets, accent, ground, density and the glass guard;
   palettes worked out from one accent with a contrast floor, applied from `src/boot.js` before the first paint; the
-  app's default colour is `APP.accent` in `src/config.js`, `fill.mjs --accent`), v0 in `app/public/ui/` and `app/public/theme/`, each its
-  own import map entry. The screens are one file each in `app/src/screens/`; a new app replaces only those.
+  app's default colour is `APP.accent` in `src/config.js`, `fill.mjs --accent`), with `@core/settings` from
+  [app-ui](https://github.com/flamingbeing/app-ui) at the version the import map pins (`core.anawj.com/ui/<version>/`),
+  each its own import map entry; the gallery is app-ui's `/kit/`. The screens are one file each in `app/src/screens/`; a new app replaces only those.
 - **Files** ([decision 0009](docs/decisions/0009-files-through-the-worker.md)): `@core/files` v0 in `app/public/files/`
   (own import map entry): `add` keeps a photo or file on the device at once (resized, with a thumbnail; date taken
   read first when `exif` is on), saves its record through sync and uploads it through the Worker's `/api/files/`
@@ -114,7 +115,7 @@ app-sync's CI runs these tests that way against each candidate (its consumer tes
 app/        the app (served at the root of its address): index.html (import map) and
   src/      config.js, cloud.js (wiring), app.js (shell), screen-switch.js, screens/ (one file per screen), dom.js,
             roles.js, boot.js, globals.d.ts (types for the check)
-  public/   sw.js, app.css, manifest, icons, ui/ (@core/ui), theme/ (@core/theme), vendor/firebase/<version>/: served
+  public/   sw.js, app.css, manifest, icons, files/ (@core/files), search/ (@core/search), vendor/firebase/<version>/: served
             as if beside index.html (the Worker looks here on a miss), as Vite's public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
 e2e/        browser tests and their server; fixtures/outside-package/ (a page that imports a vendored zod)

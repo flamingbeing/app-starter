@@ -1,4 +1,4 @@
-// tools/sw-files.mjs on made-up app folders and a made-up app-sync. node --test tools/test/sw-files.test.mjs
+// tools/sw-files.mjs on made-up app folders and a made-up app-sync and app-ui. node --test tools/test/sw-files.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -62,6 +62,24 @@ test('refuses an engine checkout at another version than the import map, a missi
   assert.throws(() => shellFiles({ dir: d2, sync: bare }), /firebase\/app/);
 });
 
+test('app-ui: the import map entries, and the style sheets and scripts the page links, with what they import', () => {
+  const UI = 'https://core.anawj.com/ui/1.0.0-rc.1/';
+  const ui = tree({
+    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.1' }),
+    'ui/index.js': "export * from './toast.js';\n", 'ui/toast.js': "import { el } from '../theme/dom.js';\n", 'theme/dom.js': '',
+    'theme/index.js': "import { el } from './dom.js';\n", 'theme/early.js': '', 'ui/ui.css': '', 'kit/index.html': '',
+  });
+  const html = page({ '@core/ui': UI + 'ui/index.js', '@core/theme': UI + 'theme/index.js' })
+    + `<script src="${UI}theme/early.js"></script><link rel="stylesheet" href="${UI}ui/ui.css"><link rel="icon" href="${UI}icons/icon.svg">`
+    + '<link rel="stylesheet" href="https://design.example/tokens.css">';
+  const dir = tree({ 'index.html': html, 'sw.js': SW });
+  assert.deepEqual(shellFiles({ dir, sync: engine(), ui }), [
+    './', UI + 'ui/index.js', UI + 'ui/toast.js', UI + 'theme/dom.js', UI + 'theme/index.js', UI + 'ui/ui.css', UI + 'theme/early.js',
+  ]);
+  const old = tree({ 'index.html': page({ '@core/ui': 'https://core.anawj.com/ui/0.9.0/ui/index.js' }), 'sw.js': SW });
+  assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.1/);
+});
+
 test('writes the list into sw.js, and --check fails until it is written', () => {
   const dir = tree({ 'index.html': page({}), 'src/app.js': '', 'public/sw.js': SW });
   assert.throws(() => writeShell({ dir, sync: engine(), check: true }), /out of date/);
@@ -72,6 +90,6 @@ test('writes the list into sw.js, and --check fails until it is written', () => 
   assert.doesNotThrow(() => writeShell({ dir, sync: engine(), check: true }));
 });
 
-test("the starter's own sw.js is up to date with app/ and the pinned app-sync", { skip: !fs.existsSync(path.join(ROOT, 'node_modules/app-sync/package.json')) && 'no node_modules/app-sync (npm ci)' }, () => {
+test("the starter's own sw.js is up to date with app/ and the pinned app-sync and app-ui", { skip: !['app-sync', 'app-ui'].every(p => fs.existsSync(path.join(ROOT, `node_modules/${p}/package.json`))) && 'no node_modules/app-sync or app-ui (npm ci)' }, () => {
   assert.doesNotThrow(() => writeShell({ dir: path.join(ROOT, 'app'), check: true }));
 });
