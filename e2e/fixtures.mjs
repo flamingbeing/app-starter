@@ -44,6 +44,14 @@ async function routeHermetic(context) {
 // every new context: collect CSP reports; and the glass guard has already found this device fast (theme/guard.js),
 // so a slow CI runner's frames can't turn glass down mid-test (looks.spec runs the guard itself, on its own context)
 const seed = () => {
+  // Firebase Auth's SDK adds Google's gapi script (apis.google.com); Playwright's route cannot refuse it on a page the service
+  // worker controls (Firefox and WebKit don't route the worker's own fetches), and it ran live there: so it never loads, and
+  // its load fails as a blocked request does.
+  const { get, set } = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+  Object.defineProperty(HTMLScriptElement.prototype, 'src', { configurable: true, get, set(url) {
+    if (/^https:\/\/apis\.google\.com\//.test(url)) return void setTimeout(() => this.dispatchEvent(new Event('error')));
+    set.call(this, url);
+  } });
   window.__csp = [];
   addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
   try {
