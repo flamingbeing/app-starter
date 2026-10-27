@@ -149,7 +149,7 @@ jobs:
         working-directory: ${{ runner.temp }}/app
         run: |
           node tools/add.mjs "$GITHUB_WORKSPACE/recipes/search.json"
-          diff -r -x node_modules -x .devkit -x .starter.json -x dist -x test-results -x playwright-report "$GITHUB_WORKSPACE" .
+          diff -r -x node_modules -x .devkit -x .starter.json -x dist -x test-results -x playwright-report -x '*.log' "$GITHUB_WORKSPACE" .
           jq -e '.modules.search' .starter.json
       - name: With search (type check, both Vite builds, the search browser tests plain and on the Vite build)
         working-directory: ${{ runner.temp }}/app
