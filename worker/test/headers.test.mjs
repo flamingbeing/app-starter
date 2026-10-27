@@ -62,5 +62,7 @@ test('the sign-in helper pages (Firebase\'s, with their own inline script) get n
     assert.equal(h['Content-Security-Policy'], "frame-ancestors 'self'");
     assert.equal(h['Content-Security-Policy-Report-Only'], undefined);
     assert.equal(h['X-Frame-Options'], 'SAMEORIGIN');
+    assert.equal(h['Cross-Origin-Opener-Policy'], undefined);   // else the popup loses window.opener and stays blank
   }
+  assert.equal(Object.fromEntries(securityHeaders({}))['Cross-Origin-Opener-Policy'], 'same-origin-allow-popups');
 });
