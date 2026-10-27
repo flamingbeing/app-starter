@@ -130,7 +130,7 @@ export function findBase(repo, to, meta, dir, { limit = 200 } = {}) {
   let best = null;
   for (const sha of shas) {
     let files = treeAt(repo, sha);
-    if (meta.flavour) try { files = render(files, meta.flavour); } catch { continue; }   // a commit from before flavours
+    if (meta.flavour) try { files = render(files, meta.flavour); } catch { break; }   // a commit from before flavours (and every older one)
     const tpl = JSON.parse(files['.starter.json']?.toString() || 'null')?.app ?? meta.app;
     const swaps = swapsFor(tpl, meta.app);
     let same = 0;

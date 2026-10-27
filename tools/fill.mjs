@@ -24,7 +24,7 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'p
 const KEEP = ['tools/fill.mjs', 'tools/test/fill.test.mjs', 'tools/test/update-from-starter.test.mjs', 'worker/claims.js', 'worker/custom-token.js'];
 const TEXT = /\.(m?js|json|jsonc|html|css|md|webmanifest|rules|ya?ml|svg|txt)$|^\.[a-z]+ignore$/;
 
-const RULES = {
+export const RULES = {
   name: [/^[a-z][a-z0-9-]{1,28}[a-z0-9]$/, 'lowercase letters, digits and hyphens, 3-30 characters'],
   host: [/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, 'a host name like app.example.com'],
   project: [/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/, 'a Firebase project id (6-30 lowercase letters, digits, hyphens)'],
@@ -101,7 +101,7 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   let meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   const render = flat && !meta.flavour;
   if (render && check) throw new Error('--check with --static: the app is not static yet, so a run would change it');
-  if (meta.flavour && opts['web-config']) throw new Error(`a ${meta.flavour} app has no web config (node tools/add.mjs cloud --project <id> first)`);
+  if ((meta.flavour || flat) && opts['web-config']) throw new Error(`a ${meta.flavour ?? 'static'} app has no web config (node tools/add.mjs cloud --project <id> first)`);
   if (render) {
     // the checks below throw before anything changes; the render comes after them
     validate(meta, opts, true);
@@ -110,8 +110,6 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   }
   const old = meta.app;
   const app = validate(meta, opts, render);
-  app.title = opts.title ?? (opts.name && opts.name !== old.name ? titleOf(app.name) : old.title);
-  if (/["\\<>\n]/.test(app.title) || !app.title.trim()) throw new Error('--title: plain text, no quotes or angle brackets');
 
   // the web config: kept from config.js unless --web-config gives a new one (or the project changed)
   const cfgPath = path.join(dir, 'app/src/config.js');
@@ -154,15 +152,16 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
 }
 
 // the new values' checks, on their own: --static runs them before it renders
-// -> { name, host, kit, project } (a static app's project is '' until it is given one)
+// -> { name, host, kit, project, title } (a static app's project is '' until it is given one)
 // fresh: the app is being made static now (its template project goes)
 function validate(meta, opts, fresh = false) {
   const old = meta.app;
   const app = { name: opts.name ?? old.name, host: opts.host ?? old.host, kit: opts.kit ?? old.kit,
-    project: opts.project ?? (fresh ? '' : old.project) };
+    project: opts.project ?? (fresh ? '' : old.project), title: '' };
+  app.title = opts.title ?? (opts.name && opts.name !== old.name ? titleOf(app.name) : old.title);
   const none = (fresh || meta.flavour) && app.project === '';
   for (const [k, [re, what]] of Object.entries(RULES)) if (!(k === 'project' && none) && !re.test(app[k])) throw new Error(`--${k} '${app[k]}': ${what}`);
-  if (/["\\<>\n]/.test(opts.title ?? '')) throw new Error('--title: plain text, no quotes or angle brackets');
+  if (/["\\<>\n]/.test(app.title) || !app.title.trim()) throw new Error('--title: plain text, no quotes or angle brackets');
   if (opts.accent && !/^#[0-9a-f]{6}$/i.test(opts.accent)) throw new Error(`--accent '${opts.accent}': a colour like #3a6390`);
   return app;
 }

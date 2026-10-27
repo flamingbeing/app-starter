@@ -34,7 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { swapsFor, fixup, isText, fill } from './fill.mjs';
+import { swapsFor, fixup, isText, fill, RULES } from './fill.mjs';
 import { after, merge3, templateRepo, show, update } from './update-from-starter.mjs';
 
 const REMOTE = /^([\w.-]+\/[\w.-]+)@([\w./-]+):(.+\.json)$/;
@@ -221,6 +221,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     opened.push(src);
     const result = { module: src.recipe.module, changes: [], conflicts: [] };
     const { recipe } = src;
+    if (meta.flavour && !remove && recipe.module === 'files') throw new Error(`the files module needs the cloud (its Worker routes and rules): node tools/add.mjs cloud --project <id> first`);
     const was = !remove && recorded[recipe.module] ? pinned(recorded[recipe.module], meta, dir) : null;
     const prevSource = was && was !== from ? was : null;
     const prev = prevSource ? openSource(prevSource, dir, github, clones) : null;
@@ -313,10 +314,12 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
 export function toCloud({ dir = '.', project, from, to, dryRun = false, install = true, log = console.log } = {}) {
   const meta = JSON.parse(fs.readFileSync(path.join(dir, '.starter.json'), 'utf8'));
   if (!meta.flavour) throw new Error('this app is the cloud app already (.starter.json has no "flavour")');
-  if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(project ?? '')) throw new Error('--project <id>: the Firebase project id (6-30 lowercase letters, digits, hyphens)');
+  if (!RULES.project[0].test(project ?? '')) throw new Error(`--project <id>: ${RULES.project[1]}`);
   if (!meta.commit && !to) throw new Error('.starter.json has no "commit" (the template commit the app started from)');
   const r = update({ dir, from, to: to ?? meta.commit, dryRun, install, checkLatest: false, unflavour: { project }, log });
-  if (!dryRun) {
+  // conflicts first: fill would swap values into half-merged files
+  if (r.conflicts.length && !dryRun) log('resolve the conflicts above, then: node tools/fill.mjs (it writes config.js with the project)');
+  else if (!dryRun) {
     fill({ dir, log });
     for (const m of ['NEEDS-YOU: the Firebase project\'s web app config: node tools/fill.mjs --web-config <file> (README, "Fill")',
       'then: npm test, npm run typecheck and npm run e2e (the emulators) before the PR']) log(m);

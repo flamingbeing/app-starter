@@ -126,6 +126,8 @@ test('--static checks the values before it renders anything', () => {
   assert.throws(() => fill({ dir, ...STATIC, static: true, name: 'Bad Name' }), /--name/);
   assert.throws(() => fill({ dir, ...STATIC, static: true, accent: 'teal' }), /--accent/);
   assert.throws(() => fill({ dir, ...STATIC, static: true, check: true }), /--check with --static/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, title: '  ' }), /--title/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, 'web-config': 'web.json' }), /no web config/);
   assert.ok(fs.existsSync(path.join(dir, 'app/src/cloud.js')));
   assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, undefined);
 });

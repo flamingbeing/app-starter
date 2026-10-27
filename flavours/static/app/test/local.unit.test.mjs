@@ -19,6 +19,7 @@ const started = async () => {
 test('a save is stored and heard; a _deleted save takes it out', async () => {
   const { m, c, api } = await started();
   assert.deepEqual(c.told, [{ state: 'synced', count: 0, unsent: 0 }]);
+  assert.equal(api.kept, false, 'Node has no IndexedDB: memory, and the app is told');
   const heard = [];
   const off = api.watch('_', 'items', (list, meta) => heard.push([list.map(d => d.text), meta.changed]));
   assert.deepEqual(heard, [[[], []]]);

@@ -1,7 +1,7 @@
 // The page's shell: the theme, the kit's update prompt, the settings sheet and the list. A static app has no sign-in:
 // the list is this device's (local.js). The sample screens (screens/) show a list with add, edit and delete; a new app
 // replaces them and keeps this wiring, local.js and the kit (@core/ui, @core/theme).
-import { updatePrompt } from '@core/ui';
+import { updatePrompt, toaster } from '@core/ui';
 import { themeSwitch } from '@core/theme';
 import { start } from './local.js';
 import { $ } from './dom.js';
@@ -20,6 +20,8 @@ themeSwitch($('theme-switch'));
 window.starter = { ready: false, add: text => app?.add(text) };   // for the tests
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
 updatePrompt($('update-prompt'), { update: app.update });
+// the browser keeps nothing (a private window): this device's list is the only copy, so say so
+if (!app.sync.kept) toaster($('toasts')).show('This browser is not keeping data here: the list goes when the page closes');
 app.status$(st => { window.starter.status = st.state; });
 $('open-settings').hidden = false;
 settingsSheet(app, () => true);

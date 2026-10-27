@@ -5,7 +5,9 @@
 //
 //   localStore({ createStores, prefix, colls, scope }) -> { name: 'sync', needs: [], start(ctx) -> api, stop }
 //   api: save(coll, scope, rec, base), watch(scope, coll, cb(list, { changed })) -> off, watchDoc(path, cb) -> off,
-//        copyOf(coll, id), status$, conflicts, describe, resolve, queue (the kit's SyncApi, always empty)
+//        copyOf(coll, id), kept, status$, conflicts, describe, resolve, queue (the kit's SyncApi, always empty)
+//   kept: false when the browser refused IndexedDB (a private window; app-sync's store then keeps to memory): the
+//        device holds the only copy, so the app says the list goes when the page closes
 // createStores is passed in (the app gives @core/store's; the unit tests the npm copy's, which keeps to memory in Node).
 
 /** @typedef {{ id: string, _deleted?: boolean, [field: string]: any }} Doc  a record (updatedAt: when it was saved here) */
@@ -25,6 +27,8 @@ export function localStore({ createStores, prefix, colls, scope: only = '_' }) {
     async start(ctx) {
       const { openStore } = createStores({ prefix, colls, metaOnly: [] });
       const store = await openStore(only);
+      const kept = store.kind !== 'memory';
+      if (!kept) ctx.report({ event: 'local-memory', why: 'IndexedDB refused: the list lasts this page only' });
       /** @type {Map<string, Map<string, Doc>>} */
       const data = new Map();
       for (const coll of colls) data.set(coll, new Map((await store.load(coll)).docs.map(d => [d.id, d])));
@@ -87,6 +91,7 @@ export function localStore({ createStores, prefix, colls, scope: only = '_' }) {
         },
         /** @param {string} coll @param {string} id */
         copyOf: (coll, id) => { const d = known(coll).get(id); return d ? { ...d } : null; },
+        kept,
         // the kit's SyncApi: always saved, never a conflict or a refused save
         /** @param {(st: { state: string, count: number }) => void} cb */
         status$(cb) { statusSubs.add(cb); cb({ state: 'synced', count: 0 }); return () => { statusSubs.delete(cb); }; },

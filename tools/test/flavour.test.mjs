@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { strip, render, renderDir } from '../flavour.mjs';
 import { fill } from '../fill.mjs';
 import { update } from '../update-from-starter.mjs';
-import { toCloud } from '../add.mjs';
+import { toCloud, add } from '../add.mjs';
 
 test('strip: cloud regions go, marks included; static blocks come in without their marks', () => {
   const js = ['a', '// cloud{ why', 'b', '// }cloud', '/* static{', 'c', '}static */', 'd'].join('\n');
@@ -125,6 +125,7 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   // the app's own changes: one to a file both apps have, one to a static app's own file
   edit(app, 'app/src/screens/list.js', t => `${t}// the app's own line\n`);
   edit(app, 'app/src/local.js', t => `${t}// the app's own local line\n`);
+  assert.throws(() => add({ source: path.join(tpl, 'recipes/files.json'), dir: app, log: () => {} }), /needs the cloud/);
 
   // the template changes a cloud region, a cloud-only file and a static file
   edit(tpl, 'app/src/settings-sheet.js', t => t.replace(/\n(\s*\/\/ \}cloud)/, '\n    // a cloud-only change\n$1'));
