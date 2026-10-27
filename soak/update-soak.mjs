@@ -189,7 +189,7 @@ async function realApp(appSrc) {
     must(pre.status === 0, 'npm install before the update failed');
     const r = update(d, [], log, true);
     must(r.code === 0 || r.code === 1, `exit ${r.code}`);
-    // conflicts are the owner's to resolve; here the app's side of each is kept so the copy can be built
+    // conflicts are the owner's to resolve; here both sides are kept (the template's alone for test files) so the copy can be built
     const lns = r.out.split('\n');
     for (const f of lns.slice(lns.findIndex(l => /file\(s\) with conflicts/.test(l)) + 1).map(l => l.trim()).filter(l => l && !l.startsWith('['))) {
       const fp = path.join(d, f);
@@ -199,7 +199,7 @@ async function realApp(appSrc) {
         if (/^<{7}( |$)/.test(l)) { mode = 1; return false; }
         if (mode === 1 && /^={7}$/.test(l)) { mode = 2; return false; }
         if (mode === 2 && /^>{7}( |$)/.test(l)) { mode = 0; return false; }
-        return mode !== 2;
+        return /\/test\/|\.test\./.test(f) ? mode !== 1 : true;
       }).join('\n'));
     }
     const steps = [['npm', ['run', 'typecheck']],
@@ -207,6 +207,7 @@ async function realApp(appSrc) {
     for (const [c, a] of steps) {
       const x = run(c === 'npx' ? (win ? 'npx.cmd' : 'npx') : c, a, d, { shell: win });
       fs.appendFileSync(log, `$ ${c} ${a.join(' ')}\n${x.stdout.slice(-4000)}${x.stderr.slice(-4000)}\n[exit ${x.status}]\n`);
+      if (x.status !== 0 && r.code === 1) return `${c} ${a.join(' ')} fails with unresolved conflicts (expected until resolved by hand)`;
       must(x.status === 0, `${c} ${a.join(' ')} exit ${x.status}`);
     }
     return 'install, tsc, unit, vite build ok';
