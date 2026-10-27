@@ -1,6 +1,7 @@
 // tools/fill.mjs on a scratch copy of this repo. node --test tools/test/fill.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,9 +10,10 @@ import { fill, parseArgs } from '../fill.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKIP = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
-function copy() {
+function copy({ deps = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));
   fs.cpSync(ROOT, dir, { recursive: true, filter: src => !SKIP.has(path.basename(src)) });
+  if (deps) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // sw.js's list reads app-sync and app-ui
   // these tests are the starter's own: an app that took in this file (tools/update-from-starter.mjs) has modules, which a fresh render refuses
   const metaPath = path.join(dir, '.starter.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
@@ -116,6 +118,9 @@ test('--static renders the static app, then fills it: no Firebase, sw.js and the
   assert.doesNotMatch(html, /firebase\/|@core\/auth|@core\/sync"|cloud\{|static\{|id="sign-out"/);
   assert.match(html, /"@core\/store": "https:\/\/core\.anawj\.com\/sync\/[^/]+\/src\/store\.js"/);
   assert.match(read(dir, 'app/public/sw.js'), /src\/store\.js/);
+  assert.doesNotMatch(read(dir, 'app/public/sw.js'), /cloud\.js|firebase/, 'sw.js lists no file the static app lacks');
+  const sw = spawnSync('node', ['tools/sw-files.mjs', 'app', '--check'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(sw.status, 0, sw.stderr);
   assert.match(read(dir, 'playwright.config.mjs'), /^(?![\s\S]*emulator)/);
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.rules, undefined);
   assert.deepEqual(fill({ dir, ...STATIC, check: true }).changed, [], 'a re-run changes nothing');
@@ -123,6 +128,20 @@ test('--static renders the static app, then fills it: no Firebase, sw.js and the
   const web = path.join(dir, 'web.json');
   fs.writeFileSync(web, JSON.stringify({ projectId: 'pet-log-app', apiKey: 'x', appId: 'y' }));
   assert.throws(() => fill({ dir, ...STATIC, 'web-config': web }), /static app has no web config/);
+});
+
+test('--static in a fresh clone (no node_modules) installs the packages, so sw.js\'s list is the static app\'s', () => {
+  const dir = copy({ deps: false });
+  const ran = [];
+  const exec = (cmd, args, cwd) => {
+    ran.push([cmd, ...args].join(' '));
+    assert.equal(cwd, dir);
+    fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // stands for the install
+  };
+  fill({ dir, ...STATIC, static: true, exec });
+  assert.deepEqual(ran, ['npm ci --no-audit --no-fund --ignore-scripts']);
+  assert.doesNotMatch(read(dir, 'app/public/sw.js'), /cloud\.js|firebase/);
+  assert.equal(spawnSync('node', ['tools/sw-files.mjs', 'app', '--check'], { cwd: dir }).status, 0);
 });
 
 test('--static checks the values before it renders anything', () => {

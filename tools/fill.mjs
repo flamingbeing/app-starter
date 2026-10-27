@@ -12,6 +12,7 @@
 // values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A static app
 // (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs cloud --project <id>`) and has
 // no web config.
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,7 +97,7 @@ export const KIT = '${KITS[app.kit]}/v1/';
 `;
 
 // -> { changed: [files], app } ; throws on bad input
-export function fill({ dir = '.', check = false, static: flat = false, log = () => {}, ...opts } = {}) {
+export function fill({ dir = '.', check = false, static: flat = false, log = () => {}, exec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' }), ...opts } = {}) {
   const metaPath = path.join(dir, '.starter.json');
   let meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   const render = flat && !meta.flavour;
@@ -105,6 +106,13 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   if (render) {
     // the checks below throw before anything changes; the render comes after them
     validate(meta, opts, true);
+    // sw.js's list is read from the app-sync and app-ui packages, so a fresh clone (new-app: no node_modules) installs them
+    // first; without them sw.js would keep the cloud app's list, naming files the static app no longer has (the worker
+    // install fails: no offline start). Before the render, so a failed install leaves the app as it was and a re-run retries.
+    if (!['app-sync', 'app-ui'].every(p => fs.existsSync(path.join(dir, 'node_modules', p, 'package.json')))) {
+      log('npm ci (app-sync and app-ui, for sw.js\'s list)');
+      exec('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], dir);
+    }
     renderDir({ dir, flavour: 'static', log });
     meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   }
@@ -146,8 +154,10 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   const modules = meta.modules && commit ? Object.fromEntries(Object.entries(meta.modules).map(([m, s]) =>
     [m, /^recipes\/[\w.-]+\.json$/.test(s) ? `${meta.template}@${commit}:${s}` : s])) : meta.modules;
   write('.starter.json', JSON.stringify({ ...meta, commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
-  // the render changed the import map: sw.js's list and the import-map hash follow (no npm: the packages are the same)
-  if (render) after(dir, { install: false, log });
+  // the render changed the import map: sw.js's list and the import-map hash follow (the packages are installed above)
+  if (render) {
+    after(dir, { install: false, log });
+  }
   return { changed, app };
 }
 
