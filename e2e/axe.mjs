@@ -19,13 +19,13 @@ export async function byTool(page, fn) {
 
 export default async function axe(page) {
   // a sheet, dialog or toast fades in: axe reads the colours as they are blended mid-animation, so wait for the running
-  // (finite) animations to end rather than measure a half-faded page
-  // (an element added a frame ago has no animation yet, so look again after a frame until none is left running)
+  // (finite) animations to end rather than measure a half-faded page. An element added a moment ago has no animation yet,
+  // so let two frames pass first (timers back them up, as a hidden page paints none) and look again, at most 5 times.
   await page.evaluate(async () => {
-    const frame = () => new Promise(res => requestAnimationFrame(() => res()));
+    const frame = () => new Promise(res => { requestAnimationFrame(() => res()); setTimeout(res, 100); });
     for (let i = 0; i < 5; i++) {
-      await frame();
-      const running = document.getAnimations().filter(a => Number.isFinite(a.effect?.getComputedTiming().endTime));
+      await frame(); await frame();
+      const running = document.getAnimations().filter(a => Number.isFinite(a.effect?.getComputedTiming().endTime) && (a.playState === 'running' || a.pending));
       if (!running.length) return;
       await Promise.all(running.map(a => a.finished.catch(() => {})));
     }
