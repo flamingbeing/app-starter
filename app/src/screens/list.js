@@ -1,12 +1,12 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
 // list of saves the server refused. With the files recipe each item shows its photos' thumbnails (and a clip for other files).
 import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState } from '@core/ui';
-import { COLL, REFUSED, itemText } from '../cloud.js';
+import { COLL, REFUSED, itemText } from '../items.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
 import { modules } from '../modules.js';
 
-/** @typedef {import('../cloud.js').Item} Item */
+/** @typedef {import('../items.js').Item} Item */
 /**
  * The list's tools slot (modules.js "listFilter"; the search recipe fills it): draws into the slot and narrows the list.
  * @typedef {(o: { slot: HTMLElement, redraw: () => void }) => { feed: (items: Item[]) => void, pick: (items: Item[]) => Item[] | null }} ListFilter
@@ -18,10 +18,11 @@ import { modules } from '../modules.js';
  * @property {(itemId: string) => unknown[]} of  an item's files as this device has them
  * @property {(item: Item) => HTMLElement | null} thumbs  the list row's thumbnails
  * @property {(slot: HTMLElement, editing: () => Item | null) => () => void} mount  fills the edit sheet's slot -> redraw it
- * @typedef {(o: { app: import('../cloud.js').Started, toast: (message: string) => unknown }) => ItemFiles} ItemFilesSlot
+ * (app: cloud.js's Started, which the files module needs; any here, as a static app has no cloud.js)
+ * @typedef {(o: { app: any, toast: (message: string) => unknown }) => ItemFiles} ItemFilesSlot
  */
 
-/** @param {import('../cloud.js').Started} app */
+/** @param {import('../items.js').ItemsApp} app */
 export function listScreen(app) {
   let canWrite = false;
   /** @type {Item[]} */

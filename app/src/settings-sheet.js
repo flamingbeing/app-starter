@@ -25,8 +25,10 @@ export function settingsSheet(app, signedIn) {
       const box = input(`opt-${key}`);
       box.checked = !!settings.get(key);
     }
+    // cloud{ account options wait for sign-in (a static app has device options only)
     input('opt-itemCount').disabled = !signedIn();
     $('settings-note').hidden = signedIn();
+    // }cloud
   };
   for (const key of SWITCHES) {
     input(`opt-${key}`).addEventListener('change', async e => {
