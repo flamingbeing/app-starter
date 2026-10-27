@@ -27,7 +27,7 @@ for (const [name, code] of Object.entries(PAGES)) {
 
 await build({
   configFile: false, root: SRC, base: './', logLevel: 'warn',
-  resolve: { alias: { '@core/settings': path.join(ROOT, 'app/public/settings/index.js'), '@core/search': path.join(ROOT, 'app/public/search/index.js') } },
+  resolve: { alias: { '@core/settings': path.join(ROOT, 'node_modules/app-ui/settings/index.js'), '@core/search': path.join(ROOT, 'app/public/search/index.js') } },
   build: { outDir: OUT, emptyOutDir: true, target: 'es2022', rollupOptions: { output: { experimentalMinChunkSize: 0 }, input: Object.fromEntries(Object.keys(PAGES).map(n => [n, path.join(SRC, `${n}.html`)])) } },
 });
 

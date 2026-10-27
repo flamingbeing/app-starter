@@ -2,7 +2,7 @@
 // New options are off. A new app replaces these with its own.
 export const SETTINGS_COLL = 'settings';
 
-/** @type {Record<string, import('../public/settings/types').OptionSpec>} */
+/** @type {Record<string, import('app-ui/settings/types').OptionSpec>} */
 export const OPTIONS = {
   // this device only: a phone and a computer can differ
   bigRows: { scope: 'device', default: false },

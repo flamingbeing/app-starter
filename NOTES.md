@@ -7,16 +7,19 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 See README, "Tests". The browser tests use one shared list (`spaces/_/items`), so each test uses its own made-up
 accounts and item texts and checks only those; they run side by side.
 
-## UI kit gestures and the `/kit/` gallery
+## UI kit gestures and the `/kit/` gallery (app-ui)
+
+The kit, its gallery and their tests live in [app-ui](https://github.com/flamingbeing/app-ui) since 1.0.0-rc.1
+([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)); this app pins one version. In short:
 
 `@core/ui` has touch gestures (hold menu, select mode, sheets with detents, pushed screens with edge-swipe back,
 shrinking tab bar, collapsing large title), each started only where its markup is. The gallery `/kit/` shows them all
-on made-up data, signed out; its tests are listed in [docs/kit-tests.md](docs/kit-tests.md) and run at 390, 820 and
-1280 px. Stage notes: [docs/ui-kit-progress.md](docs/ui-kit-progress.md). Port rules: hold 500 ms within 10 px, the
+on made-up data, signed out; its tests are listed in app-ui's [kit-tests.md](https://github.com/flamingbeing/app-ui/blob/main/docs/kit-tests.md) and run at 390, 820 and
+1280 px. Stage notes: [ui-kit-progress.md](https://github.com/flamingbeing/app-ui/blob/main/docs/ui-kit-progress.md). Port rules: hold 500 ms within 10 px, the
 lift's click swallowed; no gesture from fields, dialogs, sideways scrollers, drag handles or screen edges; the tab bar
 never moves with a swipe; Still (this device) or Reduce Motion turns motion off. Layout parts (grid, stack, split,
 toolbar, segmented, stepper) and the opt-in extra-dense level (never under 24 px) are on `/kit/dense/`; rules in
-[docs/ui-kit.md](docs/ui-kit.md#layout-parts-and-extra-dense).
+[ui-kit.md](https://github.com/flamingbeing/app-ui/blob/main/docs/ui-kit.md#layout-parts-and-extra-dense).
 
 ## Later
 

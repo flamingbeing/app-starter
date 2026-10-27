@@ -1,6 +1,6 @@
 # 0008: The UI kit (`@core/ui`) and theme (`@core/theme`) grow in the starter; screens one file each
 
-Status: accepted (2026-10-26)
+Status: accepted (2026-10-26); where it lives replaced by [0011](0011-ui-kit-served-from-app-ui.md) (app-ui).
 
 Decision: the parts every app draws the same way (sync chip with default state words `LABELS`, sign-in sheet,
 conflict "pick one" sheet, update prompt, refused-saves list) are `@core/ui`, and the custom properties plus the
