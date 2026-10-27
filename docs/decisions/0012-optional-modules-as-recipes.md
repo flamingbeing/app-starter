@@ -14,7 +14,7 @@ block a mark opens, matched without spaces or quote style.
 
 Why: apps of a second kind want some parts and not others; a fat starter makes every app carry them, a fork per
 mix drifts. A recipe keeps one copy of the module, added the same way to a new app (`new-app.mjs --with`) or an old
-one, and CI proves the round trip (the starter without search, then `add search`, is the starter again).
+one, and CI proves it: the `full` jobs add every recipe to a scratch copy and run the whole suite, and add/remove round-trip tests check the lean app comes back.
 
 What follows: a module's own files stay its own (no edits to core files beyond the marks); a recipe that needs a
 runtime change in core is a core change first. A module born in another repo is added by

@@ -2,7 +2,7 @@
 import AxeBuilder from './axe.mjs';
 import { test, expect, clickOpens, signIn, add, uniq, APP } from './fixtures.mjs';
 
-test('delete asks first: Esc keeps the item and gives focus back; confirming deletes with a toast', async ({ phone }) => {
+test('delete has no question: an Undo toast puts the item back (as a new item); the toast passes axe', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
   const t = uniq('del');
@@ -11,26 +11,14 @@ test('delete asks first: Esc keeps the item and gives focus back; confirming del
 
   await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
   await page.click('#edit-delete');
-  const modal = page.locator('dialog.modal');
-  await expect(modal).toBeVisible();
-  await expect(modal.getByRole('button', { name: 'Cancel' })).toBeFocused();   // the safe answer first
+  await expect(page.locator('dialog.modal')).toHaveCount(0);
+  await expect(page.locator('#items')).not.toContainText(t);
+  const toast = page.locator('.toast', { hasText: 'Deleted' });
+  await expect(toast).toBeVisible();
   expect(await AxeBuilder(page)).toEqual([]);
 
-  await page.keyboard.press('Tab');
-  await expect(modal.getByRole('button', { name: 'Delete' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(modal.getByRole('button', { name: 'Cancel' })).toBeFocused();   // trapped: wraps round
-
-  await page.keyboard.press('Escape');
-  await expect(modal).toHaveCount(0);
-  await expect(page.locator('#edit')).toBeVisible();
-  await expect(page.locator('#edit-delete')).toBeFocused();
+  await toast.getByRole('button', { name: 'Undo' }).click();
   await expect(page.locator('#items')).toContainText(t);
-
-  await page.click('#edit-delete');
-  await page.locator('dialog.modal').getByRole('button', { name: 'Delete' }).click();
-  await expect(page.locator('#items')).not.toContainText(t);
-  await expect(page.locator('.toast', { hasText: 'Deleted' })).toBeVisible();
 });
 
 test('a toast can be dismissed', async ({ phone }) => {

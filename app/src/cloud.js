@@ -6,8 +6,6 @@
 //                              through the Worker's /api/members/, which revokes a removed person's access)
 //   spaces/_/items/{id}        { text, updatedAt, serverAt, _edits }  the list (_edits: who changed each field, and when) ('_' is the single group)
 //   spaces/_/bin/{coll:id}     { id, kind, data, deletedAt, … }       a deleted item's last version (delete to bin)
-//   spaces/_/files/{id}        { name, type, size, w?, h?, thumb?, taken?, state, item }  a photo or file on an item
-//                              (@core/files: its bytes are in the Worker's R2 bucket under _/<id>, worker/files.js)
 //
 // Roles reach the rules as custom claims ({ g: { _: role }, v }), a cache of the role doc: the Worker's /api/claims
 // writes them. The auth module reads the role doc live (claims.watch) and asks for new claims whenever its v is ahead
@@ -22,12 +20,12 @@ import { createApp } from '@core/app';
 import { auth } from '@core/auth';
 import { sync, leaveEntry } from '@core/sync';
 import { update } from '@core/update';
-import { files } from '@core/files';
 import { settings } from '@core/settings';
 import * as register from 'app-update/register.js';
 import { firebaseConfig, APP } from './config.js';
 import { emulator, configured, roleOf, needsClaims } from './roles.js';
 import { OPTIONS, SETTINGS_COLL } from './options.js';
+import { dataModules } from './data-modules.js';
 
 export { usingEmulator } from './roles.js';
 const SPACE = '_';
@@ -36,10 +34,8 @@ export const COLL = 'items';
 export const itemText = record => String(/** @type {{ text?: unknown } | null} */ (record)?.text ?? '');
 /** what the page says when the server refused a save at once (its copy waits in the refused list) */
 export const REFUSED = 'The server refused that. A copy is kept in the refused list.';
-export const FILES = 'files';
 
 /** @typedef {{ id: string, text: string, updatedAt?: unknown, _deleted?: boolean } & Record<string, unknown>} Item */
-/** @typedef {import('@core/files').FileRecord & { item: string, _deleted?: boolean }} Attachment */
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
 /** @typedef {{ phase: Phase, user?: User, role?: string }} State */
@@ -90,8 +86,8 @@ const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
  * @property {(s: State) => void} onState
  * @property {(items: Item[], changed: Set<string>) => void} onList  the list as this device has it, with its unsent saves
  *   laid over; changed: the ids whose copy changed since the last call (none the first time)
- * @property {(byItem: Map<string, Attachment[]>) => void} [onFiles]  every item's photos and files (item id -> them),
- *   whenever one changes
+ * @property {(byItem: Map<string, unknown[]>) => void} [onFiles]  every item's attached files (item id -> them), whenever
+ *   one changes (the files recipe)
  */
 /** @typedef {NonNullable<Awaited<ReturnType<typeof start>>>} Started */
 
@@ -116,7 +112,7 @@ export async function start({ canReload = null }) {
       },
     }),
     sync({
-      colls: [COLL, FILES, SETTINGS_COLL], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
+      colls: [COLL, SETTINGS_COLL, ...(dataModules.files ? [dataModules.files.coll] : [])], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
       scope: () => SPACE, device: deviceName(), wake: true,
       // a delete writes the item's last version to the bin in the same transaction ({ id, kind, data, deletedAt }:
       // the other devices drop the item from it, and data keeps the deleted version)
@@ -131,9 +127,7 @@ export async function start({ canReload = null }) {
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
       onRefused: () => 'archive',
     }),
-    // photos and files on items: the records sync in FILES, the bytes go to /api/files (shared by the space, like the
-    // items; the date a photo was taken is kept, its place is not)
-    files({ collection: FILES, scope: () => SPACE, exif: true }),
+    ...(dataModules.files ? [dataModules.files.engine(SPACE)] : []),
     settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
     ...(canReload ? [update({ register, app: 'app', sw: 'sw.js', canReload })] : []),
   ];
@@ -185,12 +179,7 @@ export async function start({ canReload = null }) {
       onList(list.filter(x => !x._deleted), new Set(first ? [] : meta?.changed || []));
       first = false;
     });
-    if (onFiles) offFiles ??= app.sync.watch(SPACE, FILES, (/** @type {Attachment[]} */ list) => {
-      /** @type {Map<string, Attachment[]>} */
-      const by = new Map();
-      for (const f of list) if (!f._deleted && f.item) by.set(f.item, [...(by.get(f.item) || []), f]);
-      onFiles(by);
-    });
+    if (onFiles && dataModules.files) offFiles ??= dataModules.files.watch(app, SPACE, onFiles);
   };
   app.auth.onUser(() => { claimsStatus = 0; void show(); });
 
@@ -210,7 +199,7 @@ export async function start({ canReload = null }) {
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
     auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
-    // the whole app's status (sync and files): { state, count, unsent }
+    // the whole app's status (sync and the modules): { state, count, unsent }
     /** @param {(st: { state: string, count: number, unsent: number }) => void} fn */
     status$: fn => app.status$(fn),
     // from now on: onState with what the page shows, onList with the list once it is shown
@@ -223,18 +212,13 @@ export async function start({ canReload = null }) {
     // base: the copy the edit started from
     /** @param {Item} item @param {string} text @returns {Promise<string>} */
     edit: (item, text) => refusal(app.sync.save(COLL, SPACE, { ...item, text }, item)),
-    // a delete takes the item's photos and files with it
-    /** @param {Item} item @param {Attachment[]} [attached] */
+    // a delete takes the item's attached files with it (the files recipe)
+    /** @param {Item} item @param {unknown[]} [attached] */
     remove: async (item, attached = []) => {
       void app.sync.hub.drop(SPACE, COLL, [item.id]);
       await app.sync.save(COLL, SPACE, { id: item.id, _deleted: true }, item);
-      for (const f of attached) await app.files.remove(f);
+      await dataModules.files?.removeAll(app, attached);
     },
-    // a photo or file on an item: shows at once from this device, uploads when online
-    /** @param {Item} item @param {Blob} file */
-    attach: (item, file) => app.files.add(file, { extra: { item: item.id } }),
-    /** @param {Attachment} f */
-    detach: f => app.files.remove(f),
     // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),

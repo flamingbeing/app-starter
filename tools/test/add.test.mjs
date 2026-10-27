@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { add, putLine, dropLine, editImportMap, editInclude, resolveSource, pinned, parseArgs } from '../add.mjs';
+import { add, putLine, dropLine, putBlock, dropBlock, editImportMap, editInclude, resolveSource, pinned, parseArgs } from '../add.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKIP = new Set(['.git', 'node_modules', '.devkit', 'dist', 'test-results', 'playwright-report']);
@@ -46,12 +46,20 @@ test('putLine and dropLine: after the anchor, one line per key, idempotent', () 
 test('editImportMap keeps the page\'s formatting; editInclude adds and takes out globs', () => {
   const html = read(ROOT, 'app/index.html');
   assert.equal(editImportMap(html, {}), html);
-  const without = editImportMap(html, { '@core/search': null });
-  assert.ok(!without.includes('@core/search'));
-  assert.equal(editImportMap(without, { '@core/search': './search/index.js' }), html);
+  const added = editImportMap(html, { '@core/zed': './zed/index.js' });
+  assert.match(added, /"@core\/zed": "\.\/zed\/index\.js"/);
+  assert.equal(editImportMap(added, { '@core/zed': null }), html);
   const ts = '{\n  "include": ["a", "b"]\n}\n';
   assert.equal(editInclude(ts, ['c', 'a']), '{\n  "include": ["a", "b", "c"]\n}\n');
   assert.equal(editInclude(ts, ['a'], true), '{\n  "include": ["b"]\n}\n');
+});
+
+test('putBlock / dropBlock: several lines after the anchor, idempotent, taken out again whole', () => {
+  const t = 'a\n  // add: r\nb\n';
+  const once = putBlock(t, '// add: r', ['  x,', '  y,']);
+  assert.equal(once, 'a\n  // add: r\n  x,\n  y,\nb\n');
+  assert.equal(putBlock(once, '// add: r', ['  x,', '  y,']), once);
+  assert.equal(dropBlock(once, ['  x,', '  y,']), t);
 });
 
 test('resolveSource: a bare name is the template\'s recipe at the app\'s commit, local without one', () => {
@@ -62,29 +70,32 @@ test('resolveSource: a bare name is the template\'s recipe at the app\'s commit,
   assert.throws(() => parseArgs([]), /name a recipe/);
 });
 
-test('search: --remove leaves a lean app with no trace of it; add brings back the same files; a second add changes nothing', () => {
-  const dir = copyRepo();
-  try {
-    const before = tree(dir);
-    const r = add({ source: 'search', remove: true, dir, log: quiet });
-    assert.equal(r.module, 'search');
-    for (const gone of ['app/public/search/index.js', 'app/src/screens/list-search.js', 'e2e/search.spec.mjs', 'app/public/vendor/minisearch'])
-      assert.ok(!fs.existsSync(path.join(dir, gone)), gone);
-    for (const rel of ['app/index.html', 'app/src/modules.js', 'tsconfig.json', 'vite.config.mjs'])
-      assert.doesNotMatch(read(dir, rel), /search/i, rel);
-    assert.equal(JSON.parse(read(dir, '.starter.json')).modules, undefined);
-    assert.notEqual(read(dir, 'worker/headers.js'), before['worker/headers.js'].toString(), 'the CSP hash follows the import map');
+// the lean base takes a module in and out again: no trace left, the same files back, a second add changes nothing
+for (const [module, gone, grep] of [
+  ['search', ['app/public/search/index.js', 'app/src/screens/list-search.js', 'e2e/search.spec.mjs', 'app/public/vendor/minisearch'], /search/i],
+  ['files', ['app/public/files/index.js', 'app/src/files-data.js', 'worker/files.js', 'app/public/vendor/exifr', 'e2e/memory-bucket.mjs'], /@core\/files|memoryBucket|filesData/],
+]) {
+  test(`${module}: add brings it in, --remove leaves the lean app with no trace of it; a second add changes nothing`, () => {
+    const dir = copyRepo();
+    try {
+      const recipe = path.join(ROOT, `recipes/${module}.json`);
+      const lean = tree(dir);
+      for (const f of gone) assert.ok(!fs.existsSync(path.join(dir, f)), `lean: ${f}`);
+      add({ source: recipe, dir, log: quiet });
+      for (const f of gone) assert.ok(fs.existsSync(path.join(dir, f)), `added: ${f}`);
+      assert.equal(JSON.parse(read(dir, '.starter.json')).modules[module], recipe);
+      assert.deepEqual(add({ source: recipe, dir, log: quiet }).changes, []);
 
-    add({ source: path.join(ROOT, 'recipes/search.json'), dir, log: quiet });
-    const after = tree(dir);
-    assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
-    for (const rel of Object.keys(before)) if (rel !== '.starter.json') assert.ok(after[rel].equals(before[rel]), rel);
-    assert.equal(JSON.parse(read(dir, '.starter.json')).modules.search, path.join(ROOT, 'recipes/search.json'));
-
-    const again = add({ source: path.join(ROOT, 'recipes/search.json'), dir, log: quiet });
-    assert.deepEqual(again.changes, []);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
-});
+      add({ source: module, remove: true, dir, log: quiet });
+      const back = tree(dir);
+      assert.deepEqual(Object.keys(back).sort(), Object.keys(lean).sort());
+      for (const rel of Object.keys(lean)) if (rel !== '.starter.json') assert.ok(back[rel].equals(lean[rel]), rel);
+      for (const rel of ['app/index.html', 'app/src/modules.js', 'tsconfig.json', 'vite.config.mjs'])
+        assert.doesNotMatch(read(dir, rel), grep, rel);
+      assert.equal(JSON.parse(read(dir, '.starter.json')).modules, undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+}
 
 // a recipe repo at github/<owner>/<repo> with two commits, and a small app that took its first one
 function recipeRepos() {

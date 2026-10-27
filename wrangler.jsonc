@@ -22,9 +22,7 @@
   // Workers Logs: keeps console lines such as the CSP reports (worker/csp-report.js) to read in the dashboard
   "observability": { "enabled": true },
   "vars": { "FIREBASE_PROJECT": "demo-starter-app" },
-  // the app's files (@core/files; worker/files.js): one private bucket per app, made once before the first deploy
-  // (README, "Files"); tools/fill.mjs names it after the app
-  "r2_buckets": [{ "binding": "FILES", "bucket_name": "starter-app-files" }],
+  // add: r2
   // the real address, as in worker/routes.js SITES; the first deploy adds the custom domain
   "routes": [{ "pattern": "app.example.com", "custom_domain": true }]
 }

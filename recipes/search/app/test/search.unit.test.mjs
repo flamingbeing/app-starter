@@ -1,7 +1,7 @@
 // @core/search: the query parser (ported from a working logbook parser) and the index's ranking and filters.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseQuery, createSearch, loadSearch } from '../public/search/index.js';
+import { parseQuery, createSearch, loadSearch, insertOperator, usesOperators } from '../public/search/index.js';
 
 await loadSearch();   // MiniSearch loads on first need in the page (search-lazy.unit.test.mjs); these tests rank with it
 
@@ -94,4 +94,21 @@ test('parseQuery: a camelCase field is found whatever the case typed', () => {
   const { groups, unknown } = parseQuery('ownerName:Kim ownername:lee', { fields: ['ownerName'] });
   assert.deepEqual(unknown, []);
   assert.deepEqual(groups.flat().map(t => t.field), ['ownerName', 'ownerName']);
+});
+
+test('insertOperator: spaces either side, cursor inside the operator', () => {
+  assert.deepEqual(insertOperator('', 0, 'tag:', 4), { text: 'tag:', caret: 4 });
+  assert.deepEqual(insertOperator('lap', 3, '""', 1), { text: 'lap ""', caret: 5 });
+  assert.deepEqual(insertOperator('ab cd', 2, 'OR ', 3), { text: 'ab OR  cd', caret: 6 });
+  assert.deepEqual(insertOperator('x', null, '-', 1), { text: 'x -', caret: 3 });
+});
+
+test('usesOperators: fields, phrases, leave-outs and OR', () => {
+  assert.equal(usesOperators('lap chole'), false);
+  assert.equal(usesOperators('"lap chole"'), true);
+  assert.equal(usesOperators('a -b'), true);
+  assert.equal(usesOperators('x-ray'), false);
+  assert.equal(usesOperators('a OR b'), true);
+  assert.equal(usesOperators('tag:13', ['tag']), true);
+  assert.equal(usesOperators('tag:13'), false);
 });

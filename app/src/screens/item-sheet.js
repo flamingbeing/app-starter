@@ -1,22 +1,21 @@
 // The edit sheet (#edit) of the list screen. It follows its item on the server: a change made elsewhere shows under the
 // field, and a delete made elsewhere closes the sheet and says so, unless the person has typed a change: then the sheet
 // stays open, says so, and Save adds their text back as a new item. (An item not on the server yet is only "gone" once
-// it was seen there.) Its photos and files (@core/files) are listed under the text: add one, open one, remove one.
+// it was seen there.) The files recipe lists the item's photos and files under the text (the #edit-extras slot).
 import { confirmModal } from '@core/ui';
 import { REFUSED } from '../cloud.js';
 import { $, input, dialog } from '../dom.js';
-import { attachmentRows } from './attachments.js';
 
 /** @typedef {import('../cloud.js').Item} Item */
-/** @typedef {import('../cloud.js').Attachment} Attachment */
 
 /**
  * @param {import('../cloud.js').Started} app
  * @param {(message: string) => unknown} toast  a short note (the kit's toaster)
- * @param {(itemId: string) => Attachment[]} filesOf  an item's photos and files as this device has them
+ * @param {{ show: (message: string, undo: () => unknown) => void }} undo  the kit's undo toast
+ * @param {import('./list.js').ItemFiles | undefined} files  the files slot, when the files recipe is in
  * @returns {{ open: (item: Item) => void, redraw: () => void }} open the sheet on an item; redraw its files
  */
-export function itemSheet(app, toast, filesOf) {
+export function itemSheet(app, toast, undo, files) {
   const sheet = dialog('edit');
   /** @type {Item | null} */
   let editing = null;
@@ -24,28 +23,7 @@ export function itemSheet(app, toast, filesOf) {
   /** @type {(() => void) | null} */
   let stopLive = null;
 
-  const redraw = () => {
-    if (!editing) return;
-    const list = filesOf(editing.id);
-    $('edit-files').replaceChildren(...attachmentRows(app, list, async f => {
-      if (!await confirmModal(`Remove ${f.name}?`, { title: 'Remove file', danger: true, yes: 'Remove' })) return;
-      await app.detach(f);
-      toast('Removed');
-    }));
-    $('edit-files').hidden = list.length === 0;
-  };
-  $('edit-attach').addEventListener('click', () => input('edit-file').click());
-  input('edit-file').addEventListener('change', async () => {
-    const picked = [...(input('edit-file').files || [])], item = editing;
-    input('edit-file').value = '';
-    if (!item || !picked.length) return;
-    try {
-      for (const file of picked) await app.attach(item, file);
-      toast(picked.length > 1 ? `${picked.length} files added` : 'File added');
-    } catch (e) {
-      toast(/** @type {{ code?: string }} */ (e)?.code === 'too-big' ? 'That file is too big.' : 'Could not add the file.');
-    }
-  });
+  const redraw = files?.mount($('edit-extras'), () => editing) ?? (() => {});
 
   sheet.addEventListener('close', async () => {
     stopLive?.(); stopLive = null;
@@ -57,10 +35,16 @@ export function itemSheet(app, toast, filesOf) {
     }
   });
   $('edit-delete').addEventListener('click', async () => {
-    if (!await confirmModal('Delete this item? It goes to the bin.', { title: 'Delete item', danger: true, yes: 'Delete' })) return;
+    // a deleted item goes to the bin, and Undo puts its text back (no question); an item with files asks first, as
+    // its files go with it and Undo cannot bring them back
+    const attached = editing ? files?.of(editing.id) ?? [] : [];
+    if (attached.length && !await confirmModal('Delete this item and its files?', { title: 'Delete item', danger: true, yes: 'Delete' })) return;
     const item = editing; editing = null;
     sheet.close('delete');
-    if (item && !editingGone) { await app.remove(item, filesOf(item.id)); toast('Deleted'); }
+    if (!item || editingGone) return;
+    await app.remove(item, attached);
+    if (attached.length) toast('Deleted');
+    else undo.show(`Deleted “${item.text.length > 40 ? `${item.text.slice(0, 40)}…` : item.text}”`, async () => { if (await app.add(item.text)) toast(REFUSED); });
   });
 
   const open = (/** @type {Item} */ item) => {

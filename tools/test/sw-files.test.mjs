@@ -63,9 +63,9 @@ test('refuses an engine checkout at another version than the import map, a missi
 });
 
 test('app-ui: the import map entries, and the style sheets and scripts the page links, with what they import', () => {
-  const UI = 'https://core.anawj.com/ui/1.0.0-rc.8/';
+  const UI = 'https://core.anawj.com/ui/1.0.0-rc.9/';
   const ui = tree({
-    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.8' }),
+    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.9' }),
     'ui/index.js': "export * from './toast.js';\n", 'ui/toast.js': "import { el } from '../theme/dom.js';\n", 'theme/dom.js': '',
     'theme/index.js': "import { el } from './dom.js';\n", 'theme/early.js': '', 'ui/ui.css': '', 'kit/index.html': '',
   });
@@ -77,7 +77,7 @@ test('app-ui: the import map entries, and the style sheets and scripts the page 
     './', UI + 'ui/index.js', UI + 'ui/toast.js', UI + 'theme/dom.js', UI + 'theme/index.js', UI + 'ui/ui.css', UI + 'theme/early.js',
   ]);
   const old = tree({ 'index.html': page({ '@core/ui': 'https://core.anawj.com/ui/0.9.0/ui/index.js' }), 'sw.js': SW });
-  assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.8/);
+  assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.9/);
 });
 
 test('writes the list into sw.js, and --check fails until it is written', () => {

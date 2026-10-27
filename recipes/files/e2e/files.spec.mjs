@@ -111,3 +111,18 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await expect(page.locator('#no-access')).toBeVisible();
   await expect.poll(() => cached(page)).toEqual([]);
 });
+
+// Removing someone revokes the account (revoked/{uid}): the files route refuses their uploads at once.
+test('an admin removes a member: the files route refuses their uploads', async ({ phone }) => {
+  const admin = await phone(), gone = await phone();
+  await signIn(admin, 'admin');
+  const { uid } = await signIn(gone, 'member');
+  const upload = () => gone.evaluate(async uid => {
+    const { getAuth } = await import('firebase/auth');
+    const t = await getAuth().currentUser?.getIdToken().catch(() => '');
+    return (await fetch(`/api/files/${uid}/f1`, { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${t}` } })).status;
+  }, uid);
+  expect(await upload()).toBe(201);
+  expect(await admin.evaluate(u => window.starter.members().remove(u), uid)).toBe('');
+  expect(await upload()).toBe(403);
+});

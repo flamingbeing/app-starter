@@ -15,7 +15,7 @@
 // empty); both template versions get the app's own values first (fill.mjs's
 // swaps), so the only differences left are real changes. For every file the template changed between the base and
 // --to: added -> added (an app file of the same name is merged as if from an empty base), deleted -> deleted unless the
-// app changed it, changed -> `git merge-file` with the app's copy (a template rename is a delete plus an add) (conflicts left as <<<<<<< markers, listed at the end).
+// app changed it (a file now in a module's recipe is kept and the module recorded in .starter.json "modules"), changed -> `git merge-file` with the app's copy (a template rename is a delete plus an add) (conflicts left as <<<<<<< markers, listed at the end).
 // Generated parts never conflict: sw.js's SHELL list, worker/headers.js's import-map hash and package-lock.json are
 // kept from the app and regenerated afterwards.
 //
@@ -35,7 +35,8 @@ import { fileURLToPath } from 'node:url';
 import { swapsFor, fixup, isText } from './fill.mjs';
 
 // the app's own: its notes, settings and the lock (regenerated)
-export const DEFAULT_IGNORE = ['.starter.json', 'app/src/config.js', 'STATUS.md', 'NOTES.md', 'package-lock.json'];
+// (recipes/<module>/ are the modules' sources: an app reads them from the template when it adds one, tools/add.mjs)
+export const DEFAULT_IGNORE = ['.starter.json', 'app/src/config.js', 'STATUS.md', 'NOTES.md', 'package-lock.json', 'recipes/*/**'];
 const SHELL_RE = /const SHELL = \[[\s\S]*?\];/;
 const HASH_RE = /(export const IMPORT_MAP = )"'sha256-[A-Za-z0-9+/=]+'"/;
 const SYNC_URL = /(https:\/\/core\.anawj\.com\/sync\/)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\//g;
@@ -182,6 +183,17 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const remove = rel => { if (!dryRun) fs.rmSync(path.join(dir, rel), { force: true }); };
     const note = (action, p, extra) => { result.changes.push({ action, path: p, ...(extra ? { note: extra } : {}) }); log(`  ${action.padEnd(9)} ${p}${extra ? `  (${extra})` : ''}`); };
 
+    // files the template moved out of the base into a module's recipe: the app that has them keeps them (it already
+    // has the module) and the module is recorded, so a later update takes the recipe's changes
+    const owned = [];
+    const recipeFiles = git(repo.dir, ['ls-tree', '--name-only', newSha, 'recipes/']).trim().split('\n').filter(f => /^recipes\/[^/]+\.json$/.test(f));
+    for (const f of recipeFiles) {
+      let r;
+      try { r = JSON.parse(show(repo.dir, newSha, f).toString()); } catch { continue; }
+      for (const p of [...(r.vendor ?? []), ...(r.files ?? []).filter(x => x.from).map(x => x.to ?? x.from)]) owned.push({ module: r.module, path: p, recipe: f });
+    }
+    const moved = new Map();
+
     const diff = git(repo.dir, ['diff', '--name-status', '--no-renames', baseSha, newSha]).trim();
     for (const line of diff ? diff.split('\n') : []) {
       const [status, rel] = line.split('\t');
@@ -192,6 +204,8 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       const ours = read(target);
       if (status === 'D') {
         if (ours === null) continue;
+        const own = owned.find(o => rel === o.path || rel.startsWith(`${o.path}/`));
+        if (own) { moved.set(own.module, own.recipe); note('kept', target, `now the ${own.module} recipe's: ${own.recipe}`); continue; }
         if (oldT && ours.equals(oldT)) { remove(target); note('deleted', target); }
         else note('kept', target, 'the template deleted it; the app changed it');
         continue;
@@ -237,9 +251,12 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     if (!dryRun) {
       after(dir, { install, changedPkg: result.changes.some(c => c.path === 'package.json' && c.action !== 'ignored'), log });
       const tplMeta = JSON.parse(show(repo.dir, newSha, '.starter.json')?.toString() || '{}');
-      fs.writeFileSync(metaPath, JSON.stringify({ ...meta, version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
+      const modules = { ...meta.modules };
+      for (const [m, recipe] of moved) modules[m] ??= `${meta.template}@${short}:${recipe}`;
+      fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
+    for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in${m === 'files' ? ', then rebuild the rules (node .devkit/tools/build-rules.mjs app/firestore.app.rules)' : ''}`);
     if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
     return result;
   } finally { repo.done(); }

@@ -12,26 +12,24 @@
     "@core/auth": "https://core.anawj.com/sync/1.4.0/auth.js",
     "@core/sync": "https://core.anawj.com/sync/1.4.0/sync.js",
     "@core/update": "https://core.anawj.com/sync/1.4.0/update.js",
-    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.8/ui/index.js",
-    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.8/theme/index.js",
-    "@core/files": "./files/index.js",
-    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.8/settings/index.js",
+    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.9/ui/index.js",
+    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.9/theme/index.js",
+    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.9/settings/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
-    "firebase/firestore": "./vendor/firebase/12.19.0/firebase-firestore.js",
-    "@core/search": "./search/index.js"
+    "firebase/firestore": "./vendor/firebase/12.19.0/firebase-firestore.js"
   }
 }
   </script>
-  <script src="https://core.anawj.com/ui/1.0.0-rc.8/theme/early.js"></script>
+  <script src="https://core.anawj.com/ui/1.0.0-rc.9/theme/early.js"></script>
   <script type="module" src="src/boot.js"></script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.8/theme/theme.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.8/ui/ui.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.8/theme/glass.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.9/theme/theme.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.9/ui/ui.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.9/theme/glass.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="src/app.js"></script>
 </head>
@@ -65,6 +63,7 @@
         </div>
       </form>
       <p id="count" class="small" role="status" hidden></p>
+      <div id="items-state"></div>
       <ul id="items" aria-label="Items"></ul>
       <div id="empty"></div>
     </section>
@@ -90,7 +89,7 @@
       <label class="file">Import settings <input id="settings-import" type="file" accept="application/json,.json"></label>
     </div>
     <p id="settings-msg" class="small" role="status"></p>
-    <div class="row"><button id="settings-close" type="button">Close</button></div>
+    <div class="row"><button id="settings-about" type="button">About</button><button id="settings-close" type="button">Close</button></div>
   </dialog>
 
   <dialog id="edit" aria-labelledby="edit-title">
@@ -99,9 +98,7 @@
       <label for="edit-text">Text</label>
       <input id="edit-text" maxlength="500" required>
       <p id="edit-live" class="small" role="status"></p>
-      <ul id="edit-files" class="files" aria-label="Photos and files" hidden></ul>
-      <button id="edit-attach" type="button">Add photo or file</button>
-      <input id="edit-file" type="file" multiple hidden>
+      <div id="edit-extras"></div>
       <div class="row">
         <button id="edit-save" value="save">Save</button>
         <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>

@@ -8,8 +8,5 @@
     "kit": "homedesign",
     "project": "demo-starter-app",
     "title": "Starter app"
-  },
-  "modules": {
-    "search": "recipes/search.json"
   }
 }

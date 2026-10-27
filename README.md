@@ -26,12 +26,12 @@ are safe from day one. Replace this first paragraph with what the app is once it
   app's default colour is `APP.accent` in `src/config.js`, `fill.mjs --accent`), with `@core/settings` from
   [app-ui](https://github.com/flamingbeing/app-ui) at the version the import map pins (`core.anawj.com/ui/<version>/`),
   each its own import map entry; the gallery is app-ui's `/kit/`. The screens are one file each in `app/src/screens/`; a new app replaces only those.
-- **Files** ([decision 0009](docs/decisions/0009-files-through-the-worker.md)): `@core/files` v0 in `app/public/files/`
-  (own import map entry): `add` keeps a photo or file on the device at once (resized, with a thumbnail; date taken
-  read first when `exif` is on), saves its record through sync and uploads it through the Worker's `/api/files/`
-  (R2 bucket bound as `FILES`, the same ID token check as `/api/claims`, 100 MB cap) when online, with retries; `url`
-  shows it from the device or fetches it; `remove` deletes it. Uploads need the admin or member role (an account with
-  no role gets 403, even for its own files). The sample's item sheet attaches photos and files.
+- **Files** (a module, `node tools/add.mjs files`; [decision 0009](docs/decisions/0009-files-through-the-worker.md)):
+  `@core/files` v0 in `app/public/files/` (own import map entry): `add` keeps a photo or file on the device at once
+  (resized, with a thumbnail; date taken read first when `exif` is on), saves its record through sync and uploads it
+  through the Worker's `/api/files/` (R2 bucket bound as `FILES`, the same ID token check as `/api/claims`, 100 MB cap)
+  when online, with retries; `url` shows it from the device or fetches it; `remove` deletes it. Uploads need the admin
+  or member role. The recipe also adds the item sheet's attach buttons, the Worker route, the rules and the R2 binding.
 - **Roles**: one role doc per person (`members/{uid}` = `{ role, v }`, roles admin, member, viewer), cached as custom
   claims in the app-devkit rules kit shape, single group `_`. The page asks for new claims at sign-in and whenever
   the role doc's `v` is ahead of its token. Admins change and remove roles through the Worker's `/api/members/<uid>`
@@ -61,8 +61,8 @@ are safe from day one. Replace this first paragraph with what the app is once it
    "Tests"); all green before the first change.
 4. Replace the sample screen (`app/src/app.js`, `app/index.html`) with the app. Keep the wiring in `app/src/cloud.js`
    (one `createApp`, every save through the sync module) and the rules that bite in `AGENTS.md`.
-5. Before the first deploy, make the files bucket once: `npx wrangler r2 bucket create <name>-files` (the deploy fails
-   without it). An app with no files drops `@core/files` from `cloud.js` and the import map, and the `r2_buckets` line.
+5. An app with photos or files runs `node tools/add.mjs files`, then makes the bucket once before the first deploy:
+   `npx wrangler r2 bucket create <name>-files` (the recipe prints this as a NEEDS-YOU line; the deploy fails without it).
 6. After adding or removing a file the page loads: `node tools/sw-files.mjs app` (CI fails until the list is current).
 
 ## Fill (make it a new app)
@@ -115,7 +115,7 @@ app-sync's CI runs these tests that way against each candidate (its consumer tes
 app/        the app (served at the root of its address): index.html (import map) and
   src/      config.js, cloud.js (wiring), app.js (shell), screen-switch.js, screens/ (one file per screen), dom.js,
             roles.js, boot.js, modules.js (the optional modules' slots), globals.d.ts (types for the check)
-  public/   sw.js, app.css, manifest, icons, files/ (@core/files), search/ (@core/search), vendor/firebase/<version>/: served
+  public/   sw.js, app.css, manifest, icons, vendor/firebase/<version>/: served
             as if beside index.html (the Worker looks here on a miss), as Vite's public/ is
 worker/     the Worker: sites.js, routes.js, headers.js, members.js, claims.js + custom-token.js (app-devkit copies)
 e2e/        browser tests and their server; fixtures/outside-package/ (a page that imports a vendored zod)
@@ -123,7 +123,7 @@ tools/      fill.mjs, sw-files.mjs (sw.js's file list), vendor-firebase.mjs (+ f
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
             vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
             to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps), add.mjs (modules)
-recipes/    one JSON file per optional module (README, "Modules")
+recipes/    one JSON file per optional module (files, search) and the files each brings (README, "Modules")
 docs/       decisions
 ```
 
@@ -153,13 +153,15 @@ node tools/add.mjs <owner/repo>@<tag|sha>:recipes/<module>.json   # a recipe fro
 node tools/add.mjs --remove search                 # takes it out again; a file the app changed is kept and listed
 ```
 
-A recipe (`recipes/search.json` is the first; its fields are listed at the top of `tools/add.mjs`) names the module's
+The template ships two recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
+once) and `search` (`@core/search`, operators `field:`, `"phrase"`, `-leave-out`, `OR`, with `insertOperator` and
+`usesOperators` for a "?" list). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`) names the module's
 import map entries, vendored folders, files, tsconfig `paths` and `include`, Vite source alias, CSS custom
 properties, owner steps (printed as NEEDS-YOU lines) and notes. The glue goes into `app/src/modules.js`: one import and
 one slot per module (search fills the list's `listFilter` slot; `#list-tools` holds its box). Every edit is idempotent;
 re-adding from a newer source merges three-way into files the app changed. Afterwards `sw.js`'s list and the import
-map's CSP hash are regenerated, and `.starter.json` `"modules"` records where each module came from. CI's `add` job
-takes search out of a scratch copy, checks the lean app, puts search back and expects this repo's files exactly.
+map's CSP hash are regenerated, and `.starter.json` `"modules"` records where each module came from. CI's `full` and
+`full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
 
 ## Update from the template
 

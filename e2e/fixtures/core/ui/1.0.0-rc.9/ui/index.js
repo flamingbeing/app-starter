@@ -11,6 +11,10 @@ export { refusedList } from './refused-list.js';
 export { toaster } from './toast.js';
 export { alertModal, confirmModal } from './modal.js';
 export { emptyState } from './empty-state.js';
+// reference parts any app can import (a named export you don't import isn't bundled)
+export { undoToast } from './undo-toast.js';
+export { loadState } from './load-state.js';
+export { aboutSheet, packagesFromImportMap } from './about-sheet.js';
 export { settingsScreen, SETTINGS_WORDS } from './settings-screen.js';
 // gestures (ui/gestures.css): each part starts only where its markup is; startGestures() starts them all
 export { startGestures } from './gestures.js';

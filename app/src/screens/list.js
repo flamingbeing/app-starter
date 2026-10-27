@@ -1,17 +1,24 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
-// list of saves the server refused. Each item shows its photos' thumbnails (and a clip for other files).
-import { conflictSheet, refusedList, toaster, emptyState } from '@core/ui';
+// list of saves the server refused. With the files recipe each item shows its photos' thumbnails (and a clip for other files).
+import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState } from '@core/ui';
 import { COLL, REFUSED, itemText } from '../cloud.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
-import { thumbOf } from './attachments.js';
 import { modules } from '../modules.js';
 
 /** @typedef {import('../cloud.js').Item} Item */
-/** @typedef {import('../cloud.js').Attachment} Attachment */
 /**
  * The list's tools slot (modules.js "listFilter"; the search recipe fills it): draws into the slot and narrows the list.
  * @typedef {(o: { slot: HTMLElement, redraw: () => void }) => { feed: (items: Item[]) => void, pick: (items: Item[]) => Item[] | null }} ListFilter
+ */
+/**
+ * The items' files slot (modules.js "itemFiles"; the files recipe fills it): thumbnails on the list, a part of the edit sheet.
+ * @typedef {object} ItemFiles
+ * @property {(byItem: Map<string, unknown[]>) => void} feed  every item's files, whenever one changes
+ * @property {(itemId: string) => unknown[]} of  an item's files as this device has them
+ * @property {(item: Item) => HTMLElement | null} thumbs  the list row's thumbnails
+ * @property {(slot: HTMLElement, editing: () => Item | null) => () => void} mount  fills the edit sheet's slot -> redraw it
+ * @typedef {(o: { app: import('../cloud.js').Started, toast: (message: string) => unknown }) => ItemFiles} ItemFilesSlot
  */
 
 /** @param {import('../cloud.js').Started} app */
@@ -22,10 +29,12 @@ export function listScreen(app) {
   const filter = modules.listFilter?.({ slot: $('list-tools'), redraw: () => api.draw(all, new Set()) });
   /** the items to show, in order: the filter's pick, else all of them by text */
   const visible = () => filter?.pick(all) ?? [...all].sort((a, b) => String(a.text).localeCompare(String(b.text)));
-  /** @type {Map<string, Attachment[]>} */
-  let byItem = new Map();
-  const toast = toaster($('toasts')).show;
-  const sheet = itemSheet(app, toast, id => byItem.get(id) || []);
+  const toasts = toaster($('toasts'));
+  const toast = toasts.show;
+  const loading = loadState($('items-state'));   // skeleton rows until the list first arrives
+  loading.loading();
+  const files = modules.itemFiles?.({ app, toast });
+  const sheet = itemSheet(app, toast, undoToast(toasts), files);
   const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
   conflictSheet($('conflict-sheet'), { sync: app.sync, text: itemText });
   refusedList($('refused-list'), { sync: app.sync, kind: COLL, text: itemText });
@@ -52,20 +61,14 @@ export function listScreen(app) {
   /** @param {Item[]} items @param {Set<string>} changed */
   const draw = (items, changed) => {
     all = items; filter?.feed(items);
+    loading.done();
     const list = visible();
     $('items').replaceChildren(...list.map(item => {
       const li = document.createElement('li'), b = document.createElement('button');
       b.type = 'button'; b.textContent = item.text; b.disabled = !canWrite;
       b.addEventListener('click', () => sheet.open(item));
-      const attached = byItem.get(item.id) || [];
-      if (attached.length) {
-        // decorative here (the sheet names them), so the button's name stays the item's text
-        const thumbs = document.createElement('span');
-        thumbs.className = 'thumbs'; thumbs.setAttribute('aria-hidden', 'true');
-        const others = attached.filter(f => !f.thumb).length;
-        thumbs.append(...attached.flatMap(f => thumbOf(app, f, '') || []), ...(others ? [`📎${others > 1 ? others : ''}`] : []));
-        b.append(thumbs);
-      }
+      const thumbs = files?.thumbs(item);
+      if (thumbs) b.append(thumbs);
       li.classList.toggle('changed', changed.has(item.id));
       li.append(b);
       return li;
@@ -77,8 +80,10 @@ export function listScreen(app) {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
     draw,
-    /** @param {Map<string, Attachment[]>} by  every item's photos and files */
-    drawFiles(by) { byItem = by; draw(all, new Set()); sheet.redraw(); },
+    /** the list could not load: the message and a Retry @param {string} message @param {() => unknown} retry */
+    failed: (message, retry) => loading.failed(message, retry),
+    /** @param {Map<string, unknown[]>} by  every item's files */
+    drawFiles(by) { files?.feed(by); draw(all, new Set()); sheet.redraw(); },
   };
   return api;
 }

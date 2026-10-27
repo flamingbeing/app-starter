@@ -1,10 +1,11 @@
 // The Settings sheet (#settings) and what the options do to the page: a switch per option (@core/settings), and the
 // settings file (export, import). A switch for an account option waits for sign-in.
-import { toaster } from '@core/ui';
+import { toaster, aboutSheet } from '@core/ui';
+import { APP } from './config.js';
 import { $, input, dialog } from './dom.js';
 import { SWITCHES } from './options.js';
 
-/** @param {{ settings: import('app-ui/settings/types').SettingsApi }} app  @param {() => boolean} signedIn */
+/** @param {{ settings: import('app-ui/settings/types').SettingsApi, update: import('app-ui/ui/types').UpdateApi | null }} app  @param {() => boolean} signedIn */
 export function settingsSheet(app, signedIn) {
   const { settings } = app;
   const sheet = dialog('settings');
@@ -36,6 +37,7 @@ export function settingsSheet(app, signedIn) {
   settings.watch(null, () => { if (sheet.open) draw(); });
 
   $('open-settings').addEventListener('click', () => { msg.textContent = ''; draw(); sheet.showModal(); });
+  $('settings-about').addEventListener('click', () => { void aboutSheet({ name: APP.title || APP.name, update: app.update }); });
   $('settings-close').addEventListener('click', () => sheet.close());
 
   $('settings-export').addEventListener('click', () => {
