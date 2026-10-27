@@ -23,7 +23,8 @@ const SEED = +opt('seed', 1);
 const BROWSERS = opt('browsers', 'chromium').split(',');
 const WORKERS = opt('workers', String(Math.max(1, Math.min(4, os.cpus().length))));
 const REPEAT = +opt('repeat', 3);
-const THROTTLE = +opt('throttle', 1);   // Chromium CPU slowdown factor (CDP Emulation.setCPUThrottlingRate); 1 = off
+const THROTTLE = +opt('throttle', 1);
+if (!(THROTTLE >= 1)) { console.log('FAIL --throttle wants a number >= 1'); process.exit(2); }   // Chromium CPU slowdown factor (CDP Emulation.setCPUThrottlingRate); 1 = off
 const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'static-soak')));
 const SKIP = new Set(opt('skip', '').split(',').filter(Boolean));
 const KEEP = argv.includes('--keep');
@@ -41,7 +42,7 @@ const tail = (r, re) => ((r.stdout || '') + (r.stderr || '')).split('\n').filter
 // the pieces every seed shares: .devkit/ and node_modules/ (same lock, same pins), made once
 function prepare() {
   const base = path.join(WORK, '_base');
-  const stamp = '.ready-' + crypto.createHash('sha1').update(BROWSERS.join()).update(fs.readFileSync(path.join(STARTER, 'package-lock.json'))).update(fs.readFileSync(path.join(STARTER, '.github/workflows/checks.yml'))).digest('hex').slice(0, 10);   // a new lock or devkit pin remakes it
+  const stamp = '.ready-' + crypto.createHash('sha1').update(BROWSERS.join() + (env.PW_CHROMIUM || '')).update(fs.readFileSync(path.join(STARTER, 'package-lock.json'))).update(fs.readFileSync(path.join(STARTER, '.github/workflows/checks.yml'))).digest('hex').slice(0, 10);   // a new lock or devkit pin remakes it
   if (fs.existsSync(path.join(base, stamp))) return base;
   fs.rmSync(base, { recursive: true, force: true });
   copyTree(STARTER, base);
