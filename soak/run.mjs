@@ -39,6 +39,8 @@ let COMBOS = subsets(have).flatMap(perms).filter((c, i, all) => all.findIndex(d 
 if (args.static) COMBOS = [[], ...COMBOS.map(c => ['cloud', ...c])];   // a static base: alone, or made the cloud app first
 if (args.combo) COMBOS = [String(args.combo) === 'none' ? [] : String(args.combo).split('>')];
 const HAS_JAVA = spawnSync('java', ['-version']).status === 0;
+// the template commit a static app records (add cloud reads the template at it): main's, which a clone has
+const COMMIT = String(args.commit ?? (spawnSync('git', ['rev-parse', 'origin/main'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim() || spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim()));
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
 
 const run = (cmd, cwd, log, env = {}) => {
@@ -61,7 +63,7 @@ for (let n = START; n < START + LOOPS; n++) {
   const step = (label, cmd, cwd = dir, env = {}) => { if (!failed && !run(cmd, cwd, log, env)) failed = label; };
 
   step('copy', `mkdir -p "${dir}" && tar --exclude=.git --exclude=node_modules --exclude=.devkit --exclude=test-results --exclude=soak -cf - . | tar -xf - -C "${dir}" && ${args.box ? 'cp -a' : 'ln -s'} "${ROOT}/node_modules" "${dir}/node_modules" && cp -a "${ROOT}/.devkit" "${dir}/.devkit"`, ROOT);
-  step('fill', `node tools/fill.mjs --name ${name} --host ${name}.example.org --kit homedesign ${args.static ? '--static' : `--project ${name}-demo`}`);
+  step('fill', `node tools/fill.mjs --name ${name} --host ${name}.example.org --kit homedesign --commit ${COMMIT} ${args.static ? '--static' : `--project ${name}-demo`}`);
   for (const m of combo) step(`add ${m}`, m === 'cloud' ? `node tools/add.mjs cloud --project ${name}-demo` : `node tools/add.mjs recipes/${m}.json`);
   const cloud = !args.static || combo.includes('cloud');
   if (cloud) step('rules-build', `node .devkit/tools/build-rules.mjs app/firestore.app.rules`);
