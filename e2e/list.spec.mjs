@@ -60,23 +60,16 @@ test('a role change reaches the page by itself (role doc v ahead of the token)',
 });
 
 // S1: removing someone ends their access, not only their role doc: the Worker deletes the doc and revokes the account
-// (revoked/{uid}: the rules and the files route refuse at once; claims cleared; refresh tokens ended)
-test('an admin removes a member: the page loses the list, writes and uploads are refused, the session ends', async ({ phone }) => {
+// (revoked/{uid}: the rules refuse at once; claims cleared; refresh tokens ended)
+test('an admin removes a member: the page loses the list, writes are refused, the session ends', async ({ phone }) => {
   const admin = await phone(), gone = await phone();
   const { uid: adminUid } = await signIn(admin, 'admin');
   const { uid } = await signIn(gone, 'member');
-  const upload = () => gone.evaluate(async uid => {
-    const { getAuth } = await import('firebase/auth');
-    const t = await getAuth().currentUser?.getIdToken().catch(() => '');
-    return (await fetch(`/api/files/${uid}/f1`, { method: 'PUT', body: 'x', headers: { Authorization: `Bearer ${t}` } })).status;
-  }, uid);
-  expect(await upload()).toBe(201);
   // a page can't delete a role doc any more (the rules), and only admins may ask the Worker
   expect(await gone.evaluate(u => window.starter.members().remove(u), adminUid)).toBe('Admins only.');
   expect(await admin.evaluate(u => window.starter.members().remove(u), uid)).toBe('');
   expect(await db.get(`members/${uid}`)).toBeFalsy();
   expect(await db.get(`revoked/${uid}`)).toBeTruthy();
-  expect(await upload()).toBe(403);
   await expect(gone.locator('#list-view')).toBeHidden({ timeout: 15_000 });
   // after a token refresh the token carries no role; the sessions were ended (validSince: real Firebase then refuses the
   // refresh token and the page signs out; the Auth emulator doesn't check it on refresh, so the test reads the account)
