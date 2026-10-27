@@ -65,7 +65,8 @@ const MODES = [
   ['solid', { theme: 'light', dark: 'dark', material: 'solid' }],
 ];
 
-test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a sheet; screenshots kept', async ({ phone }, info) => {
+// (one test per look: four looks in one test ran past the 60 s limit on a loaded host, WebKit on a busy laptop)
+for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a toast and a sheet; screenshot kept`, async ({ phone }, info) => {
   const page = await phone();
   await signIn(page, 'member');
   // (the list is shared and kept between runs: a run tag keeps this run's names unique under --repeat-each)
@@ -73,27 +74,22 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
   for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i} ${run}`);
   // (other tests add to the same list in parallel: wait for this test's last item, not a total)
   await expect(page.getByRole('button', { name: `Sample item 14 ${run}`, exact: true })).toBeVisible();
-  for (const [name, pick] of MODES) {
-    await page.getByLabel('Theme').selectOption(pick.theme);
-    await page.getByLabel('Dark style').selectOption(pick.dark);
-    await page.getByLabel('Bars and sheets').selectOption(pick.material);
-    // (dismiss the last mode's toast first: its 4 s timer would otherwise end mid-check and move this one under axe)
-    await page.evaluate(() => document.querySelectorAll('.toast button').forEach(b => /** @type {HTMLElement} */ (b).click()));
-    await expect(page.locator('.toast')).toHaveCount(0);
-    await add(page, `Toast for ${name} ${run}`);
-    await expect(page.locator('.toast').last()).toBeVisible();
-    await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
-    await settled(page);
-    expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
-    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
+  await page.getByLabel('Theme').selectOption(pick.theme);
+  await page.getByLabel('Dark style').selectOption(pick.dark);
+  await page.getByLabel('Bars and sheets').selectOption(pick.material);
+  await add(page, `Toast for ${name} ${run}`);
+  await expect(page.locator('.toast').last()).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
+  await settled(page);
+  expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
+  await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
 
-    await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#edit'));
-    await settled(page);
-    expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
-    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
-    await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.locator('#edit')).toBeHidden();
-  }
+  await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#edit'));
+  await settled(page);
+  expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
+  await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
+  await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('#edit')).toBeHidden();
 });
 
 // cloud{ (a static app has one screen)
