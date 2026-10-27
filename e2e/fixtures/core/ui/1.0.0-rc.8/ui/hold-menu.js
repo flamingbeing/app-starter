@@ -1,5 +1,6 @@
 // Touch and hold: [data-hold-menu="#template-id"] gets a menu from that <template> (its .ui-menu-item buttons, each
-// with data-action), with a lifted copy of the element as a preview. Also right-click, Android's own long press, the
+// with data-action), with a lifted copy of the element as a preview (a sheet menu names the element in its head
+// instead: a copy over the list beside the sheet read as part of it). Also right-click, Android's own long press, the
 // context-menu key and Shift+F10. A pick sends a "ui-menu" event (detail.action) from the element.
 // A hold is HOLD_MS without moving more than SLOP; the click that comes with lifting the finger is swallowed (it
 // neither opens the row nor presses a menu item); no hold from fields, dialogs, sideways scrollers or select mode.
@@ -23,20 +24,37 @@ export function placeMenu(r, menu, view, at) {
   return { left, top, previewTop, below: top > previewTop };
 }
 
+/**
+ * Where a mouse's right-click menu goes (pure): its corner at the pointer, as on a desktop; flipped left or up when it
+ * would run off the screen, and kept 8 px inside it.
+ * @param {{ w: number, h: number }} menu @param {{ w: number, h: number }} view @param {{ x: number, y: number }} at
+ * @returns {{ left: number, top: number, below: boolean }}
+ */
+export function placeAtPointer(menu, view, at) {
+  const edge = 8;
+  const left = at.x + menu.w <= view.w - edge ? at.x : at.x - menu.w;
+  const below = at.y + menu.h <= view.h - edge;
+  const top = below ? at.y : at.y - menu.h;
+  return { left: Math.max(edge, Math.min(left, view.w - edge - menu.w)), top: Math.max(edge, Math.min(top, view.h - edge - menu.h)), below };
+}
+
 // a look whose menus come up as a sheet (data-menu="sheet" on <html>, looks.js) shows them so on phones
 export const SHEET_BELOW = 840;
 
 /**
- * The sheet menu's place (pure): along the bottom edge; the preview stays put unless the sheet would cover it, then
- * it moves up to sit just above.
- * @param {{ top: number, height: number }} r  the element's rect @param {{ h: number }} menu @param {{ h: number }} view
- * @returns {{ top: number, previewTop: number }}
+ * The sheet menu's place (pure): along the bottom edge, never above the top one.
+ * @param {{ h: number }} menu @param {{ h: number }} view @returns {{ top: number }}
  */
-export function placeSheetMenu(r, menu, view) {
-  const gap = 10, edge = 8;
-  const top = view.h - edge - menu.h;
-  return { top, previewTop: Math.max(edge, Math.min(r.top, top - gap - r.height)) };
+export function placeSheetMenu(menu, view) {
+  const edge = 8;
+  return { top: Math.max(edge, view.h - edge - menu.h) };
 }
+
+/** @param {Element} el @returns {string}  the element's first words (a row's title), for a sheet menu's head */
+const firstText = el => {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.textContent || '').trim() ? 1 : 3 });
+  return (w.nextNode()?.textContent || '').trim();
+};
 
 /**
  * Starts hold menus for every [data-hold-menu] inside root (now or added later).
@@ -86,8 +104,8 @@ export function holdMenus(root = document) {
     return box;
   }
 
-  /** @param {HTMLElement} el @param {{ x: number, y: number } | null} [at] @param {boolean} [byKey] */
-  function open(el, at = null, byKey = false) {
+  /** @param {HTMLElement} el @param {{ x: number, y: number } | null} [at] @param {boolean} [byKey] @param {boolean} [mouse]  a mouse's right-click: the menu at the pointer, the row not lifted */
+  function open(el, at = null, byKey = false, mouse = false) {
     const sel = el.getAttribute('data-hold-menu');
     const tpl = sel ? document.querySelector(sel) : null;
     if (!(tpl instanceof HTMLTemplateElement)) return;
@@ -95,6 +113,7 @@ export function holdMenus(root = document) {
     close(true);
     menuFor = el;
     const r = el.getBoundingClientRect();
+    const sheet = html.dataset.menu === 'sheet' && innerWidth < SHEET_BELOW && !mouse;
     const copy = /** @type {HTMLElement} */ (el.cloneNode(true));
     copy.removeAttribute('id');
     copy.classList.remove('is-holding');
@@ -113,20 +132,28 @@ export function holdMenus(root = document) {
     menu.setAttribute('aria-label', el.getAttribute('aria-label') || (el.textContent || '').trim().slice(0, 60) || 'Actions');
     menu.append(tpl.content.cloneNode(true));
     menu.querySelectorAll('.ui-menu-item').forEach(b => { b.setAttribute('role', 'menuitem'); if (b instanceof HTMLButtonElement) b.type = 'button'; });
-    layer.append(preview, menu);
+    if (sheet) {
+      const head = document.createElement('p');
+      head.className = 'ui-menu-head';
+      head.setAttribute('aria-hidden', 'true');   // (the menu's label says it)
+      head.textContent = firstText(el);
+      if (head.textContent) menu.prepend(head);
+      layer.append(menu);
+    } else layer.append(preview, menu);
     layer.classList.add('is-open');   // before measuring: a closed layer is display:none, so the menu would measure 0
-    const sheet = html.dataset.menu === 'sheet' && innerWidth < SHEET_BELOW;
     menu.classList.toggle('is-sheet', sheet);   // (before measuring: the sheet is wider)
     const view = { w: innerWidth, h: innerHeight };
-    const p = sheet ? placeSheetMenu(r, { h: menu.offsetHeight }, { h: view.h - (layer.querySelector('.ui-menu-safe')?.clientHeight || 0) })
-      : placeMenu(r, { w: menu.offsetWidth, h: menu.offsetHeight }, view, at);
+    const size = { w: menu.offsetWidth, h: menu.offsetHeight };
+    const p = sheet ? placeSheetMenu({ h: menu.offsetHeight }, { h: view.h - (layer.querySelector('.ui-menu-safe')?.clientHeight || 0) })
+      : mouse && at ? { ...placeAtPointer(size, view, at), previewTop: r.top }
+      : placeMenu(r, size, view, at);
     if ('left' in p) menu.style.left = `${p.left}px`; else menu.style.removeProperty('left');
     menu.style.top = `${p.top}px`;
     menu.style.setProperty('--ui-menu-origin', 'below' in p && !p.below ? '50% 100%' : '50% 0');
     html.classList.add('ui-menu-open');
-    requestAnimationFrame(() => {
+    if ('previewTop' in p) requestAnimationFrame(() => {
       preview.style.top = `${p.previewTop}px`;
-      if (!still()) preview.classList.add('is-lifted');
+      if (!still() && !mouse) preview.classList.add('is-lifted');
     });
     menu.addEventListener('click', e => {
       const b = /** @type {Element} */ (e.target).closest('.ui-menu-item');
@@ -200,7 +227,9 @@ export function holdMenus(root = document) {
     const el = holdable(e.target);
     if (!el) return;
     e.preventDefault();
-    if (menuFor !== el) { cancel(); open(el, e.clientX ? { x: e.clientX, y: e.clientY } : null, !e.clientX); }
+    // a mouse (not Android's long press, which also sends this): the menu at the pointer
+    const mouse = 'pointerType' in e ? /** @type {PointerEvent} */ (e).pointerType === 'mouse' : matchMedia('(pointer: fine)').matches;
+    if (menuFor !== el) { cancel(); open(el, e.clientX ? { x: e.clientX, y: e.clientY } : null, !e.clientX, mouse && !!e.clientX); }
   });
   l.on(document, 'keydown', (/** @type {KeyboardEvent} */ e) => {
     if (!(e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) return;

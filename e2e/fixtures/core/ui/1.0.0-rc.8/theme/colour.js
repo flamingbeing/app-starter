@@ -61,7 +61,7 @@ export function lightPalette(accent) {
   const a = nudge(accent, ['#ffffff'], 4.5);
   return {
     bg: mix('#f5f5f7', a, 0.03), surface: '#ffffff', text: '#1d1d1f', muted: '#5f6368', line: '#8a8a91',
-    accent: a, 'on-accent': '#ffffff', ...STATUS.light, selection: mix(a, '#ffffff', 0.8),
+    accent: a, 'on-accent': '#ffffff', ...STATUS.light, selection: mix(a, '#ffffff', 0.8), band: a, 'on-band': '#ffffff',
   };
 }
 
@@ -72,12 +72,15 @@ export function darkPalette(accent, oled = false) {
   return {
     bg: oled ? '#000000' : '#1c1c1e', surface, text: '#f2f2f7', muted: '#b8bcc4', line: oled ? '#7c7c84' : '#8e8e93',
     accent: a, 'on-accent': oled ? '#000000' : '#111113', ...STATUS.dark, selection: mix(surface, a, 0.35),
+    // (a band of colour behind a title: the accent deepened under white text, not the pale accent with dark text)
+    band: nudge(a, ['#ffffff'], 4.5), 'on-band': '#ffffff',
   };
 }
 
 // The pairs every palette must pass: [token, on these, ratio]. Text 4.5:1 (7:1 when strong), lines and the focus ring
-// 3:1 (4.5:1 when strong) as WCAG asks of controls; on-accent / on-fill against their own fill; selected text's
-// highlight against the text.
+// 3:1 (4.5:1 when strong) as WCAG asks of controls; on-accent / on-fill against their own fill; the selection colour
+// (selected text's highlight, and the ground of a current tab, sidebar item or key) against the text, muted, link and
+// danger colours drawn on it.
 /** @param {boolean} strong @returns {[string, string[], number][]} */
 export const pairs = strong => {
   const t = strong ? 7 : 4.5, l = strong ? 4.5 : 3;
@@ -85,18 +88,18 @@ export const pairs = strong => {
     ['text', ['bg', 'surface'], t], ['muted', ['bg', 'surface'], t], ['link', ['bg', 'surface'], 4.5],
     ['danger', ['bg', 'surface'], 4.5], ['ok', ['bg', 'surface'], 4.5], ['warn', ['bg', 'surface'], 4.5],
     ['line', ['bg', 'surface'], l], ['focus', ['bg', 'surface'], l],
-    ['on-accent', ['accent'], 4.5], ['on-fill', ['fill'], 4.5], ['selection', ['text'], 4.5],
+    ['on-accent', ['accent'], 4.5], ['on-fill', ['fill'], 4.5], ['on-band', ['band'], 4.5], ['selection', ['text', 'muted', 'link', 'danger'], 4.5],
   ];
 };
 
 /**
- * The palette with its role tokens filled in (fill, on-fill, link, focus follow the accent unless set) and every pair
- * brought up to its floor: the token on the left is nudged (never the ground it sits on).
+ * The palette with its role tokens filled in (fill, on-fill, link, focus, band, on-band follow the accent unless set)
+ * and every pair brought up to its floor: the token on the left is nudged (never the ground it sits on).
  * @param {Palette} p @param {{ strong?: boolean }} [opts] @returns {Palette}
  */
 export function floor(p, { strong = false } = {}) {
   /** @type {Palette} */
-  const out = { fill: p.accent, 'on-fill': p['on-accent'], link: p.accent, focus: p.accent, ...p };
+  const out = { fill: p.accent, 'on-fill': p['on-accent'], link: p.accent, focus: p.accent, band: p.accent, 'on-band': p['on-accent'], ...p };
   for (const [fg, on, ratio] of pairs(strong)) {
     const grounds = on.map(k => out[k]);
     if (Math.min(...grounds.map(b => contrast(out[fg], b))) < ratio) out[fg] = nudge(out[fg], grounds, ratio);
@@ -156,7 +159,7 @@ export function frostAlpha(samples, p, { strong = false, least = 0, linesOnly = 
  */
 export function glassStrengths(p, { strong = false } = {}) {
   return {
-    glass: frostAlpha(glassSamples(p), p, { strong, least: 0.72 }),
+    glass: frostAlpha(glassSamples(p), p, { strong, least: 0.86 }),
     thick: frostAlpha(glassSamples(p, true), p, { strong, least: 0.88 }),
     clear: frostAlpha(glassSamples(p), p, { strong, least: 0.5, linesOnly: true }),
   };

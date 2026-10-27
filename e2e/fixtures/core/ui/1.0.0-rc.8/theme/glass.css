@@ -1,5 +1,6 @@
-/* @core/theme glass: the things that float over the content (the top bar, toasts, sheets and dialogs) are see-through
-   card colour over a blur, with a light rim and a soft shadow; the content itself (lists, forms, text) stays solid.
+/* @core/theme glass: the bars that float over the content (the top bar, the tab bar, toasts) are see-through card
+   colour over a blur, with a light rim and a soft shadow; menus, sheets, dialogs and the action bar keep the rim and
+   shadow on solid card colour (text under them ghosted through), and the content (lists, forms, text) stays solid.
    On while <html> has the glass class (the default; Solid in the theme switch removes it, choice.js). How see-through
    comes from the palette (palette-css.js): the strength at which every text, status and line colour keeps its
    contrast floor over anything scrolling under it. Reduce transparency, more contrast or no backdrop-filter: solid
@@ -8,7 +9,7 @@
 html.glass {
   /* what the parts draw with: the palette's glass, or the solid card colour where glass is turned down below */
   --glass-bg: color-mix(in srgb, var(--glass), var(--accent) var(--glass-tint));
-  --glass-bg-thick: color-mix(in srgb, var(--glass-thick), var(--accent) var(--glass-tint));
+  --glass-bg-thick: var(--surface); --glass-blur-thick: none;   /* menus, sheets, dialogs, the action bar: solid */
   --glass-bg-clear: var(--glass-clear);
   --glass-r: var(--sheet-r);
 }
@@ -59,15 +60,15 @@ html.glass {
 
 /* ---------- toasts: capsules that spring up ---------- */
 .glass .toast { border-radius: var(--glass-r); padding-inline: calc(var(--pad) * 1.25) var(--gap);
-  animation: glass-in var(--d-spring) var(--spring-bouncy); }
+  animation: glass-in var(--d-quick) var(--spring-bouncy); }
 
-/* ---------- controls: a small spring when pressed ---------- */
-.glass button { transition: transform var(--d-spring) var(--spring-snappy); }
-.glass button:active { transform: scale(.96); }
+/* ---------- controls: in at once when pressed, a small spring back out ---------- */
+.glass button { transition: transform var(--d-quick) var(--spring-snappy); }
+.glass button:active { transform: scale(.96); transition-duration: min(60ms, var(--d-quick)); }
 
 /* ---------- a look with glass on its floating pills only (data-glass="pill", looks.js) ---------- */
-/* the bar, menus, sheets and dialogs are solid card colour; the toasts, the action bar and a floating tab bar keep the
-   glass. (Glass stays within the two blur tiers and three layers: the scroll edge, a bar or pill, a menu or sheet.) */
+/* the bar is solid card colour too (menus, sheets, dialogs and the action bar always are); the toasts and a floating
+   tab bar keep the glass. (Glass stays within one blur tier and two layers: the scroll edge, a bar or pill.) */
 html.glass[data-glass="pill"] :is(.bar, dialog, .sheet, .glass-panel, .ui-bar, .ui-menu),
 html.glass[data-glass="pill"][data-tabbar="edge"] .ui-tabbar {
   --glass-bg: var(--surface); --glass-bg-thick: var(--surface); --glass-blur: none; --glass-blur-thick: none;

@@ -11,6 +11,7 @@ export { refusedList } from './refused-list.js';
 export { toaster } from './toast.js';
 export { alertModal, confirmModal } from './modal.js';
 export { emptyState } from './empty-state.js';
+export { settingsScreen, SETTINGS_WORDS } from './settings-screen.js';
 // gestures (ui/gestures.css): each part starts only where its markup is; startGestures() starts them all
 export { startGestures } from './gestures.js';
 export { largeTitle } from './large-title.js';

@@ -7,6 +7,8 @@
 // data-size="phone|tablet|laptop" and the root sends "ui-size" (detail.size) when it changes.
 //   open a row   click, Enter, or the hold menu's "open" (a "ui-menu" event with detail.action "open"); wide: the detail
 //                pane shows it and the row gets aria-current; phone: the detail screen is pushed
+//   no row open  the detail pane carries data-empty (its .ui-detail-actions hide) and shows its first words; a deleted
+//                open row empties it again
 //   many ticked  "ui-select" with 2+ rows swaps .ui-detail-one for .ui-detail-multi ([data-multi-count], [data-multi-names])
 //   search       [data-shell-search] fields (the side bar's and the phone's) filter the rows and mirror each other;
 //                Ctrl/Cmd+K focuses the visible one; Esc clears it, then leaves it
@@ -64,14 +66,25 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
 
   /** @type {HTMLElement | null} */
   let current = null;
+  // the detail's words before any row opens ("Pick a plant"), put back when it empties
+  const blank = [...detail.querySelectorAll('[data-detail-title], [data-detail-sub]')].map(el => /** @type {[Element, string]} */ ([el, el.textContent ?? '']));
+  detail.toggleAttribute('data-empty', true);
   /** @param {HTMLElement} row */
   function open(row) {
     for (const r of rows()) r.removeAttribute('aria-current');
     row.setAttribute('aria-current', 'true');
     current = row;
+    detail.toggleAttribute('data-empty', false);
     render(row, detail);
     if (size === 'phone') screens?.push(detail, row);
   }
+  const gone = new MutationObserver(() => {
+    if (!current || list.contains(current)) return;
+    current = null;
+    for (const [el, text] of blank) el.textContent = text;
+    detail.toggleAttribute('data-empty', true);
+  });
+  gone.observe(list, { childList: true });
 
   l.on(list, 'click', (/** @type {MouseEvent} */ e) => {
     if (e.defaultPrevented || editing()) return;
@@ -128,5 +141,5 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
     }
   });
 
-  return { open, current: () => current, size: () => size, stop: l.stop };
+  return { open, current: () => current, size: () => size, stop() { gone.disconnect(); l.stop(); } };
 }

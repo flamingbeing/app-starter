@@ -2,12 +2,17 @@
 // head between heights, or down to close; tap the grabber (or Enter / Space on it) to expand or collapse. Below full
 // height a finger on the body drags the sheet too (sideways scrollers and fields keep theirs); at full height the body
 // scrolls, and pulled down from its top it drags the sheet down. Let go, it settles on the nearest height, judged by
-// where it is and how fast it moved. From 840 px wide it is a centred dialog: a drag changes its height.
+// where it is and how fast it moved. On a phone the drag and the settle move it by transform only (no layout per
+// frame): the sheet is made as tall as it can get for the move, slid down so the right part shows, and given its
+// detent's height again once still. From 840 px wide it is a centred dialog: a drag changes its height.
 // Each open sheet is a history entry, so Back (Android's, the browser's, the edge swipe) closes it. Done and any
 // [data-close] close it; [data-open-sheet="#id"] buttons open it and get focus back.
-import { SLOP, listeners, velocity } from './gesture.js';
+import { SLOP, listeners, velocity, still } from './gesture.js';
 
 const WIDE = '(min-width: 840px)';
+// how much taller than the screen the sheet is made for a move on a phone, hidden below the bottom edge: room for
+// the pull past full height and the spring's overshoot
+const SPARE = 48;
 
 /**
  * Where a drag lands (pure): -> the detent to settle on, or 'close'.
@@ -69,14 +74,52 @@ export function detentSheet(sheet) {
     try { history.pushState({ ...(history.state || {}), uiSheet: key }, ''); pushed = true; } catch { /* no history here */ }
   }
   const close = () => { if (sheet.open) sheet.close(); };
-  function cycle() { setDetent(ds[(ds.indexOf(sheet.getAttribute('data-detent') || ds[0]) + 1) % ds.length]); }
+  /** @type {Animation | null} */
+  let glider = null;
+  // the sheet's own height and place again (inline styles off), without a transition
+  function unstyle() {
+    glider?.cancel(); glider = null;
+    const was = sheet.classList.contains('is-dragging');
+    sheet.classList.add('is-dragging');
+    sheet.style.transform = ''; sheet.style.height = ''; sheet.style.maxHeight = '';
+    void sheet.offsetHeight;
+    if (!was) sheet.classList.remove('is-dragging');
+  }
+  // how much of the sheet shows above the bottom edge (its box less how far it is slid down, mid-settle too)
+  function shown() {
+    const t = getComputedStyle(sheet).transform;
+    return sheet.getBoundingClientRect().height - (t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0);
+  }
+  /** Make the sheet `box` px tall and slide it down so `h` px show (transform only). @param {number} box @param {number} h */
+  function place(box, h) {
+    sheet.style.maxHeight = 'none'; sheet.style.height = `${box}px`; sheet.style.transform = `translateY(${Math.max(0, box - h)}px)`;
+  }
+  /** Settle on detent d from `from` px showing: on a phone by transform, then its own height. @param {string} d @param {number} from */
+  function glide(d, from) {
+    if (wide.matches || still()) { unstyle(); sheet.classList.remove('is-dragging'); setDetent(d); return; }
+    glider?.cancel();
+    sheet.classList.add('is-dragging');   // (no CSS transition: the animation below moves it)
+    sheet.style.transform = ''; sheet.style.height = ''; sheet.style.maxHeight = '';
+    setDetent(d);
+    const to = sheet.getBoundingClientRect().height, box = Math.max(from, to) + SPARE;
+    place(box, to);
+    const cs = getComputedStyle(sheet), ms = parseFloat(cs.getPropertyValue('--d-spring')) || 480;
+    const frames = [{ transform: `translateY(${box - from}px)` }, { transform: `translateY(${box - to}px)` }];
+    /** @type {Animation} */
+    let a;
+    try { a = sheet.animate(frames, { duration: ms, easing: cs.getPropertyValue('--spring-snappy').trim() || 'ease-out' }); }
+    catch { a = sheet.animate(frames, { duration: ms, easing: 'cubic-bezier(.2,.8,.2,1)' }); }   // (no linear() easing)
+    glider = a;
+    a.finished.then(() => { if (glider === a) { unstyle(); sheet.classList.remove('is-dragging'); } }, () => {});
+  }
+  function cycle() { glide(ds[(ds.indexOf(sheet.getAttribute('data-detent') || ds[0]) + 1) % ds.length], shown()); }
 
   document.querySelectorAll(`[data-open-sheet="#${CSS.escape(sheet.id)}"]`).forEach(b =>
     l.on(b, 'click', () => open(/** @type {HTMLElement} */ (b))));
   sheet.querySelectorAll('[data-close]').forEach(b => l.on(b, 'click', close));
   l.on(sheet, 'click', (/** @type {MouseEvent} */ e) => { if (e.target === sheet) close(); });   // the backdrop
   l.on(sheet, 'close', () => {
-    sheet.style.transform = ''; sheet.style.height = ''; sheet.style.maxHeight = '';
+    unstyle();
     setDetent(ds[0]);
     html.classList.remove('ui-sheet-large-open');
     if (pushed) { pushed = false; try { history.back(); } catch { /* none */ } }
@@ -98,7 +141,8 @@ export function detentSheet(sheet) {
   // one drag at a time; a drag that moved swallows the click that follows it
   /** @type {number | null} */
   let y0 = null;
-  let x0 = 0, h0 = 0, dy = 0, live = false, moved = false, from0 = ds[0];
+  // h0: how much showed at the start; box: the sheet's height for a phone drag; h: how much shows now
+  let x0 = 0, h0 = 0, box = 0, h = 0, dy = 0, live = false, moved = false, from0 = ds[0];
   /** @type {[number, number][]} */
   let last = [];
   /** @type {number | string | null} */
@@ -116,14 +160,17 @@ export function detentSheet(sheet) {
     } else if (t.closest('button:not(.ui-sheet-grabber),a,input,select,textarea')) return;
     y0 = e.clientY; x0 = e.clientX; dy = 0; last = [[e.timeStamp, e.clientY]]; id = e.pointerId; from = el; moved = false;
     from0 = sheet.getAttribute('data-detent') || ds[0];
-    h0 = sheet.getBoundingClientRect().height;
     live = false;
     if (!fromBody) begin();   // the body waits until the finger clearly moves up or down
   }
   function begin() {
     live = true;
     try { if (from && typeof id === 'number') from.setPointerCapture(id); } catch { /* gone */ }
+    h0 = h = shown();
+    glider?.cancel(); glider = null;
     sheet.classList.add('is-dragging');
+    if (wide.matches) { sheet.style.transform = ''; sheet.style.height = ''; sheet.style.maxHeight = ''; h0 = h = shown(); }
+    else { box = Math.max(innerHeight - 12, h0) + SPARE; place(box, h0); }
   }
   /** @param {{ pointerId: number | string, clientX: number, clientY: number, timeStamp: number }} e */
   function move(e) {
@@ -139,22 +186,26 @@ export function detentSheet(sheet) {
     }
     if (Math.abs(dy) > 4) moved = true;
     const maxH = innerHeight - 12;
-    if (dy < 0 || wide.matches) {   // pulling up (or any drag on a centred dialog): change the height
-      const want = h0 - dy * (wide.matches ? 2 : 1);
-      const h = want > maxH ? maxH + (want - maxH) * 0.15 : Math.max(120, want);
-      sheet.style.height = `${h}px`; sheet.style.maxHeight = 'none'; sheet.style.transform = '';
-    } else { sheet.style.height = ''; sheet.style.maxHeight = ''; sheet.style.transform = `translateY(${dy}px)`; }
+    if (wide.matches) {   // a centred dialog: change the height
+      const want = h0 - dy * 2;
+      h = want > maxH ? maxH + (want - maxH) * 0.15 : Math.max(120, want);
+      sheet.style.height = `${h}px`; sheet.style.maxHeight = 'none';
+    } else {   // a phone: slide the tall sheet, up to a little past full height
+      const want = h0 - dy;
+      h = want > maxH ? maxH + Math.min(SPARE / 2, (want - maxH) * 0.15) : Math.max(0, want);
+      place(box, h);
+    }
   }
   /** @param {{ pointerId: number | string, timeStamp: number }} e */
   function up(e) {
     if (y0 === null || e.pointerId !== id) return;
     const wasLive = live;
     y0 = null; live = false;
-    sheet.classList.remove('is-dragging');
-    sheet.style.transform = ''; sheet.style.height = ''; sheet.style.maxHeight = '';
-    if (!wasLive || !moved) return;
+    if (!wasLive || !moved) { unstyle(); sheet.classList.remove('is-dragging'); return; }
     const to = settle(ds, from0, dy, velocity(last));
-    if (to === 'close') close(); else setDetent(to);
+    if (to === 'close') { unstyle(); sheet.classList.remove('is-dragging'); close(); }
+    else if (wide.matches) { sheet.classList.remove('is-dragging'); sheet.style.height = ''; sheet.style.maxHeight = ''; setDetent(to); }
+    else glide(to, h);
   }
   const handles = /** @type {HTMLElement[]} */ ([...sheet.querySelectorAll('.ui-sheet-grabber,.ui-sheet-head')]);
   for (const h of handles) {
@@ -191,9 +242,7 @@ export function detentSheet(sheet) {
         if (ddy < 6) return;
         y0 = t.clientY; x0 = tx; dy = 0; last = [[e.timeStamp, t.clientY]]; id = 'touch'; from = body; moved = false;
         from0 = top;
-        h0 = sheet.getBoundingClientRect().height;
-        live = true;
-        sheet.classList.add('is-dragging');
+        begin();
       }
       if (e.cancelable) e.preventDefault();
       move({ pointerId: 'touch', clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp });

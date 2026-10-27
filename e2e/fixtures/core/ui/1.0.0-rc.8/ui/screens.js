@@ -31,8 +31,9 @@ export const swipeGoesBack = (dx, v, width) => dx > width / 3 || (v > 0.5 && dx 
 export function screenStack(host, { onChange } = {}) {
   const l = listeners();
   const all = () => /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > .ui-screen')]);
-  /** @type {{ screen: HTMLElement, from: HTMLElement | null }[]} */
-  const stack = [{ screen: all()[0], from: null }];
+  // y: where the page was scrolled when the next screen was pushed over this one (back there on the pop)
+  /** @type {{ screen: HTMLElement, from: HTMLElement | null, y: number }[]} */
+  const stack = [{ screen: all()[0], from: null, y: 0 }];
   all().forEach((s, i) => { s.hidden = i > 0; });
   const top = () => stack[stack.length - 1].screen;
 
@@ -47,34 +48,57 @@ export function screenStack(host, { onChange } = {}) {
   const slide = (el, frames) => still() ? Promise.resolve()
     : el.animate(frames, { duration: 340, easing: 'cubic-bezier(.2,.8,.2,1)' }).finished.catch(() => {});
 
+  /** Takes `el` out of the flow (class `cls`) and keeps its content where it was on screen across `change` (a scroll).
+   * @param {HTMLElement} el @param {string} cls @param {() => void} change */
+  function lift(el, cls, change) {
+    const probe = el.firstElementChild ?? el, y0 = probe.getBoundingClientRect().top;
+    el.classList.add(cls);
+    el.style.top = '0px';
+    change();
+    el.style.top = `${y0 - probe.getBoundingClientRect().top}px`;
+  }
+
   /** @param {string | HTMLElement} target @param {HTMLElement | null} [from] */
   function push(target, from = null) {
     const s = typeof target === 'string' ? /** @type {HTMLElement | null} */ (host.querySelector(target)) : target;
     if (!s || s === top() || stack.some(x => x.screen === s)) return;
     const under = top();
-    stack.push({ screen: s, from });
+    stack[stack.length - 1].y = scrollY;
+    stack.push({ screen: s, from, y: 0 });
     try { history.pushState({ ...(history.state || {}), uiScreens: stack.length - 1 }, ''); } catch { /* none */ }
-    s.hidden = false;
+    // the new screen slides in over the old one, which leaves the flow and stays where it was on screen
     s.classList.add('is-top');
     under.classList.remove('is-top');
-    scrollTo(0, 0);
-    void slide(s, [{ transform: 'translateX(100%)' }, { transform: 'none' }]).then(() => { if (top() !== under) under.hidden = true; });
+    const show = () => { s.hidden = false; scrollTo(0, 0); onChange?.(s); };   // (onChange may reset the bar)
+    if (still()) { show(); under.hidden = true; focusIn(s); return; }   // (no class changes: nothing to transition)
+    s.classList.add('is-entering');
+    lift(under, 'is-under', show);
+    void slide(s, [{ transform: 'translateX(100%)' }, { transform: 'none' }]).then(() => {
+      s.classList.remove('is-entering');
+      under.classList.remove('is-under');
+      under.style.top = '';
+      if (top() !== under) under.hidden = true;
+    });
     focusIn(s);
-    onChange?.(s);
   }
   // one step back, shown (the history entry is already gone: popstate, or the caller went back)
   async function popShown(animate = true) {
     if (stack.length < 2) return;
-    const gone = /** @type {{ screen: HTMLElement, from: HTMLElement | null }} */ (stack.pop());
+    const gone = /** @type {{ screen: HTMLElement, from: HTMLElement | null, y: number }} */ (stack.pop());
     const s = top();
-    s.hidden = false;
+    // the leaving screen slides off over the one coming back, which is scrolled back to where it was
     s.classList.add('is-top');
     gone.screen.classList.remove('is-top');
-    if (animate) await slide(gone.screen, [{ transform: 'none' }, { transform: 'translateX(100%)' }]);
+    // (onChange first: it may change the bar above the screens, which would move them)
+    const back = () => { s.hidden = false; onChange?.(s); scrollTo(0, stack[stack.length - 1].y); };
+    if (animate && !still()) {
+      lift(gone.screen, 'is-leaving', back);
+      await slide(gone.screen, [{ transform: 'none' }, { transform: 'translateX(100%)' }]);
+    } else back();
     gone.screen.hidden = true;
-    gone.screen.style.transform = '';
+    gone.screen.classList.remove('is-leaving');
+    gone.screen.style.transform = ''; gone.screen.style.top = '';
     if (gone.from && s.contains(gone.from)) gone.from.focus({ preventScroll: true }); else focusIn(s);
-    onChange?.(s);
   }
   let skipAnim = false;
   // animate false: the edge swipe has already moved the screen away

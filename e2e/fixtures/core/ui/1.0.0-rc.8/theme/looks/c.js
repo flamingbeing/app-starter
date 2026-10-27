@@ -1,6 +1,6 @@
 // Look C, dense and quiet: a plain bar with a hairline, a small bold title, flush lists with inset lines, small round
-// ticks, a flat full-width tab bar; glass only on the floating pills (action bar, toasts). Data only (looks.js says
-// what each key means).
+// ticks, a flat full-width tab bar; glass only on the floating pills (toasts). Data only (looks.js says what each key
+// means).
 /** @type {import('../looks.js').Look} */
 export default {
   id: 'c',
