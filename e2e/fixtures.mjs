@@ -159,10 +159,7 @@ export async function add(page, text) {
 // Click a button that opens a dialog, and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the
 // files snapshot follows the first list one), and a click whose button is swapped out between press and release is
 // dropped (Firefox), so the dialog stays hidden: click again only while it is not open, never after it opened.
-export const clickOpens = (button, dialog) => expect(async () => {
-  if (!await dialog.isVisible()) await button.click({ timeout: 3_000 });
-  await expect(dialog).toBeVisible({ timeout: 2_000 });
-}).toPass({ timeout: 20_000 });
+export const clickOpens = async (button, dialog) => { await button.click(); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
 // The id of the shared item with this text (db.list leaves document ids out).
