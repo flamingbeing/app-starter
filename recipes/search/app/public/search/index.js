@@ -4,5 +4,6 @@
 //   createSearch(options)  the index: feed, update, remove, search, prepare (search.js)
 //   loadSearch()           loads MiniSearch ahead (it otherwise loads on first need)
 //   parseQuery             the box's text -> terms, on its own (query.js, pure)
+//   insertOperator, usesOperators   for a "?" operator list: add one at the cursor; whether a query uses any
 export { createSearch, loadSearch } from './search.js';
-export { parseQuery, editDistance } from './query.js';
+export { parseQuery, editDistance, insertOperator, usesOperators } from './query.js';

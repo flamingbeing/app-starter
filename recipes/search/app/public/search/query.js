@@ -68,3 +68,23 @@ export function parseQuery(q, { fields = [] } = {}) {
   }
   return { groups, unknown };
 }
+
+/** The box's text with an operator added at the cursor (a space either side as needed), and where the cursor goes next.
+ * @param {string} text @param {number | null | undefined} caret @param {string} insert @param {number} at  cursor offset inside insert
+ * @returns {{ text: string, caret: number }} */
+export function insertOperator(text, caret, insert, at) {
+  text = String(text || '');
+  const c = Math.max(0, Math.min(text.length, caret ?? text.length));
+  const before = text.slice(0, c), after = text.slice(c);
+  const pre = before && !/\s$/.test(before) ? ' ' : '';
+  const post = after && !/^\s/.test(after) ? ' ' : '';
+  return { text: before + pre + insert + post + after, caret: before.length + pre.length + at };
+}
+
+/** Whether the query uses any operator (for a "?" note); cheap.
+ * @param {string} q @param {string[]} [fields] */
+export function usesOperators(q, fields = []) {
+  const names = fields.map(f => f.replace(/[^A-Za-z]/g, '')).filter(Boolean).join('|');
+  const field = names ? `|(${names}):` : '';
+  return new RegExp(`(^|\\s)(-\\S|"${field})|\\s(OR|AND|\\||&)\\s`, 'i').test(String(q || ''));
+}

@@ -30,7 +30,7 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
   run `node tools/sw-files.mjs app` (after a map change, also the import map hash in `worker/headers.js`). Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
   (never edit `app/public/vendor/`). Both have a `--check` in CI ([decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
 - New library, own-host sign-in, live smoke test, template updates: go through
-  [docs/new-app-checklist.md](docs/new-app-checklist.md). `@core/files` `url()` is a page-local `blob:` URL; hand a
+  [docs/new-app-checklist.md](docs/new-app-checklist.md). Files and search are modules (`node tools/add.mjs files|search`). `@core/files` `url()` is a page-local `blob:` URL; hand a
   file on with `files.blob(id)`. App-sync bumps: `node tools/update-from-starter.mjs --sync <x.y.z>`.
 - Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt`). No install buttons.
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports

@@ -54,7 +54,7 @@ outside package":
 
 ## 5. Things that look like one thing and are another
 
-- [ ] `@core/files` `url(id)` returns a `blob:` URL made in this page: fine for an `<img>`, gone after a reload and
+- [ ] Photos or files: `node tools/add.mjs files` first, then make the R2 bucket (its NEEDS-YOU line). `@core/files` `url(id)` returns a `blob:` URL made in this page: fine for an `<img>`, gone after a reload and
   useless anywhere else. To send, save or hand a file on, use `files.blob(id)`.
 - [ ] Docs are checked too: the devkit proofreader checks every link and image (`![..](..)`) in Markdown points at a
   file that exists. Run `node .devkit/tools/proofread.mjs` before pushing docs.
