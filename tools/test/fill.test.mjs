@@ -13,7 +13,7 @@ const SKIP = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwr
 function copy({ deps = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));
   fs.cpSync(ROOT, dir, { recursive: true, filter: src => !SKIP.has(path.basename(src)) });
-  if (deps) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');   // sw.js's list reads app-sync and app-ui
+  if (deps) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // sw.js's list reads app-sync and app-ui
   // these tests are the starter's own: an app that took in this file (tools/update-from-starter.mjs) has modules, which a fresh render refuses
   const metaPath = path.join(dir, '.starter.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
@@ -136,7 +136,7 @@ test('--static in a fresh clone (no node_modules) installs the packages, so sw.j
   const exec = (cmd, args, cwd) => {
     ran.push([cmd, ...args].join(' '));
     assert.equal(cwd, dir);
-    fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');   // stands for the install
+    fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // stands for the install
   };
   fill({ dir, ...STATIC, static: true, exec });
   assert.deepEqual(ran, ['npm ci --no-audit --no-fund --ignore-scripts']);

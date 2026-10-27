@@ -106,6 +106,13 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   if (render) {
     // the checks below throw before anything changes; the render comes after them
     validate(meta, opts, true);
+    // sw.js's list is read from the app-sync and app-ui packages, so a fresh clone (new-app: no node_modules) installs them
+    // first; without them sw.js would keep the cloud app's list, naming files the static app no longer has (the worker
+    // install fails: no offline start). Before the render, so a failed install leaves the app as it was and a re-run retries.
+    if (!['app-sync', 'app-ui'].every(p => fs.existsSync(path.join(dir, 'node_modules', p, 'package.json')))) {
+      log('npm ci (app-sync and app-ui, for sw.js\'s list)');
+      exec('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], dir);
+    }
     renderDir({ dir, flavour: 'static', log });
     meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   }
@@ -147,14 +154,8 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   const modules = meta.modules && commit ? Object.fromEntries(Object.entries(meta.modules).map(([m, s]) =>
     [m, /^recipes\/[\w.-]+\.json$/.test(s) ? `${meta.template}@${commit}:${s}` : s])) : meta.modules;
   write('.starter.json', JSON.stringify({ ...meta, commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
-  // the render changed the import map: sw.js's list and the import-map hash follow. The list is read from the app-sync and
-  // app-ui packages, so a fresh clone (new-app: no node_modules) installs them first; without them sw.js would keep the
-  // cloud app's list, naming files the static app no longer has (the worker install fails, no offline start)
+  // the render changed the import map: sw.js's list and the import-map hash follow (the packages are installed above)
   if (render) {
-    if (!['app-sync', 'app-ui'].every(p => fs.existsSync(path.join(dir, 'node_modules', p, 'package.json')))) {
-      log('npm ci (app-sync and app-ui, for sw.js\'s list)');
-      exec('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], dir);
-    }
     after(dir, { install: false, log });
   }
   return { changed, app };

@@ -8,6 +8,7 @@
 // One summary line per loop; at the end `PASS n/N`, or the first failing seed and its log folder. Needs network once
 // (npm ci, app-devkit) and a Chromium (PW_CHROMIUM or Playwright's own); firefox/webkit run in the pw-box image.
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,21 +40,35 @@ const tail = (r, re) => ((r.stdout || '') + (r.stderr || '')).split('\n').filter
 // the pieces every seed shares: .devkit/ and node_modules/ (same lock, same pins), made once
 function prepare() {
   const base = path.join(WORK, '_base');
-  if (fs.existsSync(path.join(base, '.ready'))) return base;
+  const stamp = '.ready-' + crypto.createHash('sha1').update(fs.readFileSync(path.join(STARTER, 'package-lock.json'))).update(fs.readFileSync(path.join(STARTER, '.github/workflows/checks.yml'))).digest('hex').slice(0, 10);   // a new lock or devkit pin remakes it
+  if (fs.existsSync(path.join(base, stamp))) return base;
   fs.rmSync(base, { recursive: true, force: true });
   copyTree(STARTER, base);
   const o = { cwd: base, log: path.join(WORK, '_prepare.log') };
-  const a = run('bash', ['-c', 'SKIP_NPM=1 . tools/dev-setup.sh'], o);
+  const a = devkit(base, o.log);
   const b = run('npm', ['ci', '--no-audit', '--no-fund'], { ...o, log: path.join(WORK, '_npm.log') });
-  if (a.status || b.status || !fs.existsSync(path.join(base, '.devkit/VERSION'))) throw new Error(`prepare failed (see ${WORK}/_prepare.log, _npm.log)`);
+  if (a.status !== 0 || b.status !== 0 || !fs.existsSync(path.join(base, '.devkit/VERSION'))) throw new Error(`prepare failed (see ${WORK}/_prepare.log, _npm.log)`);
   // browsers: Playwright's own downloads, unless a Chromium is given (PW_CHROMIUM) and only chromium is asked for
   const want = BROWSERS.filter(b => b !== 'chromium' || !env.PW_CHROMIUM);
   if (want.length) {
     const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log') });
-    if (c.status) throw new Error(`playwright install ${want} failed (see ${WORK}/_browsers.log)`);
+    if (c.status !== 0) throw new Error(`playwright install ${want} failed (see ${WORK}/_browsers.log)`);
   }
-  fs.writeFileSync(path.join(base, '.ready'), '');
+  fs.writeFileSync(path.join(base, stamp), '');
   return base;
+}
+// tools/dev-setup.sh without bash (Windows has none that works): app-devkit at the version checks.yml pins -> .devkit/
+function devkit(base, log) {
+  const ref = process.env.DEVKIT_REF || fs.readFileSync(path.join(base, '.github/workflows/checks.yml'), 'utf8').match(/app-devkit\/setup-[a-z]+@(v[0-9][0-9.]*)/)?.[1];
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'devkit-'));
+  const r = run('git', ['clone', '-q', '--depth', '1', '--branch', ref, process.env.DEVKIT_URL || 'https://github.com/flamingbeing/app-devkit', path.join(tmp, 'devkit')], { cwd: tmp, log });
+  if (r.status === 0) {
+    fs.rmSync(path.join(base, '.devkit'), { recursive: true, force: true });
+    for (const d of ['playwright', 'rules', 'tools', 'worker']) fs.cpSync(path.join(tmp, 'devkit', d), path.join(base, '.devkit', d), { recursive: true });
+    fs.writeFileSync(path.join(base, '.devkit/VERSION'), ref + '\n');
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return r;
 }
 function copyTree(from, to) {
   const files = fs.existsSync(path.join(from, '.git'))
@@ -85,7 +100,7 @@ function generate(seed, dir, logs) {
   const second = run('node', ['tools/fill.mjs', '--static', '--name', name, '--host', `${name}.example.com`, '--kit', kit, '--check'], { ...o, log: path.join(logs, 'gen-again.log') });
   const spec = fs.readFileSync(path.join(HERE, 'static-e2e/soak.spec.mjs'));
   fs.writeFileSync(path.join(dir, 'e2e/soak.spec.mjs'), spec);
-  return { kit, ok: !g.status && !f.status, idem: !second.status };
+  return { kit, ok: g.status === 0 && f.status === 0, idem: second.status === 0 };
 }
 
 const pw = (dir, logs, tag, args, extra = {}) => {

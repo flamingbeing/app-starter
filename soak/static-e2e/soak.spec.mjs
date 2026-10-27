@@ -3,7 +3,9 @@
 // whatever the page did, a reload ends in a working list.
 import { test, expect, setOffline, uniq, signIn, add } from './fixtures.mjs';
 
-const ready = page => expect.poll(() => page.evaluate(() => window.starter.ready), { timeout: 20_000 }).toBe(true);
+const ready = page =>
+  expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
+  .toBe(true);
 const texts = page => page.locator('#items').evaluate(el => el.textContent);
 
 test('offline: saves made with no network are there after an offline reload', async ({ phone }) => {
@@ -117,7 +119,7 @@ for (const [how, stub] of Object.entries(NO_STORAGE)) {
   });
 }
 
-test('a new version while the list has unsaved typing and saved items: nothing lost', async ({ phone }) => {
+test('a new version found while the list has saved items: nothing lost, online or offline', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member', { path: '/app/?test&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
@@ -129,7 +131,7 @@ test('a new version while the list has unsaved typing and saved items: nothing l
   await page.reload({ waitUntil: 'domcontentloaded' });
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
-  await page.context().setOffline(true);
+  await setOffline(page.context(), true);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await ready(page);
   await expect(page.locator('#items')).toContainText(x);
