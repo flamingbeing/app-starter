@@ -256,6 +256,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
+    for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in${m === 'files' ? ', then rebuild the rules (node .devkit/tools/build-rules.mjs app/firestore.app.rules)' : ''}`);
     if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
     return result;
   } finally { repo.done(); }
