@@ -44,8 +44,12 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
 
 // (Playwright can't emulate prefers-reduced-transparency; glass.css turns glass down for it in the same query)
 test('asked for more contrast: solid card colour, no blur', async ({ phone }) => {
-  const page = await phone({ contrast: 'more' });   // at context creation: Firefox does not restyle for page.emulateMedia
+  const page = await phone();
   await page.goto(APP);
+  await page.emulateMedia({ contrast: 'more' });
+  // Firefox: a media change by emulation does not re-cascade the sheets already loaded (a context option is not honoured
+  // either); switching them off and on does
+  await page.evaluate(() => document.querySelectorAll('link[rel=stylesheet]').forEach(l => { l.disabled = true; l.disabled = false; }));
   await expect(page.locator('html')).toHaveClass(/\bglass\b/);
   expect(await style(page, '.bar', 'backdrop-filter')).toBe('none');
   expect(await style(page, '.bar', 'background-color')).toBe(await surface(page));
@@ -95,7 +99,8 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
 
 test('a change of screen is a view transition, unless motion is reduced', async ({ phone }) => {
   for (const reducedMotion of ['no-preference', 'reduce']) {
-    const page = await phone({ reducedMotion });
+    const page = await phone();
+    await page.emulateMedia({ reducedMotion });
     await page.addInitScript(() => {
       window.__vt = 0;
       const start = document.startViewTransition?.bind(document);
