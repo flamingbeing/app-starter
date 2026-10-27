@@ -2,15 +2,21 @@
 //
 //   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs --project <firebase-project-id>
 //                       [--title "<Title>"] [--accent '#rrggbb'] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
+//   node tools/fill.mjs --static --name <name> --host <host> --kit homedesign|nuhs [...]   a static app: no sign-in, no
+//                       Firebase project (tools/flavour.mjs renders it first; README, "Pick a starter")
 //
 // The values in use now are in .starter.json ("app"); each is replaced by the new one in every text file (the emulator
 // project demo-<name>, the kit's address, the host, the name, the title), app/src/config.js is written afresh (with the
 // default look's colour from --accent, else kept, and the web app's apiKey and appId from --web-config: the JSON
 // `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's FIREBASE_PROJECT is set. Running it again with the same
-// values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed.
+// values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A static app
+// (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs cloud --project <id>`) and has
+// no web config.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderDir } from './flavour.mjs';
+import { after } from './update-from-starter.mjs';
 
 export const KITS = { homedesign: 'https://design.flamingbeing.com', nuhs: 'https://design.anawj.com' };
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
@@ -18,7 +24,7 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'p
 const KEEP = ['tools/fill.mjs', 'tools/test/fill.test.mjs', 'tools/test/update-from-starter.test.mjs', 'worker/claims.js', 'worker/custom-token.js'];
 const TEXT = /\.(m?js|json|jsonc|html|css|md|webmanifest|rules|ya?ml|svg|txt)$|^\.[a-z]+ignore$/;
 
-const RULES = {
+export const RULES = {
   name: [/^[a-z][a-z0-9-]{1,28}[a-z0-9]$/, 'lowercase letters, digits and hyphens, 3-30 characters'],
   host: [/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, 'a host name like app.example.com'],
   project: [/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/, 'a Firebase project id (6-30 lowercase letters, digits, hyphens)'],
@@ -36,6 +42,7 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--check') out.check = true;
+    else if (a === '--static') out.static = true;
     else if (/^--(name|host|kit|project|title|accent|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
     else throw new Error(`unknown argument ${a}`);
   }
@@ -81,16 +88,28 @@ export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: ap
 export const KIT = '${KITS[app.kit]}/v1/';
 export const firebaseConfig = ${JSON.stringify(web, null, 2)};
 `;
+const staticConfigJs = (app, accent) => `// The app's settings. tools/fill.mjs writes the name, title, host and kit here. A static app has no Firebase project:
+// its data stays on the device (local.js); \`node tools/add.mjs cloud --project <id>\` adds one.
+// accent: the default look's colour (@core/theme; boot.js), set with --accent.
+export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: app.host, accent })};
+export const KIT = '${KITS[app.kit]}/v1/';
+`;
 
 // -> { changed: [files], app } ; throws on bad input
-export function fill({ dir = '.', check = false, ...opts } = {}) {
+export function fill({ dir = '.', check = false, static: flat = false, log = () => {}, ...opts } = {}) {
   const metaPath = path.join(dir, '.starter.json');
-  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  let meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  const render = flat && !meta.flavour;
+  if (render && check) throw new Error('--check with --static: the app is not static yet, so a run would change it');
+  if ((meta.flavour || flat) && opts['web-config']) throw new Error(`a ${meta.flavour ?? 'static'} app has no web config (node tools/add.mjs cloud --project <id> first)`);
+  if (render) {
+    // the checks below throw before anything changes; the render comes after them
+    validate(meta, opts, true);
+    renderDir({ dir, flavour: 'static', log });
+    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  }
   const old = meta.app;
-  const app = { name: opts.name ?? old.name, host: opts.host ?? old.host, kit: opts.kit ?? old.kit, project: opts.project ?? old.project };
-  for (const [k, [re, what]] of Object.entries(RULES)) if (!re.test(app[k])) throw new Error(`--${k} '${app[k]}': ${what}`);
-  app.title = opts.title ?? (opts.name && opts.name !== old.name ? titleOf(app.name) : old.title);
-  if (/["\\<>\n]/.test(app.title) || !app.title.trim()) throw new Error('--title: plain text, no quotes or angle brackets');
+  const app = validate(meta, opts, render);
 
   // the web config: kept from config.js unless --web-config gives a new one (or the project changed)
   const cfgPath = path.join(dir, 'app/src/config.js');
@@ -121,13 +140,30 @@ export function fill({ dir = '.', check = false, ...opts } = {}) {
     text = fixup(rel, text, app);
     write(rel, text);
   }
-  write('app/src/config.js', configJs(app, web, accent));
+  write('app/src/config.js', meta.flavour ? staticConfigJs(app, accent) : configJs(app, web, accent));
   const commit = opts.commit ?? meta.commit;   // the template commit this app started from (the new-app job passes it)
   // the template's own module recipes become the template's at that commit, so add.mjs has a pristine copy to compare
   const modules = meta.modules && commit ? Object.fromEntries(Object.entries(meta.modules).map(([m, s]) =>
     [m, /^recipes\/[\w.-]+\.json$/.test(s) ? `${meta.template}@${commit}:${s}` : s])) : meta.modules;
   write('.starter.json', JSON.stringify({ ...meta, commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
+  // the render changed the import map: sw.js's list and the import-map hash follow (no npm: the packages are the same)
+  if (render) after(dir, { install: false, log });
   return { changed, app };
+}
+
+// the new values' checks, on their own: --static runs them before it renders
+// -> { name, host, kit, project, title } (a static app's project is '' until it is given one)
+// fresh: the app is being made static now (its template project goes)
+function validate(meta, opts, fresh = false) {
+  const old = meta.app;
+  const app = { name: opts.name ?? old.name, host: opts.host ?? old.host, kit: opts.kit ?? old.kit,
+    project: opts.project ?? (fresh ? '' : old.project), title: '' };
+  app.title = opts.title ?? (opts.name && opts.name !== old.name ? titleOf(app.name) : old.title);
+  const none = (fresh || meta.flavour) && app.project === '';
+  for (const [k, [re, what]] of Object.entries(RULES)) if (!(k === 'project' && none) && !re.test(app[k])) throw new Error(`--${k} '${app[k]}': ${what}`);
+  if (/["\\<>\n]/.test(app.title) || !app.title.trim()) throw new Error('--title: plain text, no quotes or angle brackets');
+  if (opts.accent && !/^#[0-9a-f]{6}$/i.test(opts.accent)) throw new Error(`--accent '${opts.accent}': a colour like #3a6390`);
+  return app;
 }
 
 const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k]).map(k => [k, String(o[k])]));
@@ -135,7 +171,7 @@ const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k]).map(k => [k,
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const { changed, app } = fill(args);
+    const { changed, app } = fill({ ...args, log: console.log });
     console.log(changed.length ? `${args.check ? 'would change' : 'changed'}:\n  ${changed.join('\n  ')}` : 'nothing to change');
     console.log(`app: ${JSON.stringify(app)}`);
     if (args.check && changed.length) process.exit(1);

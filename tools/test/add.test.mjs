@@ -73,7 +73,9 @@ test('resolveSource: a bare name is the template\'s recipe at the app\'s commit,
 // the lean base takes a module in and out again: no trace left, the same files back, a second add changes nothing
 for (const [module, gone, grep] of [
   ['search', ['app/public/search/index.js', 'app/src/screens/list-search.js', 'e2e/search.spec.mjs', 'app/public/vendor/minisearch'], /search/i],
+  // cloud{ the files module needs the cloud (a static app has no recipes/files)
   ['files', ['app/public/files/index.js', 'app/src/files-data.js', 'worker/files.js', 'app/public/vendor/exifr', 'e2e/memory-bucket.mjs'], /@core\/files|memoryBucket|filesData/],
+  // }cloud
 ]) {
   test(`${module}: add brings it in, --remove leaves the lean app with no trace of it; a second add changes nothing`, () => {
     const dir = copyRepo();

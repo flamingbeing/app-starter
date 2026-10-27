@@ -33,6 +33,7 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { swapsFor, fixup, isText } from './fill.mjs';
+import { render } from './flavour.mjs';
 
 // the app's own: its notes, settings and the lock (regenerated)
 // (recipes/<module>/ are the modules' sources: an app reads them from the template when it adds one, tools/add.mjs)
@@ -108,7 +109,7 @@ export function templateRepo(from) {
 export const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C', repo, 'show', `${ref}:${rel}`], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; } };
 
 // every file of a template commit, read in one go: { path: Buffer }
-function treeAt(repo, ref) {
+export function treeAt(repo, ref) {
   const paths = git(repo, ['ls-tree', '-r', '--name-only', ref]).trim().split('\n').filter(Boolean);
   const out = execFileSync('git', ['-C', repo, 'cat-file', '--batch'], { input: paths.map(p => `${ref}:${p}\n`).join(''), maxBuffer: 256 << 20 });
   const files = {};
@@ -123,12 +124,13 @@ function treeAt(repo, ref) {
 }
 
 // the template commit (of the last `limit` before `to`) whose files, with the app's values, match most of the app's
-// files: for an app whose .starter.json has no "commit"
+// files: for an app whose .starter.json has no "commit" (a flavoured app's: rendered as its flavour)
 export function findBase(repo, to, meta, dir, { limit = 200 } = {}) {
   const shas = git(repo, ['rev-list', `--max-count=${limit}`, to]).trim().split('\n');
   let best = null;
   for (const sha of shas) {
-    const files = treeAt(repo, sha);
+    let files = treeAt(repo, sha);
+    if (meta.flavour) try { files = render(files, meta.flavour); } catch { break; }   // a commit from before flavours (and every older one)
     const tpl = JSON.parse(files['.starter.json']?.toString() || 'null')?.app ?? meta.app;
     const swaps = swapsFor(tpl, meta.app);
     let same = 0;
@@ -143,8 +145,16 @@ export function findBase(repo, to, meta, dir, { limit = 200 } = {}) {
   return best;
 }
 
+// git diff --name-status of two rendered trees ({ rel: Buffer })
+export function renderedDiff(a, b) {
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].sort()
+    .flatMap(rel => !a[rel] ? [`A\t${rel}`] : !b[rel] ? [`D\t${rel}`] : a[rel].equals(b[rel]) ? [] : [`M\t${rel}`]).join('\n');
+}
+
 // -> { from, to, behind, changes: [{ action, path, note? }], conflicts: [paths], pins: [...] }
-export function update({ dir = '.', from, to = 'main', base, dryRun = false, install = true, checkLatest = true, findBase: findBaseToo = false, log = console.log } = {}) {
+// unflavour { project }: the template's cloud files instead of its flavour's (tools/add.mjs cloud: a static app made the
+// cloud app, from the static render at its commit to the cloud tree at `to`); .starter.json loses "flavour"
+export function update({ dir = '.', from, to = 'main', base, dryRun = false, install = true, checkLatest = true, findBase: findBaseToo = false, unflavour = null, log = console.log } = {}) {
   dir = path.resolve(dir);
   const metaPath = path.join(dir, '.starter.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
@@ -166,16 +176,27 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const result = { from: baseSha.slice(0, 7), to: short, behind, changes: [], conflicts: [], pins: [] };
     log(`template ${meta.template}: ${result.from} -> ${short} (${behind} commit${behind === 1 ? '' : 's'})`);
 
-    const tplApp = r => JSON.parse(show(repo.dir, r, '.starter.json')?.toString() || 'null')?.app;
+    // a flavoured app (static) takes the template's commits rendered as its flavour (tools/flavour.mjs), so it gets
+    // the changes to its own files and none of the cloud's
+    const oldF = meta.flavour ?? null, newF = unflavour ? null : oldF;
+    const appNew = unflavour ? { ...meta.app, project: unflavour.project } : meta.app;
+    const trees = new Map();
+    const treeOf = (sha, f) => trees.get(`${sha}:${f}`) ?? trees.set(`${sha}:${f}`, f ? render(treeAt(repo.dir, sha), f) : treeAt(repo.dir, sha)).get(`${sha}:${f}`);
+    const at = (sha, rel, f = newF) => f ? treeOf(sha, f)[rel] ?? null : show(repo.dir, sha, rel);
+    const listAt = (sha, folder) => newF
+      ? Object.keys(treeOf(sha, newF)).filter(r => r.startsWith(`${folder}/`) && !r.slice(folder.length + 1).includes('/')).map(r => r.slice(folder.length + 1))
+      : git(repo.dir, ['ls-tree', '--name-only', `${sha}:${folder}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim().split('\n').filter(Boolean);
+    const tplApp = r => JSON.parse(at(r, '.starter.json')?.toString() || 'null')?.app;
     const swapsBase = swapsFor(tplApp(baseSha) ?? meta.app, meta.app);
-    const swapsNew = swapsFor(tplApp(newSha) ?? meta.app, meta.app);
-    const filled = (rel, buf, swaps) => {
+    const swapsNew = swapsFor(tplApp(newSha) ?? meta.app, appNew);
+    const filled = (rel, buf, swaps, app = meta.app) => {
       if (buf === null || !isText(rel)) return buf;
       let text = buf.toString('utf8');
       for (const [re, v] of swaps) text = text.replace(re, v);
-      return Buffer.from(fixup(rel, text, meta.app));
+      return Buffer.from(fixup(rel, text, app));
     };
-    const ignore = [...DEFAULT_IGNORE, ...(meta.update?.ignore ?? [])].map(globRe);
+    // (the move to the cloud brings the recipes' sources the static render left out: files)
+    const ignore = [...DEFAULT_IGNORE.filter(g => !(unflavour && g.startsWith('recipes/'))), ...(meta.update?.ignore ?? [])].map(globRe);
     const rename = meta.update?.rename ?? {};
     const appPath = rel => rename[rel] ?? rel;
     const read = rel => { try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };
@@ -186,21 +207,22 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     // files the template moved out of the base into a module's recipe: the app that has them keeps them (it already
     // has the module) and the module is recorded, so a later update takes the recipe's changes
     const owned = [];
-    const recipeFiles = git(repo.dir, ['ls-tree', '--name-only', newSha, 'recipes/']).trim().split('\n').filter(f => /^recipes\/[^/]+\.json$/.test(f));
+    let recipeFiles = [];
+    try { recipeFiles = listAt(newSha, 'recipes').map(f => `recipes/${f}`).filter(f => /^recipes\/[^/]+\.json$/.test(f)); } catch { /* none */ }
     for (const f of recipeFiles) {
       let r;
-      try { r = JSON.parse(show(repo.dir, newSha, f).toString()); } catch { continue; }
+      try { r = JSON.parse(at(newSha, f).toString()); } catch { continue; }
       for (const p of [...(r.vendor ?? []), ...(r.files ?? []).filter(x => x.from).map(x => x.to ?? x.from)]) owned.push({ module: r.module, path: p, recipe: f });
     }
     const moved = new Map();
 
-    const diff = git(repo.dir, ['diff', '--name-status', '--no-renames', baseSha, newSha]).trim();
+    const diff = oldF || newF ? renderedDiff(treeOf(baseSha, oldF), treeOf(newSha, newF)) : git(repo.dir, ['diff', '--name-status', '--no-renames', baseSha, newSha]).trim();
     for (const line of diff ? diff.split('\n') : []) {
       const [status, rel] = line.split('\t');
       const target = appPath(rel);
       if (ignore.some(re => re.test(rel) || re.test(target))) { note('ignored', target); continue; }
-      const oldT = filled(rel, show(repo.dir, baseSha, rel), swapsBase);
-      const newT = filled(rel, show(repo.dir, newSha, rel), swapsNew);
+      const oldT = filled(rel, at(baseSha, rel, oldF), swapsBase);
+      const newT = filled(rel, at(newSha, rel), swapsNew, appNew);
       const ours = read(target);
       if (status === 'D') {
         if (ours === null) continue;
@@ -233,8 +255,8 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const appPins = devkitPins(wf(path.join(dir, '.github/workflows')));
     const tplWf = {};
     let wfNames = [];
-    try { wfNames = git(repo.dir, ['ls-tree', '--name-only', `${newSha}:.github/workflows`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim().split('\n').filter(Boolean); } catch { /* none */ }
-    for (const f of wfNames) tplWf[f] = show(repo.dir, newSha, `.github/workflows/${f}`).toString();
+    try { wfNames = listAt(newSha, '.github/workflows'); } catch { /* none */ }
+    for (const f of wfNames) tplWf[f] = at(newSha, `.github/workflows/${f}`).toString();
     const tplPins = devkitPins(tplWf);
     let latest = null;
     if (checkLatest) try {
@@ -250,10 +272,11 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
 
     if (!dryRun) {
       after(dir, { install, changedPkg: result.changes.some(c => c.path === 'package.json' && c.action !== 'ignored'), log });
-      const tplMeta = JSON.parse(show(repo.dir, newSha, '.starter.json')?.toString() || '{}');
+      const tplMeta = JSON.parse(at(newSha, '.starter.json')?.toString() || '{}');
       const modules = { ...meta.modules };
       for (const [m, recipe] of moved) modules[m] ??= `${meta.template}@${short}:${recipe}`;
-      fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
+      const { flavour: _, ...plain } = meta;
+      fs.writeFileSync(metaPath, JSON.stringify({ ...(unflavour ? { ...plain, app: appNew } : meta), ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
     for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in${m === 'files' ? ', then rebuild the rules (node .devkit/tools/build-rules.mjs app/firestore.app.rules)' : ''}`);

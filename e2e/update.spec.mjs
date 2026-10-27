@@ -3,7 +3,12 @@ import { test, expect, uniq } from './fixtures.mjs';
 
 test('a new version waits while someone types, then reloads once', async ({ phone }) => {
   const page = await phone();
+  // cloud{
   await page.goto('/app/?emulator&sw', { waitUntil: 'domcontentloaded' });
+  // }cloud
+  /* static{
+  await page.goto('/app/?test&sw', { waitUntil: 'domcontentloaded' });
+  }static */
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; navigator.serviceWorker.addEventListener('controllerchange', () => { window.__updated = true; }); });
   // someone is typing (the sign-in screen has no input, so a stand-in)

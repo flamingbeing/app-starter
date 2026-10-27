@@ -5,10 +5,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// cloud{ the emulators (a static app has none: tools/flavour.mjs)
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
 export const db = fsAdmin('demo-starter-app');
 export const APP = '/app/?emulator';
+// }cloud
+/* static{
+// ?test: no service worker unless ?sw is given too (app.js)
+export const APP = '/app/?test';
+}static */
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 // SYNC_DIR: a local app-sync build (its entry files and src/) served in place of core.anawj.com/sync/<version>/, so
@@ -132,6 +138,7 @@ async function check(made) {
   }
 }
 
+// cloud{ sign-in and the server's copy
 // Sign in as a new made-up Google account; with a role, an admin "adds" it (the role doc) and the page picks the
 // new claims up by itself. -> { uid, email }
 export async function signIn(page, role = 'member', { path = APP } = {}) {
@@ -159,6 +166,17 @@ export async function signInAgain(page, email) {
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
 }
 
+// }cloud
+/* static{
+// A static app has no sign-in: the step a cloud app's tests sign in with only opens the list. -> {}
+export async function signIn(page, role = 'member', { path = APP } = {}) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#list-view')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  return {};
+}
+}static */
+
 export async function add(page, text) {
   await page.fill('#new-text', text);
   await page.click('#add button[type=submit]');
@@ -169,6 +187,7 @@ export async function add(page, text) {
 // (Firefox). The click event is sent in one step instead, to the button as it is now: nothing in between to be swapped.
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
+// cloud{
 export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
 // The id of the shared item with this text (db.list leaves document ids out).
 export async function itemIdOf(text) {
@@ -177,3 +196,4 @@ export async function itemIdOf(text) {
   const d = ((await r.json()).documents || []).find(x => x.fields?.text?.stringValue === text);
   return d?.name.split('/').pop();
 }
+// }cloud

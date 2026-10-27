@@ -3,13 +3,13 @@
 // stays open, says so, and Save adds their text back as a new item. (An item not on the server yet is only "gone" once
 // it was seen there.) The files recipe lists the item's photos and files under the text (the #edit-extras slot).
 import { confirmModal } from '@core/ui';
-import { REFUSED } from '../cloud.js';
+import { REFUSED } from '../items.js';
 import { $, input, dialog } from '../dom.js';
 
-/** @typedef {import('../cloud.js').Item} Item */
+/** @typedef {import('../items.js').Item} Item */
 
 /**
- * @param {import('../cloud.js').Started} app
+ * @param {import('../items.js').ItemsApp} app
  * @param {(message: string) => unknown} toast  a short note (the kit's toaster)
  * @param {{ show: (message: string, undo: () => unknown) => void }} undo  the kit's undo toast
  * @param {import('./list.js').ItemFiles | undefined} files  the files slot, when the files recipe is in
