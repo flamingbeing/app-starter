@@ -1,6 +1,6 @@
-// The page's shell: the theme, the kit's sync chip and update prompt, the account footer, and the screen switch. The
-// sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app replaces them and
-// keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
+// The page's shell: the theme, the kit's sync chip and update prompt (in Settings), the account footer, and the screen
+// switch. The sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app
+// replaces them and keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
 import { syncChip, updatePrompt, plural } from '@core/ui';
 import { themeSwitch } from '@core/theme';
 import { start, usingEmulator, emulatorSignIn } from './cloud.js';
@@ -37,6 +37,7 @@ else {
   chipStatus$(st => { window.starter.status = st.state; });
   let signedIn = false;
   settingsSheet(app, () => signedIn);
+  $('open-settings').hidden = false;   // signed out too: the version line and the device options are in it
   const list = listScreen(app);
   const show = screenSwitch({
     'signed-out': signedOutScreen(app, { onForget: ok => { if (ok) $('sign-out-msg').textContent = ''; } }),
@@ -54,7 +55,6 @@ else {
     onState(s) {
       $('who').textContent = s.user ? s.user.email : '';
       $('sign-out').hidden = !s.user;
-      $('open-settings').hidden = !s.user;
       signedIn = !!s.user;
       if (s.user) $('sign-out-msg').textContent = '';
       show(s);
