@@ -2,7 +2,7 @@
 //
 //   node tools/update-from-starter.mjs [--dir <app>] [--from <template checkout or git URL>] [--to <ref>] [--base <sha>]
 //                                      [--find-base] [--dry-run] [--no-install]
-//   node tools/update-from-starter.mjs --sync <x.y.z> [--dir <app>] [--dry-run]   only bump app-sync
+//   node tools/update-from-starter.mjs --sync <x.y.z[-rc.N]> [--dir <app>] [--dry-run]   only bump app-sync (names, lock, e2e core fixtures)
 //   node tools/update-from-starter.mjs --behind [<n>] [--dir <app>]               how far behind; exit 1 when over n
 //   node tools/update-from-starter.mjs --refresh [--dir <app>]                     only sw.js SHELL and the CSP hash
 //
@@ -38,10 +38,11 @@ import { swapsFor, fixup, isText } from './fill.mjs';
 export const DEFAULT_IGNORE = ['.starter.json', 'app/src/config.js', 'STATUS.md', 'NOTES.md', 'package-lock.json'];
 const SHELL_RE = /const SHELL = \[[\s\S]*?\];/;
 const HASH_RE = /(export const IMPORT_MAP = )"'sha256-[A-Za-z0-9+/=]+'"/;
-const SYNC_URL = /(https:\/\/core\.anawj\.com\/sync\/)(\d+\.\d+\.\d+)\//g;
-const SYNC_DEP = /("app-sync":\s*"github:flamingbeing\/app-sync#v)(\d+\.\d+\.\d+)(")/;
+const SYNC_URL = /(https:\/\/core\.anawj\.com\/sync\/)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\//g;
+const SYNC_DEP = /("app-sync":\s*"github:flamingbeing\/app-sync#v)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)(")/;
 const PIN_RE = /flamingbeing\/app-devkit\/([\w./-]+?)@(v\d+\.\d+\.\d+)|devkit-ref:\s*(v\d+\.\d+\.\d+)/g;
 
+const defaultExec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit' });
 const git = (cwd, args, opts = {}) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
 
 // '<glob>' -> RegExp: ** any folders, * anything but /, ? one character
@@ -245,12 +246,12 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
 }
 
 // the steps every app-sync bump (and every update) needs: the lock, sw.js's list, the import-map hash
-export function after(dir, { install = true, changedPkg = true, log = console.log } = {}) {
+export function after(dir, { install = true, changedPkg = true, log = console.log, exec = defaultExec } = {}) {
   const htmlPath = path.join(dir, 'app/index.html'), pkgPath = path.join(dir, 'package.json'), hdrPath = path.join(dir, 'worker/headers.js');
   const html = fs.readFileSync(htmlPath, 'utf8');
   const v = syncVersions(html, fs.readFileSync(pkgPath, 'utf8'));
   if (v.map.length !== 1 || v.map[0] !== v.dep) log(`warning: app-sync named differently: import map ${v.map.join(', ') || 'none'}, package.json ${v.dep ?? 'none'} (bump both with --sync <version>)`);
-  if (install && changedPkg) { log('npm install (package-lock.json)'); execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: dir, stdio: 'inherit' }); }
+  if (install && changedPkg) { log('npm install (package-lock.json)'); exec('npm', ['install', '--no-audit', '--no-fund'], dir); }
   if (fs.existsSync(path.join(dir, 'tools/sw-files.mjs'))) {
     const r = spawnSync('node', ['tools/sw-files.mjs', 'app'], { cwd: dir, encoding: 'utf8' });
     log(r.status === 0 ? 'sw.js SHELL regenerated' : `warning: sw-files failed (run npm install, then node tools/sw-files.mjs app): ${r.stderr.trim()}`);
@@ -262,18 +263,35 @@ export function after(dir, { install = true, changedPkg = true, log = console.lo
   }
 }
 
-// --sync <version>: app-sync's two names, then the steps above
-export function bumpSyncIn(dir, version, { dryRun = false, install = true, log = console.log } = {}) {
-  if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`--sync '${version}': a version like 1.3.10`);
+// e2e/fixtures/core/<kit>/<version>/ is a frozen copy of what the pages load from core.anawj.com: the old version's
+// folder becomes the new one's (so a file list already there survives), then the download refreshes the content
+function moveFixtures(dir, kit, version, { download, exec, log }) {
+  const kitDir = path.join(dir, 'e2e/fixtures/core', kit);
+  if (!fs.existsSync(kitDir)) return;
+  for (const old of fs.readdirSync(kitDir)) {
+    if (old === version) continue;
+    if (fs.existsSync(path.join(kitDir, version))) fs.rmSync(path.join(kitDir, old), { recursive: true });
+    else fs.renameSync(path.join(kitDir, old), path.join(kitDir, version));
+    log(`e2e/fixtures/core/${kit}: ${old} -> ${version}`);
+  }
+  if (download && fs.existsSync(path.join(dir, 'tools/refresh-core-fixtures.sh'))) { log('e2e core fixtures re-downloaded'); exec('bash', ['tools/refresh-core-fixtures.sh'], dir); }
+}
+
+// --sync <version>: app-sync's two names, then the steps above; the lock is moved by installing the tag (a plain
+// `npm install` keeps the lock's old resolved commit) and the e2e core fixtures follow the version
+export function bumpSyncIn(dir, version, { dryRun = false, install = true, log = console.log, exec = defaultExec } = {}) {
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/.test(version)) throw new Error(`--sync '${version}': a version like 1.3.10 or 1.4.0-rc.1`);
   const htmlPath = path.join(dir, 'app/index.html'), pkgPath = path.join(dir, 'package.json');
   const before = { html: fs.readFileSync(htmlPath, 'utf8'), pkg: fs.readFileSync(pkgPath, 'utf8') };
   const was = syncVersions(before.html, before.pkg);
   const next = bumpSync(before.html, before.pkg, version);
-  log(`app-sync ${[...new Set([...was.map, was.dep])].join('/')} -> ${version}: import map, package.json devDependency, lock, sw.js SHELL, CSP hash`);
+  log(`app-sync ${[...new Set([...was.map, was.dep])].join('/')} -> ${version}: import map, package.json devDependency, lock, e2e core fixtures, sw.js SHELL, CSP hash`);
   if (dryRun) return;
   fs.writeFileSync(htmlPath, next.html);
   fs.writeFileSync(pkgPath, next.pkg);
-  after(dir, { install, changedPkg: true, log });
+  if (install) { log('npm install app-sync tag (package-lock.json)'); exec('npm', ['install', '--save-dev', '--no-audit', '--no-fund', `app-sync@github:flamingbeing/app-sync#v${version}`], dir); }
+  moveFixtures(dir, 'sync', version, { download: install, exec, log });
+  after(dir, { install, changedPkg: false, log, exec });
 }
 
 export function parseArgs(argv) {
