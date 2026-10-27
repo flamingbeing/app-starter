@@ -19,7 +19,7 @@ test('with no network, the app starts from the service worker and shows the save
   await add(page, t);
   await synced(page);
   await setOffline(page.context(), true);
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#items')).toContainText(t);
   await setOffline(page.context(), false);
@@ -39,7 +39,7 @@ test('with no network and an expired sign-in token, the app still starts and sho
   // the ID token lasts an hour: two hours on, Firebase can't refresh it with no network
   await page.clock.install({ time: Date.now() + 2 * 3600_000 });
   await page.clock.resume();
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#items')).toContainText(t);
   expect(errors, 'uncaught errors').toEqual([]);
