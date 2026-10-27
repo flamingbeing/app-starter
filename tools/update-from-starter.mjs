@@ -98,13 +98,13 @@ function putBack(rel, merged, ours) {
 }
 
 // the template as a git repo: a local checkout, or a blobless clone of a URL
-function templateRepo(from) {
+export function templateRepo(from) {
   if (fs.existsSync(path.join(from, '.git')) || fs.existsSync(path.join(from, 'HEAD'))) return { dir: from, done() {} };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'template-'));
   git(dir, ['clone', '-q', '--filter=blob:none', '--no-checkout', from, '.'], { stdio: ['ignore', 'pipe', 'pipe'] });
   return { dir, done: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
-const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C', repo, 'show', `${ref}:${rel}`], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; } };
+export const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C', repo, 'show', `${ref}:${rel}`], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; } };
 
 // every file of a template commit, read in one go: { path: Buffer }
 function treeAt(repo, ref) {

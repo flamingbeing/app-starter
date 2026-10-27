@@ -1,7 +1,8 @@
 # Checks on every PR and push to main (README, "Tests"): repo checks, unit tests and the type check, secret scan, the
 # rules in the Firestore emulator, the browser tests (the real Worker in Node, the emulators, made-up accounts) and the
 # same browser tests on a Vite build ("vite"). In the template repo only, the "fill" job also fills a scratch copy as a
-# new app and runs the tests there. Jobs run side by side.
+# new app and runs the tests there, and the "add" job takes the search recipe out of one and puts it back
+# (tools/add.mjs). Jobs run side by side.
 # app-devkit blocks are pinned to an exact version; other actions by commit SHA (Dependabot bumps both).
 name: Checks
 on:
@@ -114,6 +115,54 @@ jobs:
         with:
           name: e2e-vite-results
           path: test-results
+          if-no-files-found: ignore
+
+  add:
+    # the template only: take the search recipe out of a scratch copy (the lean app) and check it, then put it back
+    # with tools/add.mjs, expect this repo's files exactly, and check search (type check, both Vite builds, browser tests)
+    if: github.repository == 'flamingbeing/app-starter'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: flamingbeing/app-devkit/setup-node@v1.11.0
+      - uses: flamingbeing/app-devkit/setup-browser@v1.11.0
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.11.0
+        with:
+          firebase-tools-version: '15.33.0'   # Firestore emulator v1.22 (playwright.config.mjs)
+          emulators: firestore,auth
+      - name: Take search out of a scratch copy
+        run: |
+          mkdir -p "$RUNNER_TEMP/app"
+          tar --exclude=.git --exclude=node_modules -cf - . | tar -xf - -C "$RUNNER_TEMP/app"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/app/node_modules"
+          cd "$RUNNER_TEMP/app"
+          node tools/add.mjs --remove search
+      - name: The lean app (type check, both Vite builds, the list's browser tests plain and on the Vite build)
+        working-directory: ${{ runner.temp }}/app
+        run: |
+          npm run typecheck
+          npm run vite
+          npx playwright test e2e/list.spec.mjs
+          APP_DIR=dist npx playwright test e2e/list.spec.mjs
+      - name: Add search back; the files are this repo's again
+        working-directory: ${{ runner.temp }}/app
+        run: |
+          node tools/add.mjs "$GITHUB_WORKSPACE/recipes/search.json"
+          diff -r -x node_modules -x .devkit -x .starter.json -x dist -x test-results -x playwright-report "$GITHUB_WORKSPACE" .
+          jq -e '.modules.search' .starter.json
+      - name: With search (type check, both Vite builds, the search browser tests plain and on the Vite build)
+        working-directory: ${{ runner.temp }}/app
+        run: |
+          npm run typecheck
+          npm run vite
+          npx playwright test e2e/search.spec.mjs
+          APP_DIR=dist npx playwright test e2e/search.spec.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: add-results
+          path: ${{ runner.temp }}/app/test-results
           if-no-files-found: ignore
 
   fill:

@@ -1,0 +1,251 @@
+// Adds an optional module to an app from its recipe, or takes it out again (README, "Modules").
+//
+//   node tools/add.mjs <source> [--dir <app>] [--dry-run]
+//   node tools/add.mjs --remove <module> [--dir <app>] [--dry-run]
+//
+// <source> is a recipe: a local path (`recipes/search.json`), `<owner/repo>@<tag|sha>:recipes/<module>.json`, or a
+// bare module name, which means the template's recipe at the commit the app was made from (.starter.json "template"
+// and "commit"; the local recipes/<module>.json when there is no commit, as in the template itself).
+//
+// A recipe (recipes/search.json is the first) is JSON with these fields, every one optional but "module":
+//   module          the name .starter.json "modules" records it under
+//   importMap       { name: url } added to app/index.html's import map (literal URLs)
+//   vendor          folders of outside packages, copied like files; each must hold its LICENSE
+//   files           [{ from, to? }] files or folders copied from the recipe's repo (the folder above recipes/) to the
+//                   app (`to` defaults to `from`), with the app's own values swapped in as fill.mjs does;
+//                   [{ to, after, line }] one line put after the line holding `after` (the glue: app/src/modules.js)
+//   tsconfigPaths   { name: [path] } added to tsconfig.json's "paths"
+//   tsconfigInclude [glob] added to tsconfig.json's "include"
+//   viteAlias       { name: path } added to vite.config.mjs SOURCE_ALIAS (builds that bundle core from source)
+//   cssVars         { --name: value } added to app/public/app.css's :root block
+//   needs           owner-only steps, printed as NEEDS-YOU lines
+//   docs            lines printed after the add
+//
+// Every edit is idempotent: a second run changes nothing. A copied file the app has changed is merged three-way with
+// the copy from the source .starter.json recorded before (git merge-file, as update-from-starter.mjs does), else kept.
+// --remove undoes each edit; a file the app changed is kept and listed. Afterwards sw.js's list and the import map's
+// CSP hash are regenerated (update-from-starter.mjs --refresh) and .starter.json "modules" records { module: source }.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { swapsFor, fixup, isText } from './fill.mjs';
+import { after, merge3, templateRepo, show } from './update-from-starter.mjs';
+
+const REMOTE = /^([\w.-]+\/[\w.-]+)@([\w./-]+):(.+\.json)$/;
+const MAP_RE = /(<script type="importmap">\n)([\s\S]*?)(\n\s*<\/script>)/;
+const INCLUDE_RE = /("include":\s*)(\[.*\])/;
+const CSS_MARK = '/* add: cssVars */';
+
+/** a source's files: { recipe, read(rel) -> Buffer | null, list(rel) -> [rel], app, done() } */
+export function openSource(source, dir, github = 'https://github.com') {
+  const remote = source.match(REMOTE);
+  if (remote) {
+    const [, repo, ref, rel] = remote;
+    const r = templateRepo(`${github}/${repo}`);
+    const read = file => show(r.dir, ref, file);
+    const list = file => execFileSync('git', ['-C', r.dir, 'ls-tree', '-r', '--name-only', ref, '--', file], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    return withRecipe({ read, list, done: r.done }, rel, source);
+  }
+  const file = path.resolve(dir, source);
+  const root = path.dirname(path.dirname(file));
+  const read = rel => { try { return fs.readFileSync(path.join(root, rel)); } catch { return null; } };
+  const walk = rel => {
+    const p = path.join(root, rel);
+    if (!fs.existsSync(p)) return [];
+    if (!fs.statSync(p).isDirectory()) return [rel];
+    return fs.readdirSync(p).sort().flatMap(n => walk(`${rel}/${n}`));
+  };
+  return withRecipe({ read, list: walk, done() {} }, path.relative(root, file), source);
+}
+function withRecipe(src, rel, source) {
+  const text = src.read(rel);
+  if (!text) { src.done(); throw new Error(`no recipe at ${source}`); }
+  const recipe = JSON.parse(text.toString('utf8'));
+  if (!/^[a-z][a-z0-9-]*$/.test(recipe.module ?? '')) { src.done(); throw new Error(`${source}: "module" must be a name like search`); }
+  return { ...src, recipe, app: JSON.parse(src.read('.starter.json')?.toString('utf8') || 'null')?.app };
+}
+
+/** a bare module name -> the template's recipe at the app's commit (local recipes/ when there is none) */
+export function resolveSource(name, meta) {
+  if (!/^[a-z][a-z0-9-]*$/.test(name)) return name;
+  return meta.commit ? `${meta.template}@${meta.commit}:recipes/${name}.json` : `recipes/${name}.json`;
+}
+
+/** text with `line` after the line holding `anchor`; a line starting with `key` is replaced (one per key) */
+export function putLine(text, anchor, line, key = line) {
+  const lines = dropLine(text, key).split('\n');
+  const at = lines.findIndex(l => l.includes(anchor));
+  if (at < 0) throw new Error(`no line holding ${anchor}`);
+  lines.splice(at + 1, 0, line);
+  return lines.join('\n');
+}
+/** text without the line whose trimmed text starts with `key` */
+export function dropLine(text, key) {
+  const k = key.trim();
+  return text.split('\n').filter(l => !l.trim().startsWith(k)).join('\n');
+}
+
+/** app/index.html with the import map's entries set (value) or taken out (null) */
+export function editImportMap(html, entries) {
+  const m = html.match(MAP_RE);
+  if (!m) throw new Error('app/index.html has no import map');
+  const map = JSON.parse(m[2]);
+  for (const [name, url] of Object.entries(entries)) {
+    if (url === null) delete map.imports[name];
+    else map.imports[name] = url;
+  }
+  return html.replace(MAP_RE, (_, a, __, c) => a + JSON.stringify(map, null, 2) + c);
+}
+
+/** tsconfig.json's one-line "include" with globs added or taken out */
+export function editInclude(text, globs, remove = false) {
+  const m = text.match(INCLUDE_RE);
+  if (!m) throw new Error('tsconfig.json has no one-line "include"');
+  const now = JSON.parse(m[2]);
+  const next = remove ? now.filter(g => !globs.includes(g)) : [...now, ...globs.filter(g => !now.includes(g))];
+  return text.replace(INCLUDE_RE, (_, a) => `${a}[${next.map(g => JSON.stringify(g)).join(', ')}]`);
+}
+
+/** the line edits a recipe makes: [{ file, anchor, line, key }] */
+export function lineEdits(recipe) {
+  const out = [];
+  for (const [name, paths] of Object.entries(recipe.tsconfigPaths ?? {}))
+    out.push({ file: 'tsconfig.json', anchor: '"paths": {', line: `      ${JSON.stringify(name)}: ${JSON.stringify(paths)},`, key: `${JSON.stringify(name)}:` });
+  for (const [name, to] of Object.entries(recipe.viteAlias ?? {}))
+    out.push({ file: 'vite.config.mjs', anchor: '// add: viteAlias', line: `  '${name}': '${to}',`, key: `'${name}':` });
+  for (const [name, value] of Object.entries(recipe.cssVars ?? {}))
+    out.push({ file: 'app/public/app.css', anchor: CSS_MARK, line: `  ${name}: ${value};`, key: `${name}:` });
+  for (const f of recipe.files ?? []) if (f.line) out.push({ file: f.to, anchor: f.after, line: f.line, key: f.line });
+  return out;
+}
+
+/** the files a recipe copies: [{ from, to }] one per file */
+function copies(src, recipe) {
+  const out = [];
+  for (const dirRel of recipe.vendor ?? []) {
+    const files = src.list(dirRel);
+    if (!files.some(f => /\/LICEN[CS]E[^/]*$/.test(f))) throw new Error(`vendor ${dirRel}: no LICENSE`);
+    out.push(...files.map(f => ({ from: f, to: f })));
+  }
+  for (const f of recipe.files ?? []) {
+    if (f.line) continue;
+    const files = src.list(f.from);
+    if (!files.length) throw new Error(`files: ${f.from} is not in the recipe's repo`);
+    const to = f.to ?? f.from;
+    out.push(...files.map(rel => ({ from: rel, to: to + rel.slice(f.from.length) })));
+  }
+  return out;
+}
+
+/** a source file with the app's values in (the source's .starter.json app -> this app's) */
+function filled(src, rel, app) {
+  const buf = src.read(rel);
+  if (buf === null || !isText(rel) || !src.app) return buf;
+  let text = buf.toString('utf8');
+  for (const [re, v] of swapsFor(src.app, app)) text = text.replace(re, v);
+  return Buffer.from(fixup(rel, text, app));
+}
+
+// -> { module, changes: [{ action, path, note? }], conflicts: [paths] }
+export function add({ source, dir = '.', dryRun = false, remove = false, log = console.log, refresh = true, github } = {}) {
+  dir = path.resolve(dir);
+  const metaPath = path.join(dir, '.starter.json');
+  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  const recorded = meta.modules ?? {};
+  if (remove && !recorded[source]) throw new Error(`.starter.json records no module ${source}`);
+  const from = remove ? recorded[source] : resolveSource(source, meta);
+  const src = openSource(from, dir, github);
+  const result = { module: src.recipe.module, changes: [], conflicts: [] };
+  const opened = [src];
+  try {
+    const { recipe } = src;
+    const prevSource = !remove && recorded[recipe.module] && recorded[recipe.module] !== from ? recorded[recipe.module] : null;
+    const prev = prevSource ? openSource(prevSource, dir, github) : null;
+    if (prev) opened.push(prev);
+    log(`${remove ? 'remove' : 'add'} ${recipe.module} (${from})`);
+    const note = (action, p, extra) => { result.changes.push({ action, path: p, ...(extra ? { note: extra } : {}) }); log(`  ${action.padEnd(9)} ${p}${extra ? `  (${extra})` : ''}`); };
+    const read = rel => { try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };
+    const write = (rel, buf) => { if (dryRun) return; fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), buf); };
+    const unlink = rel => {
+      if (dryRun) return;
+      fs.rmSync(path.join(dir, rel));
+      for (let d = path.dirname(rel); d !== '.' && fs.readdirSync(path.join(dir, d)).length === 0; d = path.dirname(d)) fs.rmdirSync(path.join(dir, d));
+    };
+    const editText = (rel, fn) => {
+      const before = read(rel)?.toString('utf8');
+      if (before === undefined) throw new Error(`${rel} is missing`);
+      const next = fn(before);
+      if (next !== before) { write(rel, next); note('edited', rel); }
+    };
+
+    // copied files: added, merged with the copy recorded before, or (remove) deleted when unchanged
+    for (const c of copies(src, recipe)) {
+      const theirs = filled(src, c.from, meta.app);
+      const ours = read(c.to);
+      if (remove) {
+        if (ours === null) continue;
+        if (ours.equals(theirs)) { unlink(c.to); note('deleted', c.to); }
+        else note('kept', c.to, 'the app changed it');
+        continue;
+      }
+      if (ours === null) { write(c.to, theirs); note('added', c.to); continue; }
+      if (ours.equals(theirs)) continue;
+      const base = prev ? filled(prev, c.from, meta.app) : null;
+      if (base && ours.equals(base)) { write(c.to, theirs); note('updated', c.to); continue; }
+      if (!base || !isText(c.to)) { note('kept', c.to, 'the app\'s copy differs from the recipe\'s'); continue; }
+      const m = merge3(ours.toString('utf8'), base.toString('utf8'), theirs.toString('utf8'), ['app', prevSource, from]);
+      write(c.to, m.text);
+      if (m.conflicts) { result.conflicts.push(c.to); note('conflict', c.to, `${m.conflicts} to resolve`); }
+      else note('merged', c.to);
+    }
+
+    if (recipe.importMap) editText('app/index.html', html => editImportMap(html, Object.fromEntries(Object.entries(recipe.importMap).map(([k, v]) => [k, remove ? null : v]))));
+    if (recipe.tsconfigInclude) editText('tsconfig.json', t => editInclude(t, recipe.tsconfigInclude, remove));
+    for (const e of lineEdits(recipe)) {
+      const css = e.anchor === CSS_MARK && !remove ? read(e.file)?.toString('utf8') ?? '' : null;
+      if (css !== null && !css.includes(CSS_MARK)) { write(e.file, `${css && css.replace(/\n*$/, '\n\n')}:root {\n  ${CSS_MARK}\n}\n`); note('edited', e.file); }
+      if (remove && read(e.file) === null) continue;
+      editText(e.file, t => remove ? dropLine(t, e.key) : putLine(t, e.anchor, e.line, e.key));
+    }
+
+    if (!dryRun) {
+      if (refresh) after(dir, { install: false, changedPkg: false, log });
+      const modules = { ...recorded };
+      if (remove) delete modules[recipe.module]; else modules[recipe.module] = from;
+      const { modules: _, ...rest } = meta;
+      fs.writeFileSync(metaPath, JSON.stringify(Object.keys(modules).length ? { ...rest, modules } : rest, null, 2) + '\n');
+      log(`.starter.json: modules ${Object.keys(modules).join(', ') || 'none'}`);
+    }
+    if (!remove) {
+      for (const n of recipe.needs ?? []) log(`NEEDS-YOU: ${n}`);
+      for (const d of recipe.docs ?? []) log(d);
+    }
+    if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
+    return result;
+  } finally { for (const s of opened) s.done(); }
+}
+
+export function parseArgs(argv) {
+  const out = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--dry-run') out.dryRun = true;
+    else if (a === '--remove') { out.remove = true; out.source = argv[++i]; }
+    else if (a === '--dir') out.dir = argv[++i];
+    else if (!a.startsWith('--') && !out.source) out.source = a;
+    else throw new Error(`unknown argument ${a}`);
+  }
+  if (!out.source) throw new Error('name a recipe: node tools/add.mjs <source> | --remove <module>');
+  return out;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const r = add(parseArgs(process.argv.slice(2)));
+    if (r.conflicts.length) process.exit(1);
+  } catch (e) {
+    console.error(`add: ${e.message}`);
+    process.exit(2);
+  }
+}
