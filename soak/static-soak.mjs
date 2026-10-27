@@ -46,6 +46,12 @@ function prepare() {
   const a = run('bash', ['-c', 'SKIP_NPM=1 . tools/dev-setup.sh'], o);
   const b = run('npm', ['ci', '--no-audit', '--no-fund'], { ...o, log: path.join(WORK, '_npm.log') });
   if (a.status || b.status || !fs.existsSync(path.join(base, '.devkit/VERSION'))) throw new Error(`prepare failed (see ${WORK}/_prepare.log, _npm.log)`);
+  // browsers: Playwright's own downloads, unless a Chromium is given (PW_CHROMIUM) and only chromium is asked for
+  const want = BROWSERS.filter(b => b !== 'chromium' || !env.PW_CHROMIUM);
+  if (want.length) {
+    const c = run('npx', ['playwright', 'install', ...want], { ...o, log: path.join(WORK, '_browsers.log') });
+    if (c.status) throw new Error(`playwright install ${want} failed (see ${WORK}/_browsers.log)`);
+  }
   fs.writeFileSync(path.join(base, '.ready'), '');
   return base;
 }
