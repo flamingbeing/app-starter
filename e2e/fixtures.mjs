@@ -4,6 +4,7 @@ import { test as base, expect, webkit } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
 export const db = fsAdmin('demo-starter-app');
@@ -23,9 +24,34 @@ async function routeSync(context, served) {
   });
 }
 
+// Hermetic: the pages load the UI kit and core files from core.anawj.com, a stylesheet from design.flamingbeing.com and
+// (Firebase Auth's SDK) Google's gapi scripts. A stalled fetch to any of them made tests swing with the internet, so the
+// core files come from e2e/fixtures/core/ (a copy of the pinned versions: refresh with tools/refresh-core-fixtures.sh
+// after changing a version), the stylesheet is empty and the Google hosts are refused. A core file not in the copy fails loudly.
+const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'core');
+const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+async function routeHermetic(context) {
+  await context.route(/^https:\/\/core\.anawj\.com\//, route => {
+    const rel = decodeURIComponent(new URL(route.request().url()).pathname);
+    const file = path.join(CORE, rel);
+    if (!file.startsWith(CORE + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: `not in e2e/fixtures/core: ${rel}` });
+    return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] || 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
+  });
+  await context.route('https://design.flamingbeing.com/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await context.route(/^https:\/\/(apis|www)\.google\.com\//, route => route.abort('blockedbyclient'));
+}
+
 // every new context: collect CSP reports; and the glass guard has already found this device fast (theme/guard.js),
 // so a slow CI runner's frames can't turn glass down mid-test (looks.spec runs the guard itself, on its own context)
 const seed = () => {
+  // Firebase Auth's SDK adds Google's gapi script (apis.google.com); Playwright's route cannot refuse it on a page the service
+  // worker controls (Firefox and WebKit don't route the worker's own fetches), and it ran live there: so it never loads, and
+  // its load fails as a blocked request does.
+  const { get, set } = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+  Object.defineProperty(HTMLScriptElement.prototype, 'src', { configurable: true, get, set(url) {
+    if (/^https:\/\/apis\.google\.com\//.test(url)) return void setTimeout(() => this.dispatchEvent(new Event('error')));
+    set.call(this, url);
+  } });
   window.__csp = [];
   addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
   try {
@@ -67,6 +93,7 @@ export const test = base.extend({
       const context = await newContext(browser, browserName, { viewport: { width: 390, height: 844 }, ...touch(browserName) }, blobs);
       await context.addInitScript(seed);
       const served = { n: 0, built: 0 };
+      await routeHermetic(context);
       if (SYNC_DIR) await routeSync(context, served);
       // APP_DIR (a Vite build, e2e/serve.mjs): count the built bundle's loads, so the run proves it tested dist/
       if (process.env.APP_DIR) context.on('request', r => { if (/\/app\/assets\/[^/]+\.js$/.test(r.url())) served.built++; });
@@ -83,6 +110,7 @@ export const test = base.extend({
       const height = width < 600 ? 844 : width < 1000 ? 1180 : 800;
       const context = await newContext(browser, browserName, { viewport: { width, height }, ...touch(browserName, width < 1000) });
       await context.addInitScript(seed);
+      await routeHermetic(context);
       const page = await context.newPage();
       made.push({ context, page, served: null });
       return page;
@@ -136,13 +164,10 @@ export async function add(page, text) {
   await page.click('#add button[type=submit]');
   await expect(page.locator('#items')).toContainText(text);
 }
-// Click a button that opens a dialog, and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the
-// files snapshot follows the first list one), and a click whose button is swapped out between press and release is
-// dropped (Firefox), so the dialog stays hidden: click again only while it is not open, never after it opened.
-export const clickOpens = (button, dialog) => expect(async () => {
-  if (!await dialog.isVisible()) await button.click({ timeout: 3_000 });
-  await expect(dialog).toBeVisible({ timeout: 2_000 });
-}).toPass({ timeout: 20_000 });
+// Open a dialog from its button and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the files
+// snapshot follows the first list one); a pointer click whose button is swapped out between press and release is dropped
+// (Firefox). The click event is sent in one step instead, to the button as it is now: nothing in between to be swapped.
+export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
 // The id of the shared item with this text (db.list leaves document ids out).
