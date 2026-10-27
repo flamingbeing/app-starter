@@ -41,7 +41,7 @@ const cached = page => page.evaluate(() => new Promise((ok, no) => {
 const loaded = img => expect.poll(() => img.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
 
 test('a photo added offline shows at once, uploads online, opens on another phone, and remove takes it off both', async ({ phone }) => {
-  const a = await phone();
+  const a = await phone({ blobs: true });
   const { email } = await signIn(a);
   const t = uniq('photo');
   await add(a, t);
@@ -62,7 +62,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   const [rec] = await records(`${t}.png`);
   expect(rec).toMatchObject({ type: 'image/webp', w: 800, h: 600, thumb: true });
 
-  const b = await phone();
+  const b = await phone({ blobs: true });
   await signInAgain(b, email);
   await loaded(b.locator('#items li', { hasText: t }).locator('img.thumb'));   // fetched from the Worker
   await openItem(b, t);
@@ -79,7 +79,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
 });
 
 test('a file that is not a picture is kept as it is; sign-out keeps an unsent upload, another account wipes the files', async ({ phone }) => {
-  const page = await phone();
+  const page = await phone({ blobs: true });
   const { email } = await signIn(page);
   const t = uniq('doc');
   await add(page, t);

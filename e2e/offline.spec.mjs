@@ -25,7 +25,7 @@ test('with no network, the app starts from the service worker and shows the save
   await setOffline(page.context(), false);
 });
 
-test('with no network and an expired sign-in token, the app still starts and shows the saved list', async ({ phone }) => {
+test('with no network and an expired sign-in token, the app still starts and shows the saved list', async ({ phone, browserName }) => {
   const page = await phone();
   await signIn(page, 'member', { path: '/app/?emulator&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
@@ -33,7 +33,8 @@ test('with no network and an expired sign-in token, the app still starts and sho
   await add(page, t);
   await synced(page);
   const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  // (WebKit reports a Firestore channel request that the route aborted as an uncaught error whose message is just its URL)
+  page.on('pageerror', e => { if (!(browserName === 'webkit' && /^\/?127\.0\.0\.1:8080\/google\.firestore\.v1\.Firestore\//.test(e.message))) errors.push(e.message); });
   await setOffline(page.context(), true);
   // the ID token lasts an hour: two hours on, Firebase can't refresh it with no network
   await page.clock.install({ time: Date.now() + 2 * 3600_000 });

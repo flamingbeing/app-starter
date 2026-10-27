@@ -37,9 +37,10 @@ const seed = () => {
 const touch = (browserName, mobile = true) => ({ hasTouch: true, ...(mobile && browserName !== 'firefox' ? { isMobile: true } : {}) });
 
 // A fresh context. WebKit's ephemeral contexts cannot keep a Blob in IndexedDB (the write fails with a null error, so the
-// files module's add() throws), a persistent profile can: there each context is its own browser on a new temp profile.
-async function newContext(browser, browserName, options) {
-  if (browserName !== 'webkit') return browser.newContext(options);
+// files module's add() throws), a persistent profile can (`blobs`: each context is then its own browser on a new temp
+// profile). But a persistent profile's Cache API stays empty for the service worker, so only the files tests ask for it.
+async function newContext(browser, browserName, options, blobs = false) {
+  if (browserName !== 'webkit' || !blobs) return browser.newContext(options);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-webkit-'));
   const context = await webkit.launchPersistentContext(dir, options);
   context.once('close', () => fs.rmSync(dir, { recursive: true, force: true }));
@@ -61,8 +62,8 @@ export const test = base.extend({
   // a new phone: its own browser context; CSP reports collected for the check after the test
   phone: async ({ browser, browserName }, use) => {
     const made = [];
-    await use(async () => {
-      const context = await newContext(browser, browserName, { viewport: { width: 390, height: 844 }, ...touch(browserName) });
+    await use(async ({ blobs = false } = {}) => {
+      const context = await newContext(browser, browserName, { viewport: { width: 390, height: 844 }, ...touch(browserName) }, blobs);
       await context.addInitScript(seed);
       const served = { n: 0, built: 0 };
       if (SYNC_DIR) await routeSync(context, served);
