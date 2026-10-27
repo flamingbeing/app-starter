@@ -10,7 +10,9 @@ const slow = async page => {
   return page;
 };
 // the app reloads itself when a new worker takes over; a test reload that lands on that one is aborted, not a failure
-const reload = page => page.reload({ waitUntil: 'domcontentloaded' }).catch(e => { if (!/ERR_ABORTED|detached/.test(e.message)) throw e; });
+// (Firefox: page.reload can hang when the worker answers, as in the starter's own setOffline note; a goto to the same URL does not)
+const reload = page => (page.context().browser()?.browserType().name() === 'firefox' ? page.goto(page.url(), { waitUntil: 'domcontentloaded' }) : page.reload({ waitUntil: 'domcontentloaded' }))
+  .catch(e => { if (!/ERR_ABORTED|detached|interrupted by another navigation/.test(e.message)) throw e; });
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
