@@ -86,7 +86,11 @@ const routed = new WeakMap(), NETWORK = /^https?:/;
 export async function setOffline(context, offline) {
   const engine = context.browser()?.browserType().name() ?? 'webkit';   // (no browser: a persistent profile, WebKit only)
   if (engine === 'chromium') return context.setOffline(offline);
-  const handler = route => route.request().resourceType() === 'document' ? route.continue() : route.abort('internetdisconnected');   // (a navigation is the worker's to answer; the route sees it first)
+  // (a navigation is the worker's to answer; the route sees it first. In Firefox so are the page's scripts and styles: its
+  // route can see one before the worker has taken it and abort a file the worker holds, in a loaded full run; offline.spec
+  // checks the worker did answer the scripts. WebKit has no such check: there they stay aborted)
+  const worker = engine === 'firefox' ? ['document', 'script', 'stylesheet'] : ['document'];
+  const handler = route => worker.includes(route.request().resourceType()) ? route.fallback() : route.abort('internetdisconnected');
   if (offline && !routed.has(context)) { routed.set(context, handler); await context.route(NETWORK, handler); }
   else if (!offline && routed.has(context)) { await context.unroute(NETWORK, routed.get(context)); routed.delete(context); }
 }

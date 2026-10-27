@@ -14,7 +14,15 @@ const shellCached = page => page.evaluate(async () => {
 });
 const shellFilled = page => expect.poll(() => shellCached(page), { message: 'every SHELL file cached', timeout: 30_000 }).toEqual([]);
 
-test('with no network, the app starts from the service worker and shows the saved list', async ({ phone }) => {
+// the page's scripts, collected from a start, that the worker did not answer (the offline route in setOffline lets them
+// through to the worker, so this is what shows the worker missing one)
+const unanswered = (page, browserName) => {
+  const missed = [];
+  page.on('response', r => { if (browserName === 'firefox' && r.request().resourceType() === 'script' && !r.fromServiceWorker()) missed.push(r.url()); });
+  return missed;
+};
+
+test('with no network, the app starts from the service worker and shows the saved list', async ({ phone, browserName }) => {
   const page = await phone();
   await signIn(page, 'member', { path: '/app/?emulator&sw' });
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
@@ -23,9 +31,11 @@ test('with no network, the app starts from the service worker and shows the save
   await add(page, t);
   await synced(page);
   await setOffline(page.context(), true);
+  const missed = unanswered(page, browserName);
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#items')).toContainText(t);
+  expect(missed, 'scripts the worker did not answer').toEqual([]);
   await setOffline(page.context(), false);
 });
 
