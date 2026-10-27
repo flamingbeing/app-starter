@@ -1,10 +1,10 @@
 // Sign-in, roles from the role doc, and the list: add, edit, delete to the bin.
 import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, add, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
 
 test('signed out: the sign-in screen, accessible', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP);
+  await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#signed-out')).toBeVisible();
   expect(await AxeBuilder(page)).toEqual([]);
 });
@@ -25,13 +25,13 @@ test('a member adds, edits and deletes; the delete lands in the bin', async ({ p
   await serverHas(t);
   expect(await AxeBuilder(page)).toEqual([]);
 
-  await page.getByRole('button', { name: t }).click();
+  await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
   await page.fill('#edit-text', t + ' edited');
   await page.click('#edit-save');
   await expect(page.locator('#items')).toContainText(t + ' edited');
   await serverHas(t + ' edited');
 
-  await page.getByRole('button', { name: t + ' edited' }).click();
+  await clickOpens(page.getByRole('button', { name: t + ' edited' }), page.locator('#edit'));
   await page.click('#edit-delete');
   await page.getByRole('button', { name: 'Delete', exact: true }).last().click();   // the confirm
   await expect(page.locator('#items')).not.toContainText(t);

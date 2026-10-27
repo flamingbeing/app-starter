@@ -1,9 +1,9 @@
 // @core/settings on the sample Settings sheet: a device value stays on this device, an account value reaches the
 // account's other devices, the settings file drops what it should not carry, and the open sheet passes axe.
-import { test, expect, signIn, signInAgain, synced } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, signInAgain, synced } from './fixtures.mjs';
 import AxeBuilder from './axe.mjs';
 
-const open = async page => { await page.click('#open-settings'); await expect(page.locator('#settings')).toBeVisible(); };
+const open = page => clickOpens(page.locator('#open-settings'), page.locator('#settings'));
 
 test('a device value stays on this device; an account value reaches the other one', async ({ phone }) => {
   const a = await phone();
@@ -39,7 +39,7 @@ test('the device value survives sign-out and a reload', async ({ phone }) => {
   await a.click('#settings-close');
   await a.click('#sign-out');
   await expect(a.locator('#signed-out')).toBeVisible();
-  await a.reload();
+  await a.reload({ waitUntil: 'domcontentloaded' });
   await expect(a.locator('#signed-out')).toBeVisible();
   await a.evaluate(e => window.starter.signInAs(e), email);
   await expect(a.locator('#list-view')).toBeVisible();

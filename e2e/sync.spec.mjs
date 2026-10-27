@@ -1,5 +1,5 @@
 // Offline saves, two phones and conflicts (sign-out and forget: modules.spec.mjs).
-import { test, expect, signIn, signInAgain, add, synced, serverHas, uniq, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, APP } from './fixtures.mjs';
 
 test('a save made offline is kept on the phone and sent once back online, even after closing the page', async ({ phone }) => {
   const page = await phone();
@@ -14,7 +14,7 @@ test('a save made offline is kept on the phone and sent once back online, even a
   await page.close();
   await page.context().setOffline(false);
   // still signed in on this phone: the list shows straight away, and the outbox sends what it kept
-  await again.goto(APP);
+  await again.goto(APP, { waitUntil: 'domcontentloaded' });
   await expect(again.locator('#list-view')).toBeVisible();
   await serverHas(t);
   await synced(again);
@@ -39,10 +39,10 @@ test('an edit that meets a change from another phone waits for a choice; keep mi
   await synced(b);
 
   await b.context().setOffline(true);
-  await b.getByRole('button', { name: t }).click();
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
   await b.fill('#edit-text', t + ' from b');
   await b.click('#edit-save');
-  await a.getByRole('button', { name: t }).click();
+  await clickOpens(a.getByRole('button', { name: t }), a.locator('#edit'));
   await a.fill('#edit-text', t + ' from a');
   await a.click('#edit-save');
   await serverHas(t + ' from a');
@@ -74,10 +74,10 @@ test('keep theirs drops this phone’s held change and nothing else', async ({ p
   await expect(b.locator('#items')).toContainText(t, { timeout: 15_000 });
   await synced(b);
   await b.context().setOffline(true);
-  await b.getByRole('button', { name: t }).click();
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
   await b.fill('#edit-text', t + ' from b');
   await b.click('#edit-save');
-  await a.getByRole('button', { name: t }).click();
+  await clickOpens(a.getByRole('button', { name: t }), a.locator('#edit'));
   await a.fill('#edit-text', t + ' from a');
   await a.click('#edit-save');
   await serverHas(t + ' from a');

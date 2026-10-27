@@ -3,7 +3,7 @@
 // unsent upload for the same account's next sign-in, and another account signing in wipes this device's files.
 import zlib from 'node:zlib';
 import axe from './axe.mjs';
-import { test, expect, setOffline, uniq, signIn, signInAgain, add, db, synced } from './fixtures.mjs';
+import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced } from './fixtures.mjs';
 
 // A small solid-colour PNG, made here (no binary fixture in the repo).
 function png(w, h, [r, g, b]) {
@@ -22,7 +22,7 @@ function png(w, h, [r, g, b]) {
     chunk('IDAT', zlib.deflateSync(Buffer.concat(Array.from({ length: h }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const openItem = async (page, text) => { await page.getByRole('button', { name: text, exact: true }).click(); await expect(page.locator('#edit')).toBeVisible(); };
+const openItem = (page, text) => clickOpens(page.getByRole('button', { name: text, exact: true }), page.locator('#edit'));
 const attach = (page, name, buffer, mimeType = 'image/png') => page.setInputFiles('#edit-file', { name, mimeType, buffer });
 // the shared space's file records on the server (db.list leaves document ids out)
 const records = async name => (await db.list('spaces/_/files')).filter(d => d.name === name);

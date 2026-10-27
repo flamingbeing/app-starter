@@ -1,6 +1,6 @@
 // @core/ui parts on the sample screens: the delete confirm (keyboard, Esc, focus return), toasts, the empty state.
 import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, add, uniq, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, uniq, APP } from './fixtures.mjs';
 
 test('delete asks first: Esc keeps the item and gives focus back; confirming deletes with a toast', async ({ phone }) => {
   const page = await phone();
@@ -9,7 +9,7 @@ test('delete asks first: Esc keeps the item and gives focus back; confirming del
   await add(page, t);
   await expect(page.locator('.toast', { hasText: 'Added' })).toBeVisible();
 
-  await page.getByRole('button', { name: t }).click();
+  await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
   await page.click('#edit-delete');
   const modal = page.locator('dialog.modal');
   await expect(modal).toBeVisible();
