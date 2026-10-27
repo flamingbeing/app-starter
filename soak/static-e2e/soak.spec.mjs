@@ -3,16 +3,18 @@
 // whatever the page did, a reload ends in a working list.
 import { test, expect, setOffline, uniq, signIn, add } from './fixtures.mjs';
 
+const engine = page => page.context().browser()?.browserType().name();
 // SOAK_THROTTLE=n: Chromium runs n times slower (a cheap phone); other browsers ignore it
 const slow = async page => {
   const n = +process.env.SOAK_THROTTLE || 1;
-  if (n > 1 && page.context().browser()?.browserType().name() === 'chromium') await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: n });
+  if (n > 1 && engine(page) === 'chromium') await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: n });
   return page;
 };
 // the app reloads itself when a new worker takes over; a test reload that lands on that one is aborted, not a failure
-// (Firefox: page.reload can hang when the worker answers, as in the starter's own setOffline note; a goto to the same URL does not)
-const reload = page => (page.context().browser()?.browserType().name() === 'firefox' ? page.goto(page.url(), { waitUntil: 'domcontentloaded' }) : page.reload({ waitUntil: 'domcontentloaded' }))
-  .catch(e => { if (!/ERR_ABORTED|detached|interrupted by another navigation/.test(e.message)) throw e; });
+// (then wait for that reload's document). Firefox: page.reload can hang when the worker answers (see setOffline in
+// fixtures.mjs), so it goes to the same URL (the app's URLs carry no hash)
+const reload = page => (engine(page) === 'firefox' ? page.goto(page.url(), { waitUntil: 'domcontentloaded' }) : page.reload({ waitUntil: 'domcontentloaded' }))
+  .catch(async e => { if (!/ERR_ABORTED|interrupted by another navigation/.test(e.message)) throw e; await page.waitForLoadState('domcontentloaded'); });
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
