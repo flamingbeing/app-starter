@@ -1,7 +1,7 @@
 // @core/theme glass + motion: glass bars, toasts and sheets by default, Solid per device (kept, and put back before
 // the modules run), solid where the device asks for less transparency or more contrast, axe on glass, the screen
 // switch as a view transition. Screenshots of the sample in light, dark, OLED and Solid go to test-results/ for the PR.
-import AxeBuilder from './axe.mjs';
+import AxeBuilder, { byTool } from './axe.mjs';
 import { test, expect, signIn, add, APP } from './fixtures.mjs';
 
 /** @param {import('@playwright/test').Page} page @param {string} sel @param {string} prop */
@@ -85,13 +85,13 @@ test('the sample in light, dark, OLED and Solid: axe on the bar, a toast and a s
     await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
     await settled(page);
     expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`glass-${name}.png`) });
+    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
 
     await page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }).click();
     await expect(page.locator('#edit')).toBeVisible();
     await settled(page);
     expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) });
+    await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
     await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('#edit')).toBeHidden();
   }
