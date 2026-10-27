@@ -14,6 +14,10 @@ function copy({ deps = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));
   fs.cpSync(ROOT, dir, { recursive: true, filter: src => !SKIP.has(path.basename(src)) });
   if (deps) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');   // sw.js's list reads app-sync and app-ui
+  // these tests are the starter's own: an app that took in this file (tools/update-from-starter.mjs) has modules, which a fresh render refuses
+  const metaPath = path.join(dir, '.starter.json');
+  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  if (meta.modules) { delete meta.modules; fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n'); }
   return dir;
 }
 const read = (dir, f) => fs.readFileSync(path.join(dir, f), 'utf8');

@@ -51,7 +51,7 @@ export function openSource(source, dir, github = 'https://github.com', clones = 
     const url = `${github}/${repo}`;
     const r = clones ? clones.get(url) ?? clones.set(url, templateRepo(url)).get(url) : templateRepo(url);
     const read = file => show(r.dir, ref, file);
-    const list = file => execFileSync('git', ['-C', r.dir, 'ls-tree', '-r', '--name-only', ref, '--', file], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    const list = file => execFileSync('git', ['-C', r.dir, '-c', 'core.quotePath=false', 'ls-tree', '-r', '-z', '--name-only', ref, '--', file], { encoding: 'utf8' }).split('\0').filter(Boolean);
     return withRecipe({ read, list, done: clones ? () => {} : r.done }, rel, source);
   }
   const file = path.resolve(dir, source);

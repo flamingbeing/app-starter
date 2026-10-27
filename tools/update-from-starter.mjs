@@ -45,7 +45,7 @@ const SYNC_DEP = /("app-sync":\s*"github:flamingbeing\/app-sync#v)(\d+\.\d+\.\d+
 const PIN_RE = /flamingbeing\/app-devkit\/([\w./-]+?)@(v\d+\.\d+\.\d+)|devkit-ref:\s*(v\d+\.\d+\.\d+)/g;
 
 const defaultExec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit' });
-const git = (cwd, args, opts = {}) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
+const git = (cwd, args, opts = {}) => execFileSync('git', ['-C', cwd, '-c', 'core.quotePath=false', ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
 
 // '<glob>' -> RegExp: ** any folders, * anything but /, ? one character
 export function globRe(glob) {
@@ -57,7 +57,8 @@ export function globRe(glob) {
 export function importMapHash(html) {
   const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
   if (!m) throw new Error('app/index.html has no import map');
-  return `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`;
+  // the browser hashes the script as parsed (newlines normalised to LF), so a CRLF checkout must hash the same
+  return `'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n?/g, '\n')).digest('base64')}'`;
 }
 
 // app-sync's version as the import map and package.json name it
@@ -110,7 +111,7 @@ export const show = (repo, ref, rel) => { try { return execFileSync('git', ['-C'
 
 // every file of a template commit, read in one go: { path: Buffer }
 export function treeAt(repo, ref) {
-  const paths = git(repo, ['ls-tree', '-r', '--name-only', ref]).trim().split('\n').filter(Boolean);
+  const paths = git(repo, ['ls-tree', '-r', '-z', '--name-only', ref]).split('\0').filter(Boolean);
   const out = execFileSync('git', ['-C', repo, 'cat-file', '--batch'], { input: paths.map(p => `${ref}:${p}\n`).join(''), maxBuffer: 256 << 20 });
   const files = {};
   let at = 0;
@@ -216,7 +217,9 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     }
     const moved = new Map();
 
-    const diff = oldF || newF ? renderedDiff(treeOf(baseSha, oldF), treeOf(newSha, newF)) : git(repo.dir, ['diff', '--name-status', '--no-renames', baseSha, newSha]).trim();
+    // -z: a path with non-ASCII characters, a quote or a newline is otherwise printed quoted and never found again
+    const gitDiff = () => { const z = git(repo.dir, ['diff', '--name-status', '-z', '--no-renames', baseSha, newSha]).split('\0').filter(Boolean); return z.filter((_, i) => i % 2 === 0).map((st, i) => `${st}\t${z[2 * i + 1]}`).join('\n'); };
+    const diff = oldF || newF ? renderedDiff(treeOf(baseSha, oldF), treeOf(newSha, newF)) : gitDiff();
     for (const line of diff ? diff.split('\n') : []) {
       const [status, rel] = line.split('\t');
       const target = appPath(rel);
@@ -236,14 +239,20 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
         if (status === 'M' && oldT) { note('kept', target, 'the app deleted it; the template changed it'); continue; }
         write(target, newT); note('added', target); continue;
       }
-      if (ours.equals(newT)) continue;
-      if (oldT && ours.equals(oldT)) { write(target, newT); note('updated', target); continue; }
-      if (!isText(rel)) { result.conflicts.push(target); note('conflict', target, 'binary, changed on both sides: the app\'s kept'); continue; }
-      const o = ours.toString('utf8');
-      const m = merge3(hold(rel, o), hold(rel, (oldT ?? Buffer.from('')).toString('utf8')), hold(rel, newT.toString('utf8')),
+      // .ts and the template-owned .mjs files (fill's KEEP) merge as text too; they only skip fill's swaps
+      const textual = isText(rel) || /\.(m?js|ts)$/.test(rel);
+      // a checkout with CRLF line endings (Windows autocrlf) against the template's LF: compare and merge as LF, write back CRLF
+      const crlf = textual && /\r\n/.test(ours.toString('utf8')) && !/(^|[^\r])\n/.test(ours.toString('utf8')) && !/\r\n/.test(newT.toString('utf8'));   // all CRLF: a file with mixed endings is left as it is
+      const lf = t => crlf ? t.replace(/\r\n/g, '\n') : t;
+      const toApp = t => crlf ? t.replace(/\r?\n/g, '\r\n') : t;
+      const o = lf(ours.toString('utf8'));
+      if (ours.equals(newT) || (crlf && o === newT.toString('utf8'))) continue;
+      if (oldT && (ours.equals(oldT) || (crlf && o === oldT.toString('utf8')))) { write(target, crlf ? Buffer.from(toApp(newT.toString('utf8'))) : newT); note('updated', target); continue; }
+      if (!textual) { result.conflicts.push(target); note('conflict', target, 'binary, changed on both sides: the app\'s kept'); continue; }
+      const m = merge3(hold(rel, o), hold(rel, lf((oldT ?? Buffer.from('')).toString('utf8'))), hold(rel, newT.toString('utf8')),
         ['app', `template ${result.from}`, `template ${short}`]);
-      const text = putBack(rel, m.text, o);
-      if (text === o) continue;
+      const text = toApp(putBack(rel, m.text, o));
+      if (text === ours.toString('utf8')) continue;
       write(target, text);
       if (m.conflicts) { result.conflicts.push(target); note('conflict', target, `${m.conflicts} to resolve`); }
       else note('merged', target);
