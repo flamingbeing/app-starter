@@ -1,0 +1,9 @@
+// The same ID token check as /api/claims (the emulators' unsigned tokens only on localhost with EMULATOR set), and the
+// rules' revoked/{uid} gate, read as the service account (without one, no roles are ever issued).
+function files(request, env, url, local, project) {
+  const emulator = !!(local && env.EMULATOR);
+  const verify = project ? idToken => verifyIdToken(idToken, { project, emulator }) : null;
+  const adm = project ? adminFor(env, local, project) : null;
+  const revoked = adm ? async (/** @type {string} */ uid) => !!(await adm.getDoc(`revoked/${uid}`)) : null;
+  return handleFiles(request, { bucket: env.FILES, verify, revoked, origin: url.origin });
+}

@@ -10,10 +10,14 @@
 // A recipe (recipes/search.json is the first) is JSON with these fields, every one optional but "module":
 //   module          the name .starter.json "modules" records it under
 //   importMap       { name: url } added to app/index.html's import map (literal URLs)
+//   root            the folder of the recipe's repo that mirrors the app (recipes/search): `vendor` and `files` paths are
+//                   the app's, read from under it (default: the repo's top)
 //   vendor          folders of outside packages, copied like files; each must hold its LICENSE
 //   files           [{ from, to? }] files or folders copied from the recipe's repo (the folder above recipes/) to the
 //                   app (`to` defaults to `from`), with the app's own values swapped in as fill.mjs does;
-//                   [{ to, after, line }] one line put after the line holding `after` (the glue: app/src/modules.js)
+//                   [{ to, after, line }] one line put after the line holding `after` (the glue: app/src/modules.js);
+//                   [{ to, after, block }] the lines of `block` (a file in the recipe's repo, usually recipes/<module>/...)
+//                   put after the line holding `after`; both get the app's own values swapped in
 //   tsconfigPaths   { name: [path] } added to tsconfig.json's "paths"
 //   tsconfigInclude [glob] added to tsconfig.json's "include"
 //   viteAlias       { name: path } added to vite.config.mjs SOURCE_ALIAS (builds that bundle core from source)
@@ -110,6 +114,28 @@ export function dropLine(text, key, anchor) {
   return lines.filter((l, i) => (b && (i <= b.at || i >= b.end)) || !norm(l.trim()).startsWith(k)).join('\n');
 }
 
+/** the index where `lines` start in `all` (compared as norm does), or -1 */
+function find(all, lines) {
+  const want = lines.map(norm);
+  for (let i = 0; i + want.length <= all.length; i++) if (want.every((w, j) => norm(all[i + j]) === w)) return i;
+  return -1;
+}
+/** text with the lines of `block` after the line holding `anchor` (unchanged when they are there already) */
+export function putBlock(text, anchor, block) {
+  const lines = text.split('\n'), at = lines.findIndex(l => l.includes(anchor));
+  if (at < 0) throw new Error(`no line holding ${anchor}`);
+  if (find(lines, block) >= 0) return text;
+  lines.splice(at + 1, 0, ...block);
+  return lines.join('\n');
+}
+/** text without the lines of `block` (unchanged when they are not there) */
+export function dropBlock(text, block) {
+  const lines = text.split('\n'), at = find(lines, block);
+  if (at < 0) return text;
+  lines.splice(at, block.length);
+  return lines.join('\n');
+}
+
 /** app/index.html with the import map's entries set (value) or taken out (null) */
 export function editImportMap(html, entries) {
   const m = html.match(MAP_RE);
@@ -131,7 +157,7 @@ export function editInclude(text, globs, remove = false) {
   return text.replace(INCLUDE_RE, (_, a) => `${a}[${next.map(g => JSON.stringify(g)).join(', ')}]`);
 }
 
-/** the line edits a recipe makes: [{ file, anchor, line, key }] */
+/** the line edits a recipe makes: [{ file, anchor, line, key }], and [{ file, anchor, block }] for a block of lines */
 export function lineEdits(recipe) {
   const out = [];
   for (const [name, paths] of Object.entries(recipe.tsconfigPaths ?? {}))
@@ -140,35 +166,43 @@ export function lineEdits(recipe) {
     out.push({ file: 'vite.config.mjs', anchor: '// add: viteAlias', line: `  '${name}': '${to}',`, key: `'${name}':` });
   for (const [name, value] of Object.entries(recipe.cssVars ?? {}))
     out.push({ file: 'app/public/app.css', anchor: CSS_MARK, line: `  ${name}: ${value};`, key: `${name}:` });
-  for (const f of recipe.files ?? []) if (f.line) out.push({ file: f.to, anchor: f.after, line: f.line, key: f.line });
+  for (const f of recipe.files ?? []) {
+    if (f.line) out.push({ file: f.to, anchor: f.after, line: f.line, key: f.line });
+    if (f.block) out.push({ file: f.to, anchor: f.after, block: f.block });
+  }
   return out;
 }
 
 /** the files a recipe copies: [{ from, to }] one per file */
 function copies(src, recipe) {
+  const root = recipe.root ? recipe.root.replace(/\/?$/, '/') : '';
   const out = [];
   for (const dirRel of recipe.vendor ?? []) {
-    const files = src.list(dirRel);
+    const files = src.list(root + dirRel);
     if (!files.some(f => /\/LICEN[CS]E[^/]*$/.test(f))) throw new Error(`vendor ${dirRel}: no LICENSE`);
-    out.push(...files.map(f => ({ from: f, to: f })));
+    out.push(...files.map(f => ({ from: f, to: f.slice(root.length) })));
   }
   for (const f of recipe.files ?? []) {
-    if (f.line) continue;
-    const files = src.list(f.from);
+    if (f.line || f.block) continue;
+    const files = src.list(root + f.from);
     if (!files.length) throw new Error(`files: ${f.from} is not in the recipe's repo`);
     const to = f.to ?? f.from;
-    out.push(...files.map(rel => ({ from: rel, to: to + rel.slice(f.from.length) })));
+    out.push(...files.map(rel => ({ from: rel, to: to + rel.slice(root.length + f.from.length) })));
   }
   return out;
 }
 
-/** a source file with the app's values in (the source's .starter.json app -> this app's) */
+/** text with the app's values in (the source's .starter.json app -> this app's) */
+function swapped(src, rel, text, app) {
+  if (!src.app) return text;
+  for (const [re, v] of swapsFor(src.app, app)) text = text.replace(re, v);
+  return fixup(rel, text, app);
+}
+/** a source file with the app's values in */
 function filled(src, rel, app) {
   const buf = src.read(rel);
-  if (buf === null || !isText(rel) || !src.app) return buf;
-  let text = buf.toString('utf8');
-  for (const [re, v] of swapsFor(src.app, app)) text = text.replace(re, v);
-  return Buffer.from(fixup(rel, text, app));
+  if (buf === null || !isText(rel)) return buf;
+  return Buffer.from(swapped(src, rel, buf.toString('utf8'), app));
 }
 
 // -> { module, changes: [{ action, path, note? }], conflicts: [paths] }
@@ -239,11 +273,20 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
 
     if (recipe.importMap) editText('app/index.html', html => editImportMap(html, Object.fromEntries(Object.entries(recipe.importMap).map(([k, v]) => [k, remove ? null : v]))));
     if (recipe.tsconfigInclude) editText('tsconfig.json', t => editInclude(t, recipe.tsconfigInclude, remove));
+    // glue: lines and blocks put after an anchor; a block the previous recipe put there and this one changed is swapped
+    const glue = (r, e) => e.block ? swapped(r, e.file, r.read(e.block).toString('utf8'), meta.app).replace(/\n+$/, '').split('\n') : swapped(r, e.file, e.line, meta.app);
     for (const e of lineEdits(recipe)) {
       const css = e.anchor === CSS_MARK && !remove ? read(e.file)?.toString('utf8') ?? '' : null;
       if (css !== null && !css.includes(CSS_MARK)) { write(e.file, `${css && css.replace(/\n*$/, '\n\n')}:root {\n  ${CSS_MARK}\n}\n`); note('edited', e.file); }
       if (remove && read(e.file) === null) continue;
-      editText(e.file, t => remove ? dropLine(t, e.key, e.anchor) : putLine(t, e.anchor, e.line, e.key));
+      if (e.block) {
+        const lines = glue(src, e);
+        const before = prev ? lineEdits(prev.recipe).find(p => p.file === e.file && p.block === e.block) : null;
+        editText(e.file, t => remove ? dropBlock(t, lines) : putBlock(before ? dropBlock(t, glue(prev, before)) : t, e.anchor, lines));
+      } else {
+        const line = glue(src, e), key = e.line === e.key ? line : e.key;
+        editText(e.file, t => remove ? dropLine(t, key, e.anchor) : putLine(t, e.anchor, line, key));
+      }
     }
 
     if (!dryRun) {

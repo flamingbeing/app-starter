@@ -1,0 +1,1 @@
+import { handleFiles } from './files.js';

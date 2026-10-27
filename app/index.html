@@ -19,8 +19,7 @@
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
-    "firebase/firestore": "./vendor/firebase/12.19.0/firebase-firestore.js",
-    "@core/search": "./search/index.js"
+    "firebase/firestore": "./vendor/firebase/12.19.0/firebase-firestore.js"
   }
 }
   </script>
@@ -99,9 +98,7 @@
       <label for="edit-text">Text</label>
       <input id="edit-text" maxlength="500" required>
       <p id="edit-live" class="small" role="status"></p>
-      <ul id="edit-files" class="files" aria-label="Photos and files" hidden></ul>
-      <button id="edit-attach" type="button">Add photo or file</button>
-      <input id="edit-file" type="file" multiple hidden>
+      <div id="edit-extras"></div>
       <div class="row">
         <button id="edit-save" value="save">Save</button>
         <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>

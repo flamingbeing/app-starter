@@ -8,7 +8,6 @@ import { defineConfig } from 'vite';
 // keeps them external like the rest of core. `node tools/add.mjs <recipe>` writes the lines after the mark.
 export const SOURCE_ALIAS = {
   // add: viteAlias
-  '@core/search': './app/public/search/index.js',
 };
 
 export default defineConfig({

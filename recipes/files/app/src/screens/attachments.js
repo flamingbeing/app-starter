@@ -2,7 +2,7 @@
 // from this device's cache, or fetched once uploaded; one not uploaded yet from another device shows its name until
 // its record says it is stored (the next draw tries again).
 
-/** @typedef {import('../cloud.js').Attachment} Attachment */
+/** @typedef {import('../files-data.js').Attachment} Attachment */
 /** @typedef {import('../cloud.js').Started} Started */
 
 /**

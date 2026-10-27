@@ -13,8 +13,6 @@ interface Window {
     /** ?emulator only: sign in as a made-up Google account (cloud.js emulatorSignIn; works in a Vite build too). */
     signInAs: (email: string) => Promise<unknown>;
     status?: string;
-    /** The files module's api (@core/files), for the tests. */
-    files: () => import('@core/files').FilesApi | undefined;
     [key: string]: unknown;
   };
 }
