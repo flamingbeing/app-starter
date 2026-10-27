@@ -195,7 +195,8 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       for (const [re, v] of swaps) text = text.replace(re, v);
       return Buffer.from(fixup(rel, text, app));
     };
-    const ignore = [...DEFAULT_IGNORE, ...(meta.update?.ignore ?? [])].map(globRe);
+    // (the move to the cloud brings the recipes' sources the static render left out: files)
+    const ignore = [...DEFAULT_IGNORE.filter(g => !(unflavour && g.startsWith('recipes/'))), ...(meta.update?.ignore ?? [])].map(globRe);
     const rename = meta.update?.rename ?? {};
     const appPath = rel => rename[rel] ?? rel;
     const read = rel => { try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };

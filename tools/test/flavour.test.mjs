@@ -79,8 +79,9 @@ test('renderDir: in place, records the flavour, prunes emptied folders; refuses 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-// cloud{ the template's own spec (a static app has no flavours/)
-test("the template's static spec: every path it removes or edits is in the template, and the render keeps no mark", () => {
+// cloud{ the template's own spec (a static app has no flavours/; a filled app skips these: its files are its own)
+const TEMPLATE_ONLY = { skip: JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../../.starter.json'), 'utf8')).commit ? 'the template\'s own' : false };
+test("the template's static spec: every path it removes or edits is in the template, and the render keeps no mark", TEMPLATE_ONLY, () => {
   const root = path.resolve(import.meta.dirname, '../..');
   const spec = JSON.parse(fs.readFileSync(path.join(root, 'flavours/static.json'), 'utf8'));
   for (const p of spec.remove) assert.ok(fs.existsSync(path.join(root, p)), `remove: ${p}`);
@@ -111,7 +112,7 @@ function copyTemplate(to) {
     fs.copyFileSync(path.join(root, rel), path.join(to, rel));
   }
 }
-test('a static app takes the template\'s changes to its render only; add.mjs cloud makes it the cloud app', () => {
+test('a static app takes the template\'s changes to its render only; add.mjs cloud makes it the cloud app', TEMPLATE_ONLY, () => {
   const tpl = fs.mkdtempSync(path.join(os.tmpdir(), 'tpl-'));
   const app = fs.mkdtempSync(path.join(os.tmpdir(), 'static-'));
   copyTemplate(tpl);
@@ -144,7 +145,7 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   assert.equal(meta.flavour, undefined);
   assert.equal(meta.app.project, 'trial-notes-app');
   assert.deepEqual(c.conflicts, []);
-  for (const f of ['app/src/cloud.js', 'worker/members.js', 'app/firestore.rules', 'e2e/sync.spec.mjs', 'app/public/vendor/firebase'])
+  for (const f of ['app/src/cloud.js', 'worker/members.js', 'app/firestore.rules', 'e2e/sync.spec.mjs', 'app/public/vendor/firebase', 'recipes/files/worker/files.js', 'flavours/static.json'])
     assert.ok(fs.existsSync(path.join(app, f)), f);
   assert.match(read('worker/members.js'), /a cloud-only change/);
   assert.match(read('app/src/settings-sheet.js'), /cloud\{[\s\S]*a cloud-only change/);
