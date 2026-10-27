@@ -181,6 +181,94 @@ async function realApp(appSrc) {
     return touched ? `edited ${touched}` : 'nothing to edit';
   });
 
+  // ---- round 2: other modes ----
+  const mode = (d, a, log) => { const r = run('node', [UPDATE, '--dir', d, '--from', args.starter, ...a], d, { env: { ...process.env, ...gitEnv } }); fs.appendFileSync(log, `$ ${a.join(' ')}\n${r.stdout}${r.stderr}\n[exit ${r.status}]\n`); return { code: r.status, out: r.stdout + r.stderr }; };
+
+  await scenario(app, 'behind-exit-codes', async log => {
+    const d = copyApp(appSrc, `${app}-behind`);
+    const before = walk(d);
+    const r0 = mode(d, ['--behind'], log), rBig = mode(d, ['--behind', '100000'], log), rZero = mode(d, ['--behind', '0'], log);
+    must(r0.code === 0 && rBig.code === 0, `--behind / --behind 100000 exit ${r0.code}/${rBig.code}`);
+    const m = rZero.out.match(/(\d+) template commit\(s\) behind/);
+    must(m, `no 'behind' line: ${rZero.out.slice(0, 200)}`);
+    must(Number(m[1]) === 0 ? rZero.code === 0 : rZero.code === 1, `--behind 0 exit ${rZero.code} with ${m[1]} behind`);
+    const n = Number(m[1]);
+    if (n > 0) must(mode(d, ['--behind', String(n)], log).code === 0 && mode(d, ['--behind', String(n - 1)], log).code === 1, 'boundary of --behind n wrong');
+    must(!diffSnap(before, walk(d)).length, '--behind changed files');
+    return `${n} behind`;
+  });
+
+  await scenario(app, 'sync-bump-no-install', async log => {
+    const d = copyApp(appSrc, `${app}-sync`);
+    const bad = mode(d, ['--sync', 'not-a-version', '--no-install'], log);
+    must(bad.code !== 0, 'bad --sync version accepted');
+    const before = walk(d);
+    must(mode(d, ['--sync', '1.9.9', '--no-install', '--dry-run'], log).code === 0, 'sync dry-run failed');
+    must(!diffSnap(before, walk(d)).length, 'sync --dry-run changed files');
+    const r = mode(d, ['--sync', '1.9.9', '--no-install'], log);
+    must(r.code === 0, `sync exit ${r.code}`);
+    const html = fs.readFileSync(path.join(d, 'app/index.html'), 'utf8'), pkg = fs.readFileSync(path.join(d, 'package.json'), 'utf8');
+    must(/app-sync[^"']*#v1\.9\.9|app-sync@1\.9\.9|app-sync\/1\.9\.9/.test(html) || html.includes('1.9.9'), 'import map not bumped');
+    must(pkg.includes('v1.9.9'), 'package.json not bumped');
+    const csp = html.match(/sha256-([A-Za-z0-9+/=]+)/);
+    const ld = html.replace(/\r\n/g, '\n');
+    const im = ld.match(/<script type="importmap">([\s\S]*?)<\/script>/);
+    if (csp && im) must(crypto.createHash('sha256').update(im[1]).digest('base64') === csp[1], 'CSP hash does not match the import map');
+    const snap = walk(d);
+    must(mode(d, ['--sync', '1.9.9', '--no-install'], log).code === 0, 'second sync failed');
+    must(!diffSnap(snap, walk(d)).length, 'second sync changed files');
+    return 'bumped, idempotent';
+  });
+
+  await scenario(app, 'update-then-sync-keeps-conflicts', async log => {
+    const d = copyApp(appSrc, `${app}-upsync`);
+    update(d, [], log);
+    const conf = Object.keys(walk(d)).filter(p => /\.(js|mjs|md|yml|json|html)$/.test(p) && fs.readFileSync(path.join(d, p), 'utf8').includes('<<<<<<<'));
+    const r = mode(d, ['--sync', '1.9.9', '--no-install'], log);
+    must(r.code === 0, `sync after update exit ${r.code}`);
+    for (const p of conf) must(fs.readFileSync(path.join(d, p), 'utf8').includes('<<<<<<<'), `${p}: conflict markers vanished after --sync`);
+    return `${conf.length} conflicted file(s) kept`;
+  });
+
+  // resolve every conflict by keeping the app side, then update again: must not re-conflict or lose the resolution
+  await scenario(app, 'conflict-resolved-then-rerun', async log => {
+    const d = copyApp(appSrc, `${app}-resolve`);
+    update(d, [], log);
+    const snap0 = walk(d);
+    let n = 0;
+    for (const p of Object.keys(snap0)) {
+      if (!/\.(js|mjs|md|yml|yaml|json|html|css|ts)$/.test(p)) continue;
+      const t = fs.readFileSync(path.join(d, p), 'utf8');
+      if (!t.includes('<<<<<<<')) continue;
+      n++;
+      fs.writeFileSync(path.join(d, p), t.replace(/<<<<<<<[^\n]*\n([\s\S]*?)=======\n[\s\S]*?>>>>>>>[^\n]*\n/g, '$1'));
+    }
+    const resolved = walk(d);
+    const r = update(d, [], log);
+    must(r.code === 0, `rerun after resolving ${n} file(s): exit ${r.code}`);
+    must(!diffSnap(resolved, walk(d)).length, `rerun changed ${diffSnap(resolved, walk(d)).slice(0, 5).join(', ')}`);
+    return `${n} resolved`;
+  });
+
+  // dirty-tree variants: staged, deleted-tracked and renamed app files with a git repo
+  await scenario(app, 'dirty-tree-variants', async log => {
+    const d = copyApp(appSrc, `${app}-dirty2`);
+    git(d, ['init', '-q']); git(d, ['add', '-A']); run('git', ['commit', '-qm', 'base'], d, { env: gitEnv });
+    fs.writeFileSync(path.join(d, 'staged-new.txt'), 'staged\n'); git(d, ['add', 'staged-new.txt']);
+    fs.writeFileSync(path.join(d, 'ünï staged.txt'), 'staged unicode\n'); git(d, ['add', 'ünï staged.txt']);
+    fs.mkdirSync(path.join(d, 'local dir'), { recursive: true }); fs.writeFileSync(path.join(d, 'local dir/x.txt'), 'x\n');
+    const victim = fs.existsSync(path.join(d, 'NOTES.md')) ? 'NOTES.md' : 'STATUS.md';
+    fs.rmSync(path.join(d, victim));
+    const r = update(d, [], log);
+    must(r.code === 0 || r.code === 1, `exit ${r.code}`);
+    must(fs.readFileSync(path.join(d, 'staged-new.txt'), 'utf8') === 'staged\n', 'staged file lost');
+    must(fs.readFileSync(path.join(d, 'ünï staged.txt'), 'utf8') === 'staged unicode\n', 'staged unicode file lost');
+    must(fs.existsSync(path.join(d, 'local dir/x.txt')), 'untracked dir lost');
+    const st = git(d, ['status', '--porcelain']);
+    must(!/^\?\? \.git/m.test(st), 'git state damaged');
+    return `deleted ${victim}: ${fs.existsSync(path.join(d, victim)) ? 're-added' : 'stays deleted'}`;
+  });
+
   if (args.full) await scenario(app, 'updated-copy-passes', async log => {
     const d = copyApp(appSrc, `${app}-full`);
     // a dev checkout has its node_modules (sw.js's SHELL is generated from app-sync / app-ui in them)
