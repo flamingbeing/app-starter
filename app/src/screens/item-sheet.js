@@ -11,10 +11,11 @@ import { $, input, dialog } from '../dom.js';
 /**
  * @param {import('../cloud.js').Started} app
  * @param {(message: string) => unknown} toast  a short note (the kit's toaster)
+ * @param {{ show: (message: string, undo: () => unknown) => void }} undo  the kit's undo toast
  * @param {import('./list.js').ItemFiles | undefined} files  the files slot, when the files recipe is in
  * @returns {{ open: (item: Item) => void, redraw: () => void }} open the sheet on an item; redraw its files
  */
-export function itemSheet(app, toast, files) {
+export function itemSheet(app, toast, undo, files) {
   const sheet = dialog('edit');
   /** @type {Item | null} */
   let editing = null;
@@ -34,10 +35,16 @@ export function itemSheet(app, toast, files) {
     }
   });
   $('edit-delete').addEventListener('click', async () => {
-    if (!await confirmModal('Delete this item? It goes to the bin.', { title: 'Delete item', danger: true, yes: 'Delete' })) return;
+    // a deleted item goes to the bin, and Undo puts its text back (no question); an item with files asks first, as
+    // its files go with it and Undo cannot bring them back
+    const attached = editing ? files?.of(editing.id) ?? [] : [];
+    if (attached.length && !await confirmModal('Delete this item and its files?', { title: 'Delete item', danger: true, yes: 'Delete' })) return;
     const item = editing; editing = null;
     sheet.close('delete');
-    if (item && !editingGone) { await app.remove(item, files?.of(item.id)); toast('Deleted'); }
+    if (!item || editingGone) return;
+    await app.remove(item, attached);
+    if (attached.length) toast('Deleted');
+    else undo.show(`Deleted “${item.text.length > 40 ? `${item.text.slice(0, 40)}…` : item.text}”`, async () => { if (await app.add(item.text)) toast(REFUSED); });
   });
 
   const open = (/** @type {Item} */ item) => {

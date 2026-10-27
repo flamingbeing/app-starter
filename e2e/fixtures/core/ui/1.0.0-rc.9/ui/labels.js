@@ -11,4 +11,16 @@ export const LABELS = Object.freeze({
   ok: 'OK',
   cancel: 'Cancel',
   dismiss: 'Dismiss',
+  // the reference parts' words (undo-toast.js, load-state.js, about-sheet.js)
+  undo: 'Undo',
+  loading: 'Loading…',
+  retry: 'Try again',
+  close: 'Close',
+  getNewest: 'Get the newest version',
+  checking: 'Checking…',
+  updated: 'Updated.',
+  checkFailed: 'Could not check. Try again when online.',
+  newest: 'This is the newest version (or the update waits until nothing is open).',
+  notInstalled: 'not installed yet',
+  licences: 'Open-source code in this app',
 });

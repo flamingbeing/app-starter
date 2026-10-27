@@ -1,6 +1,6 @@
 // The list screen (#list-view): the items, with add and edit (members and admins), the kit's conflict sheet and the
 // list of saves the server refused. With the files recipe each item shows its photos' thumbnails (and a clip for other files).
-import { conflictSheet, refusedList, toaster, emptyState } from '@core/ui';
+import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState } from '@core/ui';
 import { COLL, REFUSED, itemText } from '../cloud.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { itemSheet } from './item-sheet.js';
@@ -29,9 +29,12 @@ export function listScreen(app) {
   const filter = modules.listFilter?.({ slot: $('list-tools'), redraw: () => api.draw(all, new Set()) });
   /** the items to show, in order: the filter's pick, else all of them by text */
   const visible = () => filter?.pick(all) ?? [...all].sort((a, b) => String(a.text).localeCompare(String(b.text)));
-  const toast = toaster($('toasts')).show;
+  const toasts = toaster($('toasts'));
+  const toast = toasts.show;
+  const loading = loadState($('items-state'));   // skeleton rows until the list first arrives
+  loading.loading();
   const files = modules.itemFiles?.({ app, toast });
-  const sheet = itemSheet(app, toast, files);
+  const sheet = itemSheet(app, toast, undoToast(toasts), files);
   const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
   conflictSheet($('conflict-sheet'), { sync: app.sync, text: itemText });
   refusedList($('refused-list'), { sync: app.sync, kind: COLL, text: itemText });
@@ -58,6 +61,7 @@ export function listScreen(app) {
   /** @param {Item[]} items @param {Set<string>} changed */
   const draw = (items, changed) => {
     all = items; filter?.feed(items);
+    loading.done();
     const list = visible();
     $('items').replaceChildren(...list.map(item => {
       const li = document.createElement('li'), b = document.createElement('button');
@@ -76,6 +80,8 @@ export function listScreen(app) {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
     draw,
+    /** the list could not load: the message and a Retry @param {string} message @param {() => unknown} retry */
+    failed: (message, retry) => loading.failed(message, retry),
     /** @param {Map<string, unknown[]>} by  every item's files */
     drawFiles(by) { files?.feed(by); draw(all, new Set()); sheet.redraw(); },
   };
