@@ -58,7 +58,7 @@ for (let n = START; n < START + LOOPS; n++) {
   let failed = null;
   const step = (label, cmd, cwd = dir, env = {}) => { if (!failed && !run(cmd, cwd, log, env)) failed = label; };
 
-  step('copy', `mkdir -p "${dir}" && tar --exclude=.git --exclude=node_modules --exclude=.devkit --exclude=test-results --exclude=soak -cf - . | tar -xf - -C "${dir}" && ${args.box ? 'cp -a' : 'ln -s'} "${ROOT}/node_modules" "${dir}/node_modules" && ${args.box ? 'cp -a' : 'ln -s'} "${ROOT}/.devkit" "${dir}/.devkit"`, ROOT);
+  step('copy', `mkdir -p "${dir}" && tar --exclude=.git --exclude=node_modules --exclude=.devkit --exclude=test-results --exclude=soak -cf - . | tar -xf - -C "${dir}" && ${args.box ? 'cp -a' : 'ln -s'} "${ROOT}/node_modules" "${dir}/node_modules" && cp -a "${ROOT}/.devkit" "${dir}/.devkit"`, ROOT);
   step('fill', `node tools/fill.mjs --name ${name} --host ${name}.example.org --kit homedesign --project ${name}-demo`);
   for (const m of combo) step(`add ${m}`, `node tools/add.mjs recipes/${m}.json`);
   step('rules-build', `node .devkit/tools/build-rules.mjs app/firestore.app.rules`);
