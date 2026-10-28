@@ -202,8 +202,13 @@ export const serverHas = text => expect.poll(async () => (await db.list('spaces/
 // The id of the shared item with this text (db.list leaves document ids out).
 export async function itemIdOf(text) {
   const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
-  const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/items?pageSize=300`, { headers: { Authorization: 'Bearer owner' } });
-  const d = ((await r.json()).documents || []).find(x => x.fields?.text?.stringValue === text);
-  return d?.name.split('/').pop();
+  // (every page: the shared list grows over a long --repeat-each soak, past one page)
+  for (let token = ''; ;) {
+    const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/items?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
+    const j = await r.json();
+    const d = (j.documents || []).find(x => x.fields?.text?.stringValue === text);
+    if (d) return d.name.split('/').pop();
+    if (!(token = j.nextPageToken || '')) return undefined;
+  }
 }
 // }cloud
