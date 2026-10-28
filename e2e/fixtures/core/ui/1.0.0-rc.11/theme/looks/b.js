@@ -11,7 +11,7 @@ export default {
     'look-font-head': '"Avenir Next", "Segoe UI Variable Display", "Segoe UI", Roboto, system-ui, sans-serif',
     'title-size': '2.5rem', 'title-weight': '800', 'title-track': '-.02em',
     'bar-line': 'transparent',
-    'card-r': 'calc(var(--radius-l) * 1.85)', 'list-inset': 'var(--pad)',
+    'card-r': 'calc(var(--radius-l) * 1.85)', 'list-inset': 'var(--pad)', 'list-bg': 'var(--surface)',
     'list-edge': 'transparent', 'list-sep': 'transparent', 'list-shadow': '0 1px 3px rgb(0 0 0 / .07)',
     'row-weight': '600',
     'control-r': 'calc(var(--radius) * 2.2)', 'pill-r': 'calc(var(--radius-l) * 1.85)',

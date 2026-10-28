@@ -11,7 +11,7 @@ export default {
     'look-font-head': 'inherit',
     'title-size': '1.375rem', 'title-weight': '700', 'title-track': '0',
     'bar-line': 'var(--line)',
-    'card-r': '0', 'list-inset': '0',
+    'card-r': '0', 'list-inset': '0', 'list-bg': 'var(--surface)',
     'list-edge': 'var(--line)', 'list-sep': 'color-mix(in srgb, var(--line) 35%, transparent)', 'list-shadow': 'none',
     'row-weight': '400',
     'control-r': 'var(--radius)', 'pill-r': 'calc(var(--radius-l) * 1.2)',

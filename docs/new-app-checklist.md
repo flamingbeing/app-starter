@@ -79,3 +79,18 @@ template commit in `.starter.json`, not a `git merge`; the app's history is neve
   `n` template commits behind. The weekly workflow `.github/workflows/starter-behind.yml` runs it in every app and
   warns (never fails) past `BEHIND` commits, with the stale app-devkit pins.
 - [ ] Then the README's tests, and one PR.
+
+## 7. The page layout is the kit's shell
+
+The sample page is app-ui's shell (`.ui-shell`): a bar with the menu button, a phone tab bar over swipeable tab pages, a
+side bar from 600 px, and the phone drawer. It is wired in `app/src/shell.js` (`startGestures`, `adaptiveShell`) and
+`app/index.html`; the Settings page is `settingsScreen` with `about: { name, update }` (no hand-made dialog, no
+`updatePrompt`). The options it lists are `SETTING_SECTIONS` in `app/src/options.js`.
+
+- [ ] A new page: a `<section class="ui-screen ui-tab-page" id="x-page" hidden>` in `main.ui-screens` (with an
+  `h1.ui-large-title`), a `<button class="ui-tab" data-tab-page="#x-page">` in `nav.ui-tabbar` (optional
+  `span.ui-tab-icon`) and a `ui-side-link` for it in `nav#side`. Swipe and the bar title follow by themselves; the e2e
+  `openSettings` / `openItems` helpers in `e2e/fixtures.mjs` show how a test reaches a page.
+- [ ] The shell is the files `app/index.html`, `app/src/shell.js`, `app/public/app.css` and `options.js`; take template
+  changes to them with `tools/update-from-starter.mjs` (section 6), not by hand.
+

@@ -1,10 +1,11 @@
 // @core/theme: the switch sets this device's theme and density, and the choice survives a reload.
 import AxeBuilder from './axe.mjs';
-import { test, expect, APP } from './fixtures.mjs';
+import { test, expect, APP, openSettings } from './fixtures.mjs';
 
 test('theme and density switch: kept on this device, accessible in dark', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   const root = page.locator('html');
   await expect(root).not.toHaveAttribute('data-theme');
   await expect(root).not.toHaveAttribute('data-density');
@@ -16,6 +17,7 @@ test('theme and density switch: kept on this device, accessible in dark', async 
   expect(await AxeBuilder(page)).toEqual([]);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   await expect(root).toHaveAttribute('data-theme', 'dark');
   await expect(page.getByLabel('Density')).toHaveValue('compact');
 
@@ -28,6 +30,7 @@ const cssVar = (page, name) => page.evaluate(n => getComputedStyle(document.docu
 test('look and dark style: applied before the page is ready, kept on reload, OLED is black', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   const root = page.locator('html');
   const lightBg = await cssVar(page, '--bg');
   await page.locator('#preset-pick').selectOption('eye');
@@ -43,6 +46,7 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
 
   // (module scripts run before DOMContentLoaded: the chosen look is there from the first frame)
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   expect(await cssVar(page, '--bg')).toBe('#000000');
   await expect(page.locator('#preset-pick')).toHaveValue('eye');
   await expect(page.getByLabel('Dark style')).toHaveValue('oled');
@@ -54,6 +58,7 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
   expect(await cssVar(page, '--bg')).toBe('#000000');
   await page.unroute('**/theme/index.js');
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
 
   await page.locator('#preset-pick').selectOption('default');
   await page.getByLabel('Theme').selectOption('light');
@@ -64,12 +69,14 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
 test('accent: a picked colour is kept on this device, Reset goes back to the look\'s', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   const reset = page.getByRole('button', { name: 'Reset colour' });
   await expect(reset).toBeHidden();
   await expect(page.locator('#accent-pick')).toHaveValue('#3a6390');   // the app's (config.js)
   await page.locator('#accent-pick').fill('#c2417a');
   await expect(reset).toBeVisible();
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   await expect(page.locator('#accent-pick')).toHaveValue('#c24179');   // (snapped to 6 bits a channel)
   expect(await cssVar(page, '--accent')).not.toBe('');
   await page.getByRole('button', { name: 'Reset colour' }).click();
@@ -80,6 +87,7 @@ test('accent: a picked colour is kept on this device, Reset goes back to the loo
 test('every look passes axe in light, dark and OLED', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await openSettings(page);
   const looks = await page.locator('#preset-pick').locator('option').evaluateAll(os => os.map(o => /** @type {HTMLOptionElement} */ (o).value));
   expect(looks).toHaveLength(8);
   for (const look of looks) {

@@ -4,6 +4,8 @@
 
 - Made from app-starter; not filled yet.
 
+- Sample app is on app-ui 1.0.0-rc.11's kit shell and `settingsScreen` (2026-10-28).
+
 ## Waiting on the owner
 
 - <nothing>

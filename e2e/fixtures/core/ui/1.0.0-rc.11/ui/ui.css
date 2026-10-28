@@ -51,3 +51,17 @@ dialog.modal p { margin: 0 0 var(--pad); }
 /* about sheet */
 .about-licences { margin: 0 0 var(--pad); padding-left: 1.2rem; font-size: .85rem; color: var(--muted); }
 .about-sheet h3 { margin: var(--pad) 0 var(--gap); font-size: 1rem; }
+
+/* drag-reorder (drag-list.js) */
+.ui-grip { flex: none; min-width: var(--tap); min-height: var(--tap); display: grid; place-items: center; cursor: grab; touch-action: none; color: var(--muted); }
+li.dragging { position: relative; z-index: 2; box-shadow: var(--list-shadow); background: var(--surface); }
+
+/* hide mode (hide-mode.js) */
+.user-hidden { display: none !important; }
+.hide-cand { outline: 2px dashed var(--accent); outline-offset: 2px; cursor: pointer; }
+
+/* settings rows: the ⓘ detail and "Reset this page" (settings-screen.js) */
+.ui-setting:has(.ui-row-more) { flex-wrap: wrap; }
+.ui-info { flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0; border: 0; background: none; color: var(--link); }
+.ui-row-more { flex-basis: 100%; margin: 0; }
+.ui-reset, .ui-undo { min-height: var(--tap); padding: 0 var(--gap); border: 0; background: none; color: var(--link); }

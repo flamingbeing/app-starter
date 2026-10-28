@@ -128,15 +128,15 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   assert.throws(() => add({ source: path.join(tpl, 'recipes/files.json'), dir: app, log: () => {} }), /needs the cloud/);
 
   // the template changes a cloud region, a cloud-only file and a static file
-  edit(tpl, 'app/src/settings-sheet.js', t => t.replace(/\n(\s*\/\/ \}cloud)/, '\n    // a cloud-only change\n$1'));
+  edit(tpl, 'app/index.html', t => t.replace(/\n(\s*<!-- \}cloud -->)/, '\n    <!-- a cloud-only change -->\n$1'));
   edit(tpl, 'worker/members.js', t => `${t}// a cloud-only change\n`);
   edit(tpl, 'flavours/static/app/src/options.js', t => `${t}// a static change\n`);
   const next = commitAll(tpl, 'next');
-  const sheet = read('app/src/settings-sheet.js');
+  const sheet = read('app/index.html');
   const r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: () => {} });
   assert.deepEqual(r.changes.map(c => `${c.action} ${c.path}`), ['updated app/src/options.js']);
   assert.match(read('app/src/options.js'), /a static change/);
-  assert.equal(read('app/src/settings-sheet.js'), sheet, 'the cloud region stays out');
+  assert.equal(read('app/index.html'), sheet, 'the cloud region stays out');
   assert.ok(!fs.existsSync(path.join(app, 'worker/members.js')));
   assert.equal(JSON.parse(read('.starter.json')).commit, next.slice(0, 7));
 
@@ -149,7 +149,7 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   for (const f of ['app/src/cloud.js', 'worker/members.js', 'app/firestore.rules', 'e2e/sync.spec.mjs', 'app/public/vendor/firebase', 'recipes/files/worker/files.js', 'flavours/static.json'])
     assert.ok(fs.existsSync(path.join(app, f)), f);
   assert.match(read('worker/members.js'), /a cloud-only change/);
-  assert.match(read('app/src/settings-sheet.js'), /cloud\{[\s\S]*a cloud-only change/);
+  assert.match(read('app/index.html'), /cloud\{[\s\S]*a cloud-only change/);
   assert.ok(!fs.existsSync(path.join(app, 'app/src/local-store.js')), 'a static file the app never changed goes');
   assert.ok(c.changes.some(x => x.action === 'kept' && x.path === 'app/src/local.js'), 'one it changed stays, listed');
   assert.match(read('app/src/screens/list.js'), /the app's own line/);

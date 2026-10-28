@@ -21,6 +21,14 @@ never moves with a swipe; Still (this device) or Reduce Motion turns motion off.
 toolbar, segmented, stepper) and the opt-in extra-dense level (never under 24 px) are on `/kit/dense/`; rules in
 [ui-kit.md](https://github.com/flamingbeing/app-ui/blob/main/docs/ui-kit.md#layout-parts-and-extra-dense).
 
+## The shell (app-ui 1.0.0-rc.11)
+
+The sample page runs on the kit's shell (`.ui-shell`, tab pages, side bar, drawer) and `settingsScreen`; see the
+new-app checklist, section 7. Known gaps, all for app-ui: the bar's start/end layout (`.bar-side`, `.bar-end`) is
+hand-written in `app.css`; `adaptiveShell` needs a `.ui-pane-detail` even in an app with no detail pane (a hidden
+placeholder here); the kit's current-tab colour is 4.1:1 in the navy look (`app.css` overrides it with `--link`); the
+kit's bar is clear until the page scrolls, so the glass tests set `.is-collapsed`.
+
 ## Later
 
 - Restore from the bin (the bin entries keep the deleted version in `data`).
