@@ -170,14 +170,14 @@ export async function start({ canReload = null }) {
     const u = fa.currentUser, me = app.auth.user();
     if (u && !me) return;   // Firebase has the person; the engine's own copy of the user follows (onUser calls back)
     if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out' }); return; }
-    if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
+    if (claimsStatus === 503) { setHint(false); onState({ phase: 'not-set-up' }); return; }
     // offline with an expired token Firebase can't refresh it (auth/network-request-failed): the role comes from the
     // last token it holds, so the saved list still shows; back online, the fresh token calls back (onIdTokenChanged)
     const t = await u.getIdTokenResult().catch(() => lastToken(u)), role = roleOf(t.claims);
     if (n !== seq) return;
     if (role && t.token !== tokenSeen && !t.stale) return;   // a new token Firestore hasn't seen yet: onIdTokenChanged calls back
     const user = { uid: me.uid, email: me.email, name: me.name };
-    if (!role) { stopList(); onState({ phase: 'no-access', user, role: '' }); return; }
+    if (!role) { stopList(); setHint(false); onState({ phase: 'no-access', user, role: '' }); return; }
     setHint(true);
     onState({ phase: 'ready', user, role });
     offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
