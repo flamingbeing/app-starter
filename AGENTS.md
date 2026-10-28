@@ -56,6 +56,12 @@ Every change keeps the app:
   rather than code to shared files.
 - **Buffet recipes:** each module is a recipe an app picks on its own, with no other module needed, and leaves no
   trace when removed.
+- **Fixed at the source (the default):** every fix goes where the part lives unless only this app has it (its own
+  screens, wording, data, its collections' rules and tests); an app-only fix says why in the PR. app-sync or app-ui:
+  fix, release, then bump the pin here; app-devkit blocks: fix there, then take the new version; recipes, starter
+  files, the build (Vite config, `tools/`), `sw.js`, the CSP, worker routes and CI workflows: fix in this template,
+  and the app takes it with `node tools/update-from-starter.mjs`. Never patch a shared part inside the app; an urgent
+  stopgap goes in only alongside the upstream fix, linked from the PR, and is removed at the bump.
 
 ## Checks before merging
 
