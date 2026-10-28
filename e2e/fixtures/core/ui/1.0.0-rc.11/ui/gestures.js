@@ -7,6 +7,8 @@
 //                   bar's .ui-bar-title follows the top screen's large title, the top screen's .ui-back shows in the
 //                   bar's leading slot ([data-bar-lead], else the bar's start), and .ui-screens sends "ui-screen" (detail.top)
 //   select mode     .ui-list[data-select]                   tick rows, drag down the ticks, bottom action bar
+//   tab pages       nav.ui-tabbar [data-tab-page="#id"]     each tab shows one of the .ui-screens as the page under any
+//                                                           pushed ones; a sideways swipe moves between them on a phone
 // Styles: ui/gestures.css, loaded with <link> after ui.css.
 import { largeTitle } from './large-title.js';
 import { shrinkingTabBar } from './tab-bar.js';
@@ -14,12 +16,13 @@ import { holdMenus } from './hold-menu.js';
 import { detentSheet } from './detent-sheet.js';
 import { screenStack } from './screens.js';
 import { selectMode } from './select-mode.js';
+import { tabPages } from './tab-pages.js';
 
 /**
  * @param {ParentNode} [root]
  * @returns {{ title: ReturnType<typeof largeTitle> | null, menus: ReturnType<typeof holdMenus> | null,
  *   sheets: Map<string, ReturnType<typeof detentSheet>>, screens: ReturnType<typeof screenStack> | null,
- *   selects: Map<string, ReturnType<typeof selectMode>>, stop: () => void }}
+ *   selects: Map<string, ReturnType<typeof selectMode>>, tabs: ReturnType<typeof tabPages> | null, stop: () => void }}
  */
 export function startGestures(root = document) {
   /** @type {(() => void)[]} */
@@ -32,8 +35,8 @@ export function startGestures(root = document) {
   const bar = /** @type {HTMLElement | null} */ (root.querySelector('.ui-bar'));
   const title = bar && root.querySelector('.ui-large-title') ? largeTitle(bar) : null;
   if (title) stops.push(title.stop);
-  const tabs = /** @type {HTMLElement | null} */ (root.querySelector('nav.ui-tabbar[data-minimise]'));
-  if (tabs) stops.push(shrinkingTabBar(tabs));
+  const shrink = /** @type {HTMLElement | null} */ (root.querySelector('nav.ui-tabbar[data-minimise]'));
+  if (shrink) stops.push(shrinkingTabBar(shrink));
   const menus = root.querySelector('[data-hold-menu]') ? holdMenus(root) : null;
   if (menus) stops.push(menus.stop);
   const sheets = new Map();
@@ -62,13 +65,16 @@ export function startGestures(root = document) {
   }) : null;
   if (screens) stops.push(screens.stop);
   if (back) stops.push(() => { back.remove(); host?.classList.remove('has-bar-back'); });
+  const tabBar = /** @type {HTMLElement | null} */ (root.querySelector('nav.ui-tabbar'));
+  const tabs = tabBar && host && screens && tabBar.querySelector('[data-tab-page]') ? tabPages(tabBar, { screens, host, root }) : null;
+  if (tabs) stops.push(tabs.stop);
   const selects = new Map();
   for (const list of /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('.ui-list[data-select]'))) {
     const s = selectMode(list);
     selects.set(list.id, s);
     stops.push(s.stop);
   }
-  return { title, menus, sheets, screens, selects, stop: () => { while (stops.length) /** @type {() => void} */ (stops.pop())(); } };
+  return { title, menus, sheets, screens, selects, tabs, stop: () => { while (stops.length) /** @type {() => void} */ (stops.pop())(); } };
 }
 
 /** The bar's Back button (hidden until a screen is pushed). @param {HTMLElement} bar @param {HTMLElement} host

@@ -1,6 +1,6 @@
 // The 1.0 engine features the starter shows: sign-out keeps this device's data, forget wipes it, refused saves wait
 // in a list, the edit sheet follows its item live (watchDoc), the list marks what changed, and "Check for updates".
-import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP, openSettings, openItems } from './fixtures.mjs';
 
 const kept = page => page.evaluate(async () => {
   let n = 0;
@@ -26,7 +26,9 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   const t = uniq('kept');
   await page.context().setOffline(true);
   await add(page, t);
+  await openSettings(page);
   await page.click('#sign-out');
+  await openItems(page);
   await expect(page.locator('#signed-out')).toBeVisible();
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
@@ -43,7 +45,9 @@ test('forget this device: refused while unsent, then wipes the phone', async ({ 
   await synced(page);
   await page.context().setOffline(true);
   await add(page, uniq('unsent'));
+  await openSettings(page);
   await page.click('#sign-out');
+  await openItems(page);
   await page.click('#forget');
   await expect(page.locator('#forget-msg')).toContainText('not sent yet');
   await expect(page.locator('#forget-force')).toBeVisible();
@@ -114,8 +118,7 @@ test('check for updates: a new version takes over at once', async ({ phone }) =>
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; });
   await page.request.get('/__test/bump');
-  await page.click('#open-settings');   // the version line is in Settings
-  await page.click('#check-update');
-  await page.click('#settings-close');   // the reload waits while a sheet is open
+  await openSettings(page);   // the About rows are in Settings
+  await page.locator('.ui-check-update').click();
   await expect.poll(() => page.evaluate(() => window.__same).catch(() => undefined), { timeout: 30_000 }).toBeUndefined();
 });

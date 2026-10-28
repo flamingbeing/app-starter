@@ -1,6 +1,6 @@
 // A static app's list: this device only, no sign-in (app/src/local.js). It is kept in IndexedDB, so a reload and a
 // start with no network (the service worker) show it again; other tabs hear each change.
-import { test, expect, setOffline, uniq, signIn, add, clickOpens } from './fixtures.mjs';
+import { test, expect, setOffline, uniq, signIn, add, clickOpens, openSettings, openItems } from './fixtures.mjs';
 
 test('adds, edits and deletes; the list stays after a reload', async ({ phone }) => {
   const page = await phone();
@@ -26,10 +26,9 @@ test('no sign-in: no account footer, no sync chip, settings open at once', async
   const page = await phone();
   await signIn(page);
   await expect(page.locator('#signed-out, #sign-out, #sync-chip')).toHaveCount(0);
-  await page.click('#open-settings');
-  await expect(page.locator('#settings')).toBeVisible();
-  await page.check('#opt-itemCount');
-  await page.click('#settings-close');
+  await openSettings(page);
+  await page.getByRole('switch', { name: /Show how many items/ }).check();
+  await openItems(page);
   await expect(page.locator('#count')).toBeVisible();
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);

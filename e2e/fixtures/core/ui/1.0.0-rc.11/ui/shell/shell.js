@@ -13,6 +13,8 @@
 //   search       [data-shell-search] fields (the side bar's and the phone's) filter the rows and mirror each other;
 //                Ctrl/Cmd+K focuses the visible one; Esc clears it, then leaves it
 //   Esc          on a phone's pushed detail, goes back (select mode, menus and dialogs keep their own Esc)
+//   side bar     a .ui-bar-menu button (in the bar's [data-bar-lead]) opens the side bar as a drawer on a phone
+//                (.ui-shell.is-drawer-open); a side link, the shade, Esc or growing past phone width closes it
 // Pointer: right-click is the hold menu; Shift-click takes a range and Ctrl/Cmd-click adds a row (select-mode.js).
 import { listeners } from '../gesture.js';
 
@@ -125,8 +127,26 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
   for (const s of searches) l.on(s, 'input', () => { for (const o of searches) if (o !== s) o.value = s.value; filter(s.value); });
   const visibleSearch = () => searches.find(s => s.getClientRects().length > 0) ?? null;
 
+  // the phone's drawer: the side bar over the page
+  const side = /** @type {HTMLElement | null} */ (shell.querySelector('.ui-sidebar'));
+  const menus = /** @type {HTMLElement[]} */ ([...shell.querySelectorAll('.ui-bar-menu')]);
+  const drawerOpen = () => shell.classList.contains('is-drawer-open');
+  /** @param {boolean} on */
+  function drawer(on) {
+    if (on === drawerOpen() || !side) return;
+    shell.classList.toggle('is-drawer-open', on);
+    for (const m of menus) m.setAttribute('aria-expanded', String(on));
+    if (on) /** @type {HTMLElement | null} */ (side.querySelector('a, button, input'))?.focus();
+    else if (side.contains(document.activeElement)) menus[0]?.focus();
+  }
+  for (const m of menus) { m.setAttribute('aria-expanded', 'false'); l.on(m, 'click', () => drawer(!drawerOpen())); }
+  if (side) l.on(side, 'click', (/** @type {MouseEvent} */ e) => { if (/** @type {Element} */ (e.target).closest('a, .ui-side-link')) drawer(false); });
+  l.on(shell, 'click', (/** @type {MouseEvent} */ e) => { if (e.target === shell && drawerOpen()) drawer(false); });   // the shade
+  l.on(shell, 'ui-size', () => { if (size !== 'phone') drawer(false); });
+
   l.on(document, 'keydown', (/** @type {KeyboardEvent} */ e) => {
     const t = /** @type {Element} */ (e.target);
+    if (e.key === 'Escape' && drawerOpen()) { drawer(false); return; }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {
       const f = visibleSearch();
       if (!f || document.querySelector('dialog[open]')) return;

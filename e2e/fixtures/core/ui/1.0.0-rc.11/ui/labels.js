@@ -23,4 +23,8 @@ export const LABELS = Object.freeze({
   newest: 'This is the newest version (or the update waits until nothing is open).',
   notInstalled: 'not installed yet',
   licences: 'Open-source code in this app',
+  // share out (share.js)
+  copied: 'Copied',
+  copiedPaste: 'Copied: paste it where you want it',
+  copyFailed: 'Could not copy on this device',
 });

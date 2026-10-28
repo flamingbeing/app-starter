@@ -189,6 +189,12 @@ export async function add(page, text) {
 // Open a dialog from its button and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the files
 // snapshot follows the first list one); a pointer click whose button is swapped out between press and release is dropped
 // (Firefox). The click event is sent in one step instead, to the button as it is now: nothing in between to be swapped.
+// The Settings page (a tab on a phone, a side-bar link from 600 px) and back to the list
+const tabLink = id => `.ui-tab[data-tab-page="#${id}"]:visible, .ui-side-link[data-tab-page="#${id}"]:visible`;
+// (the tab bar folds its other tabs away once the page scrolls down: back at the top they show)
+const toTop = page => page.evaluate(() => { scrollTo(0, 0); document.querySelector('.ui-tabbar')?.classList.remove('is-minimised'); });
+export const openSettings = async page => { await toTop(page); await page.locator(tabLink('settings-page')).first().click(); await expect(page.locator('#settings-host')).toBeVisible(); };
+export const openItems = async page => { await toTop(page); await page.locator(tabLink('items-page')).first().click(); await expect(page.locator('#items-page')).toBeVisible(); };
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 // cloud{

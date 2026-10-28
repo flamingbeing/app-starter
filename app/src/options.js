@@ -10,5 +10,10 @@ export const OPTIONS = {
   itemCount: { scope: 'account', default: false },
 };
 
-/** The options the sample sheet has a switch for (index.html: #opt-<name>). */
-export const SWITCHES = Object.keys(OPTIONS);
+/** The Settings page's rows (src/shell.js: @core/ui settingsScreen); a row is a switch for a yes/no option. */
+export const SETTING_SECTIONS = [
+  { title: 'List', rows: [
+    { key: 'bigRows', label: 'Larger list rows', sub: 'This device' },
+    { key: 'itemCount', label: 'Show how many items there are', sub: 'Every device; sign in to change it' },
+  ] },
+];

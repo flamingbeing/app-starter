@@ -2,14 +2,19 @@
 // picker and the settings file (export, import), in a host the page gives it. It reads only the settings api it is
 // handed and follows it: a change on another device or by a profile shows at once. The app names the rows and their
 // words; a section can also hold the app's own part (mount), such as @core/theme's themeSwitch for "This device".
+// With about (the app's name and its update api), an About group comes last: the Version row, Check for updates and
+// the About sheet; it also retries an owed reload once a field is left or a sheet closes (as updatePrompt does).
 // Styles: ui/gestures.css (lists), "settings screen".
 import { el, button, plural } from './dom.js';
+import { LABELS } from './labels.js';
+import { aboutSheet } from './about-sheet.js';
 
 /**
- * @typedef {{ key: string, label: string, sub?: string, choices?: [unknown, string][], min?: number, max?: number,
- *   step?: number }} SettingRow  choices: [value, word] pairs (a picker); a boolean default is a switch; a number one a
- *   number field (min, max, step)
- * @typedef {{ title: string, rows?: SettingRow[], mount?: (host: HTMLElement) => (() => void) | void }} SettingSection
+ * @typedef {{ key: string, label: string, sub?: string, more?: string, choices?: [unknown, string][], min?: number,
+ *   max?: number, step?: number }} SettingRow  sub: one line of help; more: the rest, behind an ⓘ button; choices:
+ *   [value, word] pairs (a picker); a boolean default is a switch; a number one a number field (min, max, step)
+ * @typedef {{ title: string, rows?: SettingRow[], reset?: boolean, mount?: (host: HTMLElement) => (() => void) | void }} SettingSection
+ *   reset: adds "Reset this page", which puts this section's rows back to their defaults and offers Undo
  */
 
 /** @type {Readonly<Record<string, string>>} */
@@ -26,16 +31,30 @@ export const SETTINGS_WORDS = Object.freeze({
   imported: 'Imported',
   nothing: 'Nothing to change',
   left: 'left out',
+  moreInfo: 'More about this setting',
+  resetPage: 'Reset this page',
+  resetDone: 'Back to the defaults',
+  undo: 'Undo',
+  about: 'About',
+  version: 'Version',
+  dev: 'dev',
+  checkUpdates: 'Check for updates',
+  aboutRow: 'About this app',
+  aboutSub: 'The outside code it uses and their licences',
+  open: 'Open',
 });
 
 /**
  * @param {HTMLElement} host  the screen is added here
  * @param {{ settings: import('../settings/types').SettingsApi, sections: SettingSection[], file?: string | false,
- *   labels?: Record<string, string> }} o  file: the exported file's name (false: no file rows); labels: words over SETTINGS_WORDS
+ *   labels?: Record<string, string>, about?: { name: string, update: import('./types').UpdateApi | null,
+ *   licences?: Record<string, string>, importMap?: { imports?: Record<string, string> } | null } }} o  file: the
+ *   exported file's name (false: no file rows); labels: words over SETTINGS_WORDS (and LABELS); about: the About group
+ *   (update null: the version reads "dev", no check)
  * @returns {() => void} stop: unwatches and removes the screen
  */
-export function settingsScreen(host, { settings, sections, file = 'settings.json', labels = {} }) {
-  const words = { ...SETTINGS_WORDS, ...labels };
+export function settingsScreen(host, { settings, sections, file = 'settings.json', labels = {}, about }) {
+  const words = { ...LABELS, ...SETTINGS_WORDS, ...labels };
   const box = el('div', { class: 'ui-settings' });
   const status = el('p', { class: 'ui-settings-status small', role: 'status', 'aria-live': 'polite' });
   /** @type {Map<string, (v: unknown) => void>} */
@@ -44,7 +63,7 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
   const stops = [];
   let n = 0;
   const id = () => `ui-set-${++n}`;
-  const say = (/** @type {string} */ text, bad = false) => { status.textContent = text; status.classList.toggle('error', bad); };
+  const say = (/** @type {string} */ text, bad = false) => { status.replaceChildren(text); status.classList.toggle('error', bad); };
 
   /** @param {string} title @param {HTMLElement} body */
   function group(title, body) {
@@ -53,12 +72,23 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
     box.append(s);
     return s;
   }
-  /** @param {string} label @param {string | undefined} sub @param {HTMLElement} control */
-  function row(label, sub, control) {
+  /** @param {string} label @param {string | undefined} sub @param {HTMLElement} control @param {string} [more] */
+  function row(label, sub, control, more) {
     control.id ||= id();
     const main = el('label', { class: 'ui-row-main', for: control.id }, label);
     if (sub) main.append(el('span', { class: 'ui-row-sub' }, sub));
-    return el('li', { class: 'ui-row ui-setting' }, main, control);
+    const li = el('li', { class: 'ui-row ui-setting' }, main, control);
+    if (more) {
+      const detail = el('p', { class: 'ui-row-more small', id: id(), hidden: '' }, more);
+      const info = el('button', { type: 'button', class: 'ui-info', 'aria-label': `${words.moreInfo}: ${label}`, 'aria-expanded': 'false', 'aria-controls': detail.id }, 'ⓘ');
+      info.addEventListener('click', () => {
+        detail.hidden = !detail.hidden;
+        info.setAttribute('aria-expanded', String(!detail.hidden));
+      });
+      li.insertBefore(info, control);
+      li.append(detail);
+    }
+    return li;
   }
   /** a save; refused (a value its clean refuses, an account option while signed out): the control shows the value in force again
    * @param {string} key @param {unknown} value */
@@ -90,6 +120,28 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
     return { node: sw, show, now };
   }
 
+  /** "Reset this page": forgets the saved values of these options (back to the profile's or the default), then offers
+   * Undo, which saves the values they had. No "Are you sure?" (the kit's rule).
+   * @param {string[]} keys */
+  function resetRow(keys) {
+    const link = button(words.resetPage, async () => {
+      const before = keys.map(k => /** @type {const} */ ([k, settings.get(k)]));
+      const results = await Promise.allSettled(keys.map(k => settings.set(k, null)));
+      const failed = results.find(r => r.status === 'rejected');
+      const undo = button(words.undo, async () => {
+        const back = await Promise.allSettled(before.map(([k, v]) => settings.set(k, v)));
+        const bad = back.find(r => r.status === 'rejected');
+        if (bad) say(bad.reason instanceof Error ? bad.reason.message : String(bad.reason), true); else say('');
+      }, { class: 'ui-undo' });
+      // the offer goes with the next change to any option (a stale Undo would overwrite it)
+      const gone = settings.watch(null, () => { gone(); if (status.contains(undo)) say(''); });
+      if (failed) say(failed.reason instanceof Error ? failed.reason.message : String(failed.reason), true);
+      else { status.classList.remove('error'); status.replaceChildren(words.resetDone); }
+      status.append(' ', undo);
+    }, { class: 'ui-reset small' });
+    return el('p', { class: 'ui-settings-part' }, link);
+  }
+
   // the profile picker, when the app has profiles
   const profiles = settings.profiles();
   /** @type {(() => void) | null} */
@@ -116,10 +168,11 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
       const c = control(r);
       c.show(c.now);
       shows.set(r.key, c.show);
-      list.append(row(r.label, r.sub, c.node));
+      list.append(row(r.label, r.sub, c.node, r.more));
     }
     const g = group(s.title, list);
     if (!s.rows?.length) list.remove();
+    if (s.reset && s.rows?.length) g.append(resetRow(s.rows.map(r => r.key)));
     if (s.mount) {
       const part = el('div', { class: 'ui-settings-part' });
       g.append(part);
@@ -151,6 +204,33 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
     });
     const main = el('span', { class: 'ui-row-main' }, words.fileRow, el('span', { class: 'ui-row-sub' }, words.fileSub));
     group(words.file, el('ul', { class: 'ui-list' }, el('li', { class: 'ui-row ui-setting' }, main, el('span', { class: 'ui-setting-buttons' }, exp, imp, picker))));
+  }
+
+  // About: the version, Check for updates (its answer under it) and the About sheet
+  if (about) {
+    const { update } = about;
+    const version = el('span', { class: 'ui-setting-value', id: id() }, update ? '…' : words.dev);
+    const vrow = el('li', { class: 'ui-row ui-setting ui-version' }, el('span', { class: 'ui-row-main' }, words.version), version);
+    const list = el('ul', { class: 'ui-list' }, vrow);
+    if (update) {
+      update.versionLabel().then(v => { version.textContent = v || words.notInstalled; }, () => { version.textContent = words.notInstalled; });
+      const answer = el('span', { class: 'ui-row-sub', role: 'status' });
+      const check = button(words.checkUpdates, async () => {
+        answer.textContent = words.checking;
+        try { answer.textContent = await update.checkNow() ? words.updated : words.newest; }
+        catch { answer.textContent = words.checkFailed; }
+      }, { class: 'ui-check-update' });
+      list.append(el('li', { class: 'ui-row ui-setting' }, el('span', { class: 'ui-row-main' }, words.checkUpdates, answer), check));
+      const retry = () => setTimeout(() => update.retryUpdate(), 0);
+      document.addEventListener('focusout', retry);
+      document.addEventListener('close', retry, true);   // a dialog closing ('close' doesn't bubble, so on the way down)
+      stops.push(() => { document.removeEventListener('focusout', retry); document.removeEventListener('close', retry, true); });
+    }
+    const open = button(words.open, () => void aboutSheet({ name: about.name, update, licences: about.licences,
+      importMap: about.importMap, labels }), { class: 'ui-about-open', 'aria-label': `${words.open} ${words.aboutRow.toLowerCase()}` });
+    list.append(el('li', { class: 'ui-row ui-setting' },
+      el('span', { class: 'ui-row-main' }, words.aboutRow, el('span', { class: 'ui-row-sub' }, words.aboutSub)), open));
+    group(words.about, list);
   }
 
   box.append(status);
