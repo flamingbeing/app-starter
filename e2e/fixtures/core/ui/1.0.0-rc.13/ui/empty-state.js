@@ -8,7 +8,7 @@ import { el, button } from './dom.js';
  */
 export function emptyState(host, { title, hint = '', action }) {
   const box = el('div', { class: 'empty-state' }, el('p', { class: 'empty-title' }, title));
-  if (hint) box.append(el('p', { class: 'small' }, hint));
+  if (hint) box.append(el('p', { class: 'ui-small small' }, hint));
   if (action) box.append(button(action.label, action.onClick));
   box.hidden = true;
   host.append(box);

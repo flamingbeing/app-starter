@@ -5,8 +5,9 @@
 // Markup (ui/shell/shell.css): .ui-shell > nav.ui-sidebar, main.ui-screens.ui-panes > section.ui-pane-list (with a
 // .ui-list[data-select]) + section.ui-pane-detail.ui-screen, and nav.ui-tabbar. The root and <html> carry
 // data-size="phone|tablet|laptop" and the root sends "ui-size" (detail.size) when it changes.
-//   open a row   click, Enter, or the hold menu's "open" (a "ui-menu" event with detail.action "open"); wide: the detail
-//                pane shows it and the row gets aria-current; phone: the detail screen is pushed
+//   open a row   click, Enter, or the hold menu's "open" (a "ui-menu" event with detail.action "open"); the row gets
+//                aria-current and sends "ui-open" (detail.row, detail.size); wide: the detail pane shows it; phone: the
+//                detail screen is pushed. The detail pane is optional: without one, "ui-open" is all that happens
 //   no row open  the detail pane carries data-empty (its .ui-detail-actions hide) and shows its first words; a deleted
 //                open row empties it again
 //   many ticked  "ui-select" with 2+ rows swaps .ui-detail-one for .ui-detail-multi ([data-multi-count], [data-multi-names])
@@ -46,9 +47,10 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
   const l = listeners();
   const html = document.documentElement;
   const list = /** @type {HTMLElement} */ (shell.querySelector('.ui-list'));
-  const detail = /** @type {HTMLElement} */ (shell.querySelector('.ui-pane-detail'));
-  const one = /** @type {HTMLElement | null} */ (detail.querySelector('.ui-detail-one'));
-  const multi = /** @type {HTMLElement | null} */ (detail.querySelector('.ui-detail-multi'));
+  // (no .ui-pane-detail: a list-only shell; opening a row marks it and sends "ui-open", the app shows it its own way)
+  const detail = /** @type {HTMLElement | null} */ (shell.querySelector('.ui-pane-detail'));
+  const one = /** @type {HTMLElement | null} */ (detail?.querySelector('.ui-detail-one') ?? null);
+  const multi = /** @type {HTMLElement | null} */ (detail?.querySelector('.ui-detail-multi') ?? null);
   const searches = /** @type {HTMLInputElement[]} */ ([...shell.querySelectorAll('[data-shell-search]')]);
   const empty = /** @type {HTMLElement | null} */ (shell.querySelector('[data-shell-empty]'));
   const rows = () => /** @type {HTMLElement[]} */ ([...list.querySelectorAll('.ui-row')]);
@@ -69,13 +71,15 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
   /** @type {HTMLElement | null} */
   let current = null;
   // the detail's words before any row opens ("Pick a plant"), put back when it empties
-  const blank = [...detail.querySelectorAll('[data-detail-title], [data-detail-sub]')].map(el => /** @type {[Element, string]} */ ([el, el.textContent ?? '']));
-  detail.toggleAttribute('data-empty', true);
+  const blank = [...(detail?.querySelectorAll('[data-detail-title], [data-detail-sub]') ?? [])].map(el => /** @type {[Element, string]} */ ([el, el.textContent ?? '']));
+  detail?.toggleAttribute('data-empty', true);
   /** @param {HTMLElement} row */
   function open(row) {
     for (const r of rows()) r.removeAttribute('aria-current');
     row.setAttribute('aria-current', 'true');
     current = row;
+    row.dispatchEvent(new CustomEvent('ui-open', { bubbles: true, detail: { row, size } }));
+    if (!detail) return;
     detail.toggleAttribute('data-empty', false);
     render(row, detail);
     if (size === 'phone') screens?.push(detail, row);
@@ -84,7 +88,7 @@ export function adaptiveShell(shell, { screens = null, render = defaultRender } 
     if (!current || list.contains(current)) return;
     current = null;
     for (const [el, text] of blank) el.textContent = text;
-    detail.toggleAttribute('data-empty', true);
+    detail?.toggleAttribute('data-empty', true);
   });
   gone.observe(list, { childList: true });
 

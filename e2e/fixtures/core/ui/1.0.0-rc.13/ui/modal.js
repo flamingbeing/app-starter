@@ -22,13 +22,13 @@ function ask(message, { title = '', buttons }) {
   const box = /** @type {HTMLDialogElement} */ (el('dialog', { class: 'modal', 'aria-describedby': `${id}-text`, ...(title ? { 'aria-labelledby': `${id}-title` } : { 'aria-label': message }) },
     ...(title ? [el('h2', { id: `${id}-title` }, title)] : []),
     el('p', { id: `${id}-text` }, message)));
-  const row = el('div', { class: 'row' });
+  const row = el('div', { class: 'ui-inline row' });
   box.append(row);
   return new Promise(resolve => {
     /** @param {boolean} value */
     const done = value => { box.close(); box.remove(); back?.focus(); resolve(value); };
     for (const b of buttons) {
-      const btn = el('button', { type: 'button', ...(b.danger ? { class: 'danger' } : {}) }, b.label);
+      const btn = el('button', { type: 'button', ...(b.danger ? { class: 'ui-danger danger' } : {}) }, b.label);
       btn.addEventListener('click', () => done(b.value));
       row.append(btn);
     }

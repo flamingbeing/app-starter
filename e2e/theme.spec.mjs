@@ -34,7 +34,7 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
   const root = page.locator('html');
   const lightBg = await cssVar(page, '--bg');
   await page.locator('#preset-pick').selectOption('eye');
-  await expect(root).toHaveAttribute('data-preset', 'eye');
+  await expect(page.locator('#preset-pick')).toHaveValue('eye');   // (the kit no longer marks <html data-preset>, rc.12)
   expect(await cssVar(page, '--bg')).toBe('#efe6d2');   // the look's sepia ground
   expect(await cssVar(page, '--leading')).toBe('1.65');
 
@@ -62,7 +62,6 @@ test('look and dark style: applied before the page is ready, kept on reload, OLE
 
   await page.locator('#preset-pick').selectOption('default');
   await page.getByLabel('Theme').selectOption('light');
-  await expect(root).not.toHaveAttribute('data-preset');
   expect(await cssVar(page, '--bg')).toBe(lightBg);
 });
 

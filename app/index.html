@@ -12,9 +12,9 @@
     "@core/auth": "https://core.anawj.com/sync/1.4.0/auth.js",
     "@core/sync": "https://core.anawj.com/sync/1.4.0/sync.js",
     "@core/update": "https://core.anawj.com/sync/1.4.0/update.js",
-    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.11/ui/index.js",
-    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.11/theme/index.js",
-    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.11/settings/index.js",
+    "@core/ui": "https://core.anawj.com/ui/1.0.0-rc.13/ui/index.js",
+    "@core/theme": "https://core.anawj.com/ui/1.0.0-rc.13/theme/index.js",
+    "@core/settings": "https://core.anawj.com/ui/1.0.0-rc.13/settings/index.js",
     "app-update/register.js": "https://core.anawj.com/update/0.2.0/register.js",
     "firebase/app": "./vendor/firebase/12.19.0/firebase-app.js",
     "firebase/auth": "./vendor/firebase/12.19.0/firebase-auth.js",
@@ -22,16 +22,16 @@
   }
 }
   </script>
-  <script src="https://core.anawj.com/ui/1.0.0-rc.11/theme/early.js"></script>
+  <script src="https://core.anawj.com/ui/1.0.0-rc.13/theme/early.js"></script>
   <script type="module" src="src/boot.js"></script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.11/theme/theme.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.11/ui/ui.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.11/theme/glass.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.11/ui/gestures.css">
-  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.11/ui/shell/shell.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/theme/theme.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/ui/ui.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/theme/glass.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/ui/gestures.css">
+  <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/ui/shell/shell.css">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="src/app.js"></script>
 </head>
@@ -41,9 +41,9 @@
        tab and a side link for each. -->
   <div class="ui-shell">
     <header class="ui-bar">
-      <span class="bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
+      <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
       <h2 class="ui-bar-title" aria-hidden="true">Starter app</h2>
-      <span class="bar-side bar-end"></span>
+      <span class="ui-bar-side ui-bar-end"></span>
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
@@ -101,8 +101,6 @@
         <!-- }cloud -->
         <div id="settings-host"></div>
       </section>
-      <!-- the detail pane the shell wants (a row opens the edit sheet below, so it stays empty and hidden) -->
-      <section class="ui-screen ui-pane-detail" id="detail" hidden aria-hidden="true"></section>
     </main>
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">

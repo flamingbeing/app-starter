@@ -23,6 +23,8 @@ function pageImportMap() {
   try { return tag?.textContent ? JSON.parse(tag.textContent) : null; } catch { return null; }
 }
 
+let opened = 0;
+
 /**
  * @param {{ name: string, update: import('./types').UpdateApi | null, licences?: Record<string, string>,
  *   importMap?: { imports?: Record<string, string> } | null, labels?: Record<string, string> }} o
@@ -33,9 +35,10 @@ export function aboutSheet({ name, update, licences = {}, importMap = pageImport
   const words = { ...LABELS, ...labels };
   const back = /** @type {HTMLElement | null} */ (document.activeElement);
   const version = el('span', { class: 'about-version' }, update ? '…' : 'dev');
-  const answer = el('p', { class: 'small', role: 'status' });
-  const box = /** @type {HTMLDialogElement} */ (el('dialog', { class: 'modal about-sheet', 'aria-labelledby': 'about-title' },
-    el('h2', { id: 'about-title' }, name),
+  const answer = el('p', { class: 'ui-small small', role: 'status' });
+  const title = `ui-about-title-${++opened}`;   // (no fixed id: a page may open it twice, or use the name itself)
+  const box = /** @type {HTMLDialogElement} */ (el('dialog', { class: 'modal about-sheet', 'aria-labelledby': title },
+    el('h2', { id: title }, name),
     el('p', {}, 'Version ', version)));
   if (update) {
     update.versionLabel().then(v => { version.textContent = v || words.notInstalled; }, () => { version.textContent = words.notInstalled; });
@@ -51,7 +54,7 @@ export function aboutSheet({ name, update, licences = {}, importMap = pageImport
       el('li', {}, [p.name, p.version, p.licence].filter(Boolean).join(' · ')))));
   }
   const close = button(words.close, () => box.close(), { class: 'about-close' });
-  box.append(el('div', { class: 'row' }, close));
+  box.append(el('div', { class: 'ui-inline row' }, close));
   return new Promise(resolve => {
     box.addEventListener('close', () => { box.remove(); back?.focus(); resolve(); });
     document.body.append(box);

@@ -5,18 +5,19 @@ import { el, button } from './dom.js';
 
 /**
  * @param {HTMLElement} host  the version line and the answer are added here
- * @param {{ update: import('./types').UpdateApi | null }} o
+ * @param {{ update: import('./types').UpdateApi | null, idPrefix?: string }} o
+ *   idPrefix: put before each of the part's ids (two on one page, or ids the app already uses)
  * @returns {() => void} stop: stops the retries and removes the prompt
  */
-export function updatePrompt(host, { update }) {
-  const version = el('span', { id: 'version' }, '…');
-  const answer = el('p', { id: 'update-msg', class: 'small', role: 'status' });
+export function updatePrompt(host, { update, idPrefix = '' }) {
+  const version = el('span', { id: `${idPrefix}version` }, '…');
+  const answer = el('p', { id: `${idPrefix}update-msg`, class: 'ui-small small', role: 'status' });
   const check = button('Check for updates', async () => {
     if (!update) return;
     answer.textContent = 'Checking…';
     answer.textContent = await update.checkNow() ? 'Updated.' : 'This is the newest version (or the update waits until nothing is open).';
-  }, { id: 'check-update' });
-  const line = el('p', { class: 'small' }, 'Version ', version, ' ', check);
+  }, { id: `${idPrefix}check-update` });
+  const line = el('p', { class: 'ui-small small' }, 'Version ', version, ' ', check);
   host.append(line, answer);
   const remove = () => { line.remove(); answer.remove(); };
   if (!update) {
