@@ -3,7 +3,7 @@
 // unsent upload for the same account's next sign-in, and another account signing in wipes this device's files.
 import zlib from 'node:zlib';
 import axe from './axe.mjs';
-import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced } from './fixtures.mjs';
+import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced, openSettings, openItems } from './fixtures.mjs';
 
 // A small solid-colour PNG, made here (no binary fixture in the repo).
 function png(w, h, [r, g, b]) {
@@ -92,8 +92,10 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await page.click('#edit button[value=cancel]');
   await expect(page.locator('#items li', { hasText: t })).toContainText('📎');
 
+  await openSettings(page);
   await page.click('#sign-out');
   await expect(page.locator('#sign-out-msg')).toContainText('unsent');
+  await openItems(page);
   const [job] = await page.evaluate(() => window.starter.files().jobs());
   expect(job).toMatchObject({ op: 'put', rec: { name: `${t}.txt` } });
   expect(await cached(page)).toContain(`${job.scope}/${job.id}`);
@@ -104,7 +106,9 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   expect(await records(`${t}.txt`)).toEqual([expect.objectContaining({ type: 'text/plain', size: 13 })]);
   await synced(page);   // the upload's job is done too (a switch waits while anything is unsent)
 
+  await openSettings(page);
   await page.click('#sign-out');
+  await openItems(page);
   await expect(page.locator('#signed-out')).toBeVisible();
   const other = `${uniq('u')}@example.com`;
   await page.evaluate(e => window.starter.signInAs(e), other);
