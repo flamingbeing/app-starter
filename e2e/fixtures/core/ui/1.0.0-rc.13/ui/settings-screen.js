@@ -56,14 +56,14 @@ export const SETTINGS_WORDS = Object.freeze({
 export function settingsScreen(host, { settings, sections, file = 'settings.json', labels = {}, about }) {
   const words = { ...LABELS, ...SETTINGS_WORDS, ...labels };
   const box = el('div', { class: 'ui-settings' });
-  const status = el('p', { class: 'ui-settings-status small', role: 'status', 'aria-live': 'polite' });
+  const status = el('p', { class: 'ui-settings-status ui-small small', role: 'status', 'aria-live': 'polite' });
   /** @type {Map<string, (v: unknown) => void>} */
   const shows = new Map();
   /** @type {(() => void)[]} */
   const stops = [];
   let n = 0;
   const id = () => `ui-set-${++n}`;
-  const say = (/** @type {string} */ text, bad = false) => { status.replaceChildren(text); status.classList.toggle('error', bad); };
+  const say = (/** @type {string} */ text, bad = false) => { status.replaceChildren(text); status.classList.toggle('ui-error', bad); status.classList.toggle('error', bad); };
 
   /** @param {string} title @param {HTMLElement} body */
   function group(title, body) {
@@ -79,7 +79,7 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
     if (sub) main.append(el('span', { class: 'ui-row-sub' }, sub));
     const li = el('li', { class: 'ui-row ui-setting' }, main, control);
     if (more) {
-      const detail = el('p', { class: 'ui-row-more small', id: id(), hidden: '' }, more);
+      const detail = el('p', { class: 'ui-row-more ui-small small', id: id(), hidden: '' }, more);
       const info = el('button', { type: 'button', class: 'ui-info', 'aria-label': `${words.moreInfo}: ${label}`, 'aria-expanded': 'false', 'aria-controls': detail.id }, 'ⓘ');
       info.addEventListener('click', () => {
         detail.hidden = !detail.hidden;
@@ -136,9 +136,9 @@ export function settingsScreen(host, { settings, sections, file = 'settings.json
       // the offer goes with the next change to any option (a stale Undo would overwrite it)
       const gone = settings.watch(null, () => { gone(); if (status.contains(undo)) say(''); });
       if (failed) say(failed.reason instanceof Error ? failed.reason.message : String(failed.reason), true);
-      else { status.classList.remove('error'); status.replaceChildren(words.resetDone); }
+      else { status.classList.remove('ui-error', 'error'); status.replaceChildren(words.resetDone); }
       status.append(' ', undo);
-    }, { class: 'ui-reset small' });
+    }, { class: 'ui-reset ui-small small' });
     return el('p', { class: 'ui-settings-part' }, link);
   }
 

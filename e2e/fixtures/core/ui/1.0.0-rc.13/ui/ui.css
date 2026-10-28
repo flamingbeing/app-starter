@@ -1,23 +1,24 @@
 /* @core/ui v0: the kit parts' look, on @core/theme's custom properties (theme/theme.css loads first), corners from
    the look's tokens (theme/looks.js). */
-.chip { font-size: .85rem; padding: .2rem .6rem; border-radius: var(--control-r); border: 1px solid currentColor; }
-.chip[data-state="attention"], .error, .danger { color: var(--danger); }
-.small { font-size: .85rem; color: var(--muted); }
-.row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center; }
+/* the kit's own names start ui-; the bare ones (.chip .error .danger .small .row) still work for now, but go in 1.0 */
+:is(.ui-chip, .chip) { font-size: .85rem; padding: .2rem .6rem; border-radius: var(--control-r); border: 1px solid currentColor; }
+:is(.ui-chip, .chip)[data-state="attention"], .ui-error, .ui-danger, .error, .danger { color: var(--danger); }
+.ui-small, .small { font-size: .85rem; color: var(--muted); }
+.ui-inline, .row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center; }
 
 dialog { max-width: 30rem; width: calc(100% - 2rem); background: var(--surface); color: var(--text);
   border: 1px solid var(--line); border-radius: var(--sheet-r); }
 dialog::backdrop { background: var(--backdrop); }
 
 /* conflict sheet */
-.attention { width: 100%; margin: var(--gap) 0; }
-.sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pad); }
-.sides h3 { font-size: 1rem; margin: 0 0 .25rem; }
-#conflict-list { list-style: none; padding: 0; }
-#conflict-list li { margin: 0 0 var(--pad); padding-bottom: var(--pad); border-bottom: 1px solid var(--line); }
+.ui-attention, .attention { width: 100%; margin: var(--gap) 0; }
+.ui-sides, .sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pad); }
+:is(.ui-sides, .sides) h3 { font-size: 1rem; margin: 0 0 .25rem; }
+.ui-conflict-list { list-style: none; padding: 0; }
+.ui-conflict-list li { margin: 0 0 var(--pad); padding-bottom: var(--pad); border-bottom: 1px solid var(--line); }
 
 /* refused list */
-#refused li { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
+.ui-refused li { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; }
 
 /* an open modal (sheet, alert, confirm) or hold menu holds the page still: a wheel or finger on the backdrop doesn't
    scroll the page behind it (and the menu's lifted preview stays on its row) */

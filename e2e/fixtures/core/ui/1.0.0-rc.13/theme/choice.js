@@ -1,5 +1,5 @@
 // This device's theme choice (schema.js: theme, dark style, preset, accent, surface, look, density, material, motion):
-// kept in localStorage, shown as data-theme / data-dark / data-preset / data-look / data-density / data-motion, the
+// kept in localStorage, shown as data-theme / data-dark / data-look / data-density / data-motion, the
 // look's variants (data-header, data-menu, data-glass, data-tick, data-tabbar) and the glass class on <html> (glass
 // unless Solid, the look has none, or the glass guard turned it down: guard.js) and as the palette's custom properties in one
 // constructed stylesheet (palette-css.js; constructed, so the Content-Security-Policy needs no inline style). Nothing
@@ -13,7 +13,9 @@ import { guardSolid, startGuard } from './guard.js';
 
 export { THEMES, LAYOUTS, DENSITIES };
 // the <html> marks early.js puts back before the first paint
-export const MARKS = Object.freeze(['theme', 'dark', 'preset', 'look', 'density', 'motion', 'header', 'menu', 'glass', 'tick', 'tabbar']);
+// (no data-preset: a preset (the switch's "style": colours, corners, lines) acts only through the palette's custom
+// properties; the look (looks.js) is what the CSS styles from)
+export const MARKS = Object.freeze(['theme', 'dark', 'look', 'density', 'motion', 'header', 'menu', 'glass', 'tick', 'tabbar']);
 const KEY = 'core-theme';
 // The last look shown (marks + palette CSS), for early.js to put back before the first paint.
 const PAINT = 'core-theme-paint';
@@ -63,7 +65,6 @@ function show(c) {
   const look = lookOf(c.look, app.look);
   mark(root, 'theme', c.theme, THEMES[0]);
   mark(root, 'dark', c.dark, 'dark');
-  mark(root, 'preset', c.preset, 'default');
   root.dataset.look = look.id;
   mark(root, 'density', c.density, DENSITIES[0]);
   mark(root, 'motion', c.motion, 'auto');

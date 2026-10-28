@@ -8,6 +8,9 @@
 // sideways scroller, dialog, sheet or open menu, in select mode, with text selected, or within EDGE px of either edge
 // (the system's Back gestures and screens.js's edge swipe). A mostly vertical move scrolls instead. Less motion: the
 // swipe switches without the slide. Off: data-swipe="off" on the tab bar (or <html>), or { swipe: false }.
+// A tapped tab (or side link) slides its page in from the side it sits on in the tab bar (SLIDE_MS, the logbook's
+// page motion), at every width. Less motion: it just switches. Off: data-slide="off" on the tab bar (or <html>), or
+// { slide: false }.
 import { still, noGesture, listeners, velocity } from './gesture.js';
 import { EDGE, swipeGoesBack } from './screens.js';
 import { TABLET_MIN } from './shell/shell.js';
@@ -28,14 +31,17 @@ export function pageStep(dx, v, width, hasPrev, hasNext) {
   return 0;
 }
 
+/** How long a tapped tab's page takes to slide in, in ms. */
+export const SLIDE_MS = 280;
+
 /**
  * @param {HTMLElement} bar  nav.ui-tabbar
  * @param {{ screens: { base: (s: HTMLElement) => Promise<void>, depth: () => number }, host: HTMLElement,
- *   root?: ParentNode, swipe?: boolean }} o  screens: the page's screen stack; host: its .ui-screens; root: where the
- *   tabs and side links are (default the page)
+ *   root?: ParentNode, swipe?: boolean, slide?: boolean }} o  screens: the page's screen stack; host: its
+ *   .ui-screens; root: where the tabs and side links are (default the page)
  * @returns {{ go: (page: string | HTMLElement) => void, current: () => HTMLElement, stop: () => void }}
  */
-export function tabPages(bar, { screens, host, root = document, swipe = true }) {
+export function tabPages(bar, { screens, host, root = document, swipe = true, slide = true }) {
   const l = listeners();
   const html = document.documentElement;
   /** one of the host's screens, by selector @param {string | null | undefined} sel @returns {HTMLElement | null} */
@@ -65,13 +71,27 @@ export function tabPages(bar, { screens, host, root = document, swipe = true }) 
     if (!page || page.parentElement !== host) return;
     if (page === current) { if (screens.depth() > 0) void screens.base(page); return; }
     ys.set(current, scrollY);
+    const order = stops();
+    const dir = Math.sign(order.indexOf(page) - order.indexOf(current));
     current = page;
     mark();
     const y = ys.get(page) ?? 0;
     void screens.base(page).then(() => {
       scrollTo(0, y);
+      if (tab && dir && slide && bar.dataset.slide !== 'off' && html.dataset.slide !== 'off' && !still()) slideIn(page, dir);
       host.dispatchEvent(new CustomEvent('ui-tab', { bubbles: true, detail: { page, tab } }));
     });
+  }
+  /** @type {Animation | null} */
+  let sliding = null;
+  /** the tapped page comes in from its side (clipped, so the start offset can't widen the page) @param {HTMLElement} page @param {number} dir */
+  function slideIn(page, dir) {
+    sliding?.cancel();
+    host.classList.add('is-sliding');
+    const a = sliding = page.animate([{ transform: `translateX(${dir * Math.round(innerWidth * .3)}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }],
+      { duration: SLIDE_MS, easing: 'cubic-bezier(.2, .7, .2, 1)' });
+    const done = () => { if (sliding === a) { sliding = null; host.classList.remove('is-sliding'); } };
+    a.finished.then(done, done);
   }
   mark();
   void screens.base(current);

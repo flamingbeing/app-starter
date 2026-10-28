@@ -29,13 +29,14 @@ function forgetWords({ ok, reason, failed = [] }) {
 
 /**
  * @param {HTMLElement} host  the sheet's parts are added here
- * @param {{ auth: import('./types').AuthApi, label?: string, onForget?: (ok: boolean) => void }} o
+ * @param {{ auth: import('./types').AuthApi, label?: string, onForget?: (ok: boolean) => void, idPrefix?: string }} o
+ *   idPrefix: put before each of the part's ids (two on one page, or ids the app already uses)
  *   label: the sign-in button's words; onForget: told whether this device was forgotten
  * @returns {() => void} stop: unsubscribes and removes the parts
  */
-export function signInSheet(host, { auth, label = 'Sign in with Google', onForget = () => {} }) {
-  const error = el('p', { id: 'sign-in-error', class: 'error', role: 'alert' });
-  const said = el('p', { id: 'forget-msg', role: 'status' });
+export function signInSheet(host, { auth, label = 'Sign in with Google', onForget = () => {}, idPrefix = '' }) {
+  const error = el('p', { id: `${idPrefix}sign-in-error`, class: 'ui-error error', role: 'alert' });
+  const said = el('p', { id: `${idPrefix}forget-msg`, role: 'status' });
   /** @param {boolean} force */
   const forget = async force => {
     said.textContent = '';
@@ -44,16 +45,16 @@ export function signInSheet(host, { auth, label = 'Sign in with Google', onForge
     said.textContent = forgetWords(r);
     onForget(r.ok);
   };
-  const forceButton = button('Forget anyway, losing the unsent changes', () => forget(true), { id: 'forget-force', class: 'danger' });
+  const forceButton = button('Forget anyway, losing the unsent changes', () => forget(true), { id: `${idPrefix}forget-force`, class: 'ui-danger danger' });
   forceButton.hidden = true;
   const parts = [
     button(label, async () => {
       error.textContent = '';
       try { error.textContent = whyRefused(await auth.signIn()); } catch (e) { error.textContent = whyFailed(e); }
-    }, { id: 'sign-in' }),
+    }, { id: `${idPrefix}sign-in` }),
     error,
-    el('p', { class: 'small' }, 'Signing out keeps this phone’s copy and unsent changes for the next sign-in. To clear them:'),
-    button('Forget this device', () => forget(false), { id: 'forget', class: 'danger' }),
+    el('p', { class: 'ui-small small' }, 'Signing out keeps this phone’s copy and unsent changes for the next sign-in. To clear them:'),
+    button('Forget this device', () => forget(false), { id: `${idPrefix}forget`, class: 'ui-danger danger' }),
     forceButton,
     said,
   ];

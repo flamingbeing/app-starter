@@ -13,7 +13,7 @@ const PROTECT_WORDS = /^(save|undo|done|cancel|close|back|settings|sign in|sign 
 const BUTTONS = 'button, a.btn, label.btn';
 const FIELDS = 'textarea, input, select, [contenteditable]';
 const CARDS = 'section.card';
-const KEEP_OUT = 'dialog, .modal, .toasts, .ui-tab-bar, .ui-bar, [data-keep]';
+const KEEP_OUT = 'dialog, .modal, .toasts, .ui-tabbar, .ui-action-bar, .ui-bar, [data-keep]';
 
 /**
  * @typedef {{ tab: string, kind: 'btn' | 'card', name: string }} Hidden  tab: the page (letters and digits)
