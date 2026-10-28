@@ -24,6 +24,7 @@ const SHELL = [
   'src/config.js',
   'src/data-modules.js',
   'src/dom.js',
+  'src/hint.js',
   'src/items.js',
   'src/modules.js',
   'src/options.js',

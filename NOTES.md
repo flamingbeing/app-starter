@@ -29,6 +29,16 @@ hand-written in `app.css`; `adaptiveShell` needs a `.ui-pane-detail` even in an 
 placeholder here); the kit's current-tab colour is 4.1:1 in the navy look (`app.css` overrides it with `--link`); the
 kit's bar is clear until the page scrolls, so the glass tests set `.is-collapsed`.
 
+## Startup (cloud app)
+
+What the page does before the list is there, measured at 4x CPU slowdown on a signed-in reload (hermetic core files, so
+network latency is not in it): the shell starts first (tabs and menu work at once); the sign-in screen is shown only once
+Firebase has restored the sign-in and says nobody is signed in (it used to flash on every start); a device that ended
+signed in paints the list as last drawn, read-only, until the real list replaces it (`src/hint.js`, a yes/no and at most
+100 rows, cleared whenever the sign-in says signed out); `modules.json` entries marked `"preload"` get a
+`<link rel="modulepreload">` each (written by `node tools/modules.mjs`). Not here: lazy sheets (the starter has none;
+an app with many gets them from its own `list.js`) and the Vite bundle (`npm run vite`, still opt-in).
+
 ## Later
 
 - Restore from the bin (the bin entries keep the deleted version in `data`).

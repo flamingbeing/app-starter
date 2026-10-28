@@ -24,11 +24,13 @@ import { settings } from '@core/settings';
 import * as register from 'app-update/register.js';
 import { firebaseConfig, APP } from './config.js';
 import { emulator, configured, roleOf, needsClaims } from './roles.js';
+import { setHint } from './hint.js';
 import { OPTIONS, SETTINGS_COLL } from './options.js';
 import { dataModules } from './data-modules.js';
 import { COLL } from './items.js';
 
 export { usingEmulator } from './roles.js';
+export { lastSignedIn, keepList, keptList } from './hint.js';
 const SPACE = '_';
 // (the list's shared bits live in items.js, the same in a static app; named here too for the files recipe)
 export { COLL, itemText, REFUSED } from './items.js';
@@ -132,6 +134,8 @@ export async function start({ canReload = null }) {
   const app = createApp({ config: { name: APP.name, sdk }, modules });
   await app.ready;
   const { auth: fa } = await sdk();
+  // Firebase restores the saved sign-in a moment after it starts: until it has, "no user" is not yet "signed out"
+  const settled = fa.authStateReady?.() ?? Promise.resolve();
 
   app.status$((/** @type {{ unsent: number }} */ st) => { unsent = st.unsent; });
 
@@ -160,16 +164,21 @@ export async function start({ canReload = null }) {
   show = async () => {
     if (!hooks) return;
     const { onState, onList, onFiles } = hooks;
-    const n = ++seq, u = fa.currentUser, me = app.auth.user();
-    if (!u || !me || me.uid !== u.uid) { stopList(); onState({ phase: 'signed-out' }); return; }
-    if (claimsStatus === 503) { onState({ phase: 'not-set-up' }); return; }
+    const n = ++seq;
+    await settled;
+    if (n !== seq) return;
+    const u = fa.currentUser, me = app.auth.user();
+    if (u && !me) return;   // Firebase has the person; the engine's own copy of the user follows (onUser calls back)
+    if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out' }); return; }
+    if (claimsStatus === 503) { setHint(false); onState({ phase: 'not-set-up' }); return; }
     // offline with an expired token Firebase can't refresh it (auth/network-request-failed): the role comes from the
     // last token it holds, so the saved list still shows; back online, the fresh token calls back (onIdTokenChanged)
     const t = await u.getIdTokenResult().catch(() => lastToken(u)), role = roleOf(t.claims);
     if (n !== seq) return;
     if (role && t.token !== tokenSeen && !t.stale) return;   // a new token Firestore hasn't seen yet: onIdTokenChanged calls back
     const user = { uid: me.uid, email: me.email, name: me.name };
-    if (!role) { stopList(); onState({ phase: 'no-access', user, role: '' }); return; }
+    if (!role) { stopList(); setHint(false); onState({ phase: 'no-access', user, role: '' }); return; }
+    setHint(true);
     onState({ phase: 'ready', user, role });
     offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
     let first = true;
@@ -206,7 +215,7 @@ export async function start({ canReload = null }) {
     // add and edit resolve to '' when the save is stored or queued, or to the reason when the server refused it at
     // once (app-sync rejects then; the copy waits in the refused list, so the page says so rather than fail)
     /** @param {string} text @returns {Promise<string>} */
-    add: text => refusal(app.sync.save(COLL, SPACE, { id: id(), text }, null)),
+    add: text => refusal(app.sync.save(COLL, SPACE, { id: id(), text, createdAt: Date.now() }, null)),
     // base: the copy the edit started from
     /** @param {Item} item @param {string} text @returns {Promise<string>} */
     edit: (item, text) => refusal(app.sync.save(COLL, SPACE, { ...item, text }, item)),

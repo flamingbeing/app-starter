@@ -1,15 +1,15 @@
 // The page's wiring: the shell and Settings page (shell.js), the kit's sync chip, the account block, and the screen
 // switch. The sample screens (screens/) show a list with add, edit, delete, conflicts and refused saves; a new app
 // replaces them and keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
-import { syncChip, plural } from '@core/ui';
-import { start, usingEmulator, emulatorSignIn } from './cloud.js';
+import { syncChip, plural, loadState } from '@core/ui';
+import { start, usingEmulator, emulatorSignIn, lastSignedIn, keepList, keptList } from './cloud.js';
 import { $ } from './dom.js';
 import { screenSwitch } from './screen-switch.js';
 import { signedOutScreen } from './screens/signed-out.js';
 import { noAccessScreen } from './screens/no-access.js';
 import { notSetUpScreen } from './screens/not-set-up.js';
 import { listScreen } from './screens/list.js';
-import { startShell } from './shell.js';
+import { startShell, settingsPage } from './shell.js';
 
 const typing = () => document.activeElement?.tagName === 'INPUT' && !!(/** @type {HTMLInputElement} */ (document.activeElement).value);
 const sheetOpen = () => !!document.querySelector('dialog[open]');
@@ -19,8 +19,23 @@ const sheetOpen = () => !!document.querySelector('dialog[open]');
 const withSW = 'serviceWorker' in navigator && (!usingEmulator || new URLSearchParams(location.search).has('sw'));
 
 window.starter = { ready: false, add: text => app?.add(text), signInAs: emulatorSignIn, files: () => app?.files, members: () => app?.members };   // for the tests
+startShell();   // the tabs and menu work while the app starts
+// this device was signed in last time: show the list's frame (skeleton rows) now, not a blank page or the sign-in screen
+// while the sign-in is restored (cloud.js says signed out only once it has settled, and then the sign-in screen replaces it)
+if (lastSignedIn()) {
+  $('list-view').hidden = false; $('add').hidden = true;
+  // the list as it was last drawn, read-only, until the real one arrives (list.js replaces every row)
+  const kept = keptList();
+  if (kept.length) $('items').replaceChildren(...kept.map(r => {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.textContent = r.text; b.disabled = true;
+    li.append(b);
+    return li;
+  }));
+  else loadState($('items-state')).loading();
+}
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
-startShell(app);
+settingsPage(app);
 
 if (!app) notSetUpScreen().show({ phase: 'not-set-up' });
 else {
@@ -55,6 +70,7 @@ else {
     },
     onList(items, changed) {
       list.draw(items, changed);
+      keepList(list.shown());
       window.starter.ready = true;
     },
     onFiles(by) { list.drawFiles(by); },
