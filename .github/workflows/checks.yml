@@ -29,9 +29,9 @@ jobs:
       - run: node .devkit/tools/proofread.mjs
       - run: node .devkit/tools/check-links.mjs .
       - run: node tools/stamp-versions.mjs app --check
-      - name: sw.js's file list is the generated one (a cloud app's vendored Firebase is gstatic's, at the import map's version)
+      - name: Everything made from modules.json is up to date (import map, paths, aliases, sw.js list, CSP hash, rules; vendored Firebase is gstatic's)
         run: |
-          node tools/sw-files.mjs app --check
+          node tools/modules.mjs --check
           node tools/sw-files.mjs e2e/fixtures/outside-package --check
           # cloud{
           node tools/vendor-firebase.mjs --check
@@ -158,13 +158,13 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/app/node_modules"
           cd "$RUNNER_TEMP/app"
           for m in files search; do node tools/add.mjs "recipes/$m.json"; done
-          node "$GITHUB_WORKSPACE/.devkit/tools/build-rules.mjs" app/firestore.app.rules
+          node tools/modules.mjs --check
           jq -e '.modules.files and .modules.search' .starter.json
       - name: Checks on the full app
         if: matrix.mode == 'plain'
         working-directory: ${{ runner.temp }}/app
         run: |
-          node tools/sw-files.mjs app --check
+          node tools/modules.mjs --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'
           npm run typecheck
       - name: Rules on the full app
@@ -234,7 +234,7 @@ jobs:
         run: |
           node .devkit/tools/check.mjs
           node tools/stamp-versions.mjs app --check
-          node tools/sw-files.mjs app --check
+          node tools/modules.mjs --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs'
           npm run typecheck
       - name: Rules on the filled app
@@ -293,7 +293,7 @@ jobs:
         run: |
           node .devkit/tools/check.mjs
           node tools/stamp-versions.mjs app --check
-          node tools/sw-files.mjs app --check
+          node tools/modules.mjs --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
           npm run typecheck
       - name: Browser tests on the static app

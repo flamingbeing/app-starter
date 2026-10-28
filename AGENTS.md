@@ -25,19 +25,20 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - Every save goes through the write queue (`app/src/cloud.js`); never write to Firestore around it, or sign-out can't
   tell what is unsent.
 - Roles come from claims, cached from `members/{uid}`. Bump the doc's `v` on every role change. No email in rules.
-- Edit `app/firestore.app.rules`, then rebuild `app/firestore.rules` (`node .devkit/tools/build-rules.mjs
-  app/firestore.app.rules`); add a case to `app/test/rules.test.mjs` for every new rule.
+- Edit `app/firestore.app.rules` (a module's rules: `app/rules/<module>.rules`), then rebuild `app/firestore.rules`
+  with `node tools/modules.mjs`; add a case to `app/test/rules.test.mjs` (a module's: `app/test/rules/<module>.mjs`)
+  for every new rule.
 - `worker/claims.js` and `worker/custom-token.js` are app-devkit's: never edit them here (CI compares them).
 - Shared modules (app-sync, app-update) and app-devkit blocks are pinned to exact versions; bump on purpose, after the
   tests pass. No moving `@v1` pins.
-- app-ui (`@core/ui`, `@core/theme`, `@core/settings`) is pinned like app-sync: the version in `app/index.html` (import
-  map entries and the `core.anawj.com/ui/<version>/` links) and the `app-ui` devDependency tag move together; change the
-  kit in app-ui, never here ([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)).
-- app-sync's version is named twice, bumped together: `app/index.html`'s import map and the `app-sync` devDependency
-  tag in `package.json` (its `.d.ts` are what `npm run typecheck` checks `app/src` against, under `strict`).
-- `app/public/sw.js`'s SHELL list is generated: after adding or removing a file the page loads, or bumping app-sync,
-  run `node tools/sw-files.mjs app` (after a map change, also the import map hash in `worker/headers.js`). Firebase is vendored: bump it with `node tools/vendor-firebase.mjs <version>`
-  (never edit `app/public/vendor/`). Both have a `--check` in CI ([decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
+- Every import map name is in `modules.json` once; `node tools/modules.mjs` writes the import map, `tsconfig.json`
+  paths, Vite's aliases, module style links, `sw.js`'s SHELL list, the import map's CSP hash and the rules from it.
+  Never edit those by hand; run it after changing `modules.json`, adding or removing a file the page loads, or bumping
+  a core package (CI runs `--check`). app-sync and app-ui (`@core/ui`, `@core/theme`, `@core/settings`) versions come
+  from their `package.json` devDependency tags only; change the kit in app-ui, never here
+  ([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)). Firebase is vendored: bump it with
+  `node tools/vendor-firebase.mjs <version>` (never edit `app/public/vendor/`;
+  [decision 0007](docs/decisions/0007-vendored-firebase-generated-sw-list.md)).
 - New library, own-host sign-in, live smoke test, template updates: go through
   [docs/new-app-checklist.md](docs/new-app-checklist.md). Files and search are modules (`node tools/add.mjs files|search`). `@core/files` `url()` is a page-local `blob:` URL; hand a
   file on with `files.blob(id)`. App-sync bumps: `node tools/update-from-starter.mjs --sync <x.y.z>`.
@@ -45,10 +46,22 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports
   ([decision 0003](docs/decisions/0003-csp-report-only-first.md)); the browser tests already fail on any report.
 
+## Standing criteria
+
+Every change keeps the app:
+
+- **Vite-compatible:** it runs as plain files and builds with Vite (`npm run vite`) with the same browser tests green.
+- **Modular:** an optional part is a module the app can add or remove with one command (`node tools/add.mjs`); it
+  adds entries to registries (`modules.json`, `app/src/modules.js`, `worker/modules.js`, `app/rules/`, its own CSS)
+  rather than code to shared files.
+- **Buffet recipes:** each module is a recipe an app picks on its own, with no other module needed, and leaves no
+  trace when removed.
+
 ## Checks before merging
 
 ```
 node .devkit/tools/check.mjs
+node tools/modules.mjs --check
 node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
 npm run rules && npm run e2e
 npm run vite && APP_DIR=dist npm run e2e

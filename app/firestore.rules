@@ -76,7 +76,8 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // add: rules
+    // modules: rules{ written from app/rules/*.rules by node tools/modules.mjs; edit those, not this block
+    // }modules
 
     // Each person's account options (@core/settings): one doc named by their uid, writable by them alone. The group can read the
     // docs because a list listen cannot be proven to ask for only one (rules are not filters); keep secrets out of options.

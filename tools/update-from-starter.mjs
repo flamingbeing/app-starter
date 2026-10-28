@@ -16,12 +16,13 @@
 // swaps), so the only differences left are real changes. For every file the template changed between the base and
 // --to: added -> added (an app file of the same name is merged as if from an empty base), deleted -> deleted unless the
 // app changed it (a file now in a module's recipe is kept and the module recorded in .starter.json "modules"), changed -> `git merge-file` with the app's copy (a template rename is a delete plus an add) (conflicts left as <<<<<<< markers, listed at the end).
-// Generated parts never conflict: sw.js's SHELL list, worker/headers.js's import-map hash and package-lock.json are
-// kept from the app and regenerated afterwards.
+// Generated parts never conflict: sw.js's SHELL list, worker/headers.js's import-map hash, the import map, tsconfig
+// paths, Vite aliases (from modules.json, merged three-way like any file) and package-lock.json are kept from the app
+// and regenerated afterwards.
 //
 // Afterwards (not with --dry-run): app-sync's two version names checked (app/index.html's import map, package.json's
-// devDependency), `npm install` when package.json changed (the lock), `node tools/sw-files.mjs app` (sw.js's list),
-// the import map's CSP hash in worker/headers.js, app-devkit's pins in .github/workflows compared with the template's
+// devDependency), `npm install` when package.json changed (the lock), `node tools/modules.mjs` (everything made from
+// modules.json: the import map, paths, aliases, sw.js's list, the CSP hash and the rules), app-devkit's pins in .github/workflows compared with the template's
 // and the newest app-devkit tag, and .starter.json's "commit" moved to --to. Then run the tests and commit.
 //
 // .starter.json may hold { "update": { "ignore": ["<glob>", ...], "rename": { "<template path>": "<app path>" } } }:
@@ -29,11 +30,11 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { swapsFor, fixup, isText } from './fill.mjs';
 import { render } from './flavour.mjs';
+import { importMapHash, manifestFrom, formatManifest, MANIFEST } from './modules.mjs';
 
 // the app's own: its notes, settings and the lock (regenerated)
 // (recipes/<module>/ are the modules' sources: an app reads them from the template when it adds one, tools/add.mjs)
@@ -54,12 +55,7 @@ export function globRe(glob) {
 }
 
 // the CSP hash of the page's one inline script (the import map), as worker/headers.js names it
-export function importMapHash(html) {
-  const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
-  if (!m) throw new Error('app/index.html has no import map');
-  // the browser hashes the script as parsed (newlines normalised to LF), so a CRLF checkout must hash the same
-  return `'sha256-${crypto.createHash('sha256').update(m[1].replace(/\r\n?/g, '\n')).digest('base64')}'`;
-}
+export { importMapHash };
 
 // app-sync's version as the import map and package.json name it
 export function syncVersions(html, pkg) {
@@ -89,14 +85,23 @@ export function merge3(ours, base, theirs, labels = ['app', 'template (base)', '
 }
 
 // generated parts: swapped for a placeholder before the merge, the app's own put back after (then regenerated)
-function hold(rel, text) {
+// (and once the template has modules.json, the parts tools/modules.mjs writes from it: the import map, tsconfig paths,
+// SOURCE_ALIAS; the merge of modules.json itself carries both sides' modules, and after() writes them again)
+const GENERATED = {
+  'app/index.html': [/(<script type="importmap">\n)[\s\S]*?(\n\s*<\/script>)/, '{"generated": true}'],
+  'tsconfig.json': [/("paths":\s*\{\n)[\s\S]*?(\n\s*\})/, '      "generated": []'],
+  'vite.config.mjs': [/(export const SOURCE_ALIAS = \{\n)[\s\S]*?(\};)/, '  // generated\n'],
+};
+function hold(rel, text, generated = false) {
   if (rel.endsWith('sw.js')) return text.replace(SHELL_RE, 'const SHELL = [/*generated*/];');
   if (rel === 'worker/headers.js') return text.replace(HASH_RE, `$1"'sha256-generated'"`);
+  if (generated && GENERATED[rel]) return text.replace(GENERATED[rel][0], (_, a, c) => a + GENERATED[rel][1] + c);
   return text;
 }
-function putBack(rel, merged, ours) {
+function putBack(rel, merged, ours, generated = false) {
   if (rel.endsWith('sw.js') && SHELL_RE.test(ours)) return merged.replace('const SHELL = [/*generated*/];', () => ours.match(SHELL_RE)[0]);
   if (rel === 'worker/headers.js' && HASH_RE.test(ours)) return merged.replace(/export const IMPORT_MAP = "'sha256-generated'"/, () => ours.match(HASH_RE)[0]);
+  if (generated && GENERATED[rel]) { const [re, ph] = GENERATED[rel], m = ours.match(re); if (m) return merged.replace(re, (all, a, c) => all.includes(ph) ? m[0] : all); }
   return merged;
 }
 
@@ -216,6 +221,13 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       for (const p of [...(r.vendor ?? []), ...(r.files ?? []).filter(x => x.from).map(x => x.to ?? x.from)]) owned.push({ module: r.module, path: p, recipe: f });
     }
     const moved = new Map();
+    // the template names its modules in modules.json: the generated parts are held out of the merge and written again
+    const generated = !!at(newSha, MANIFEST);
+    // an app from before modules.json: its own list, read from its import map, merged with the template's
+    const manifestOf = get => {
+      const html = get('app/index.html');
+      return html ? Buffer.from(formatManifest(manifestFrom({ html: html.toString('utf8'), tsconfig: get('tsconfig.json')?.toString('utf8'), vite: get('vite.config.mjs')?.toString('utf8') }))) : null;
+    };
 
     // -z: a path with non-ASCII characters, a quote or a newline is otherwise printed quoted and never found again
     const gitDiff = () => { const z = git(repo.dir, ['diff', '--name-status', '-z', '--no-renames', baseSha, newSha]).split('\0').filter(Boolean); return z.filter((_, i) => i % 2 === 0).map((st, i) => `${st}\t${z[2 * i + 1]}`).join('\n'); };
@@ -226,7 +238,18 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       if (ignore.some(re => re.test(rel) || re.test(target))) { note('ignored', target); continue; }
       const oldT = filled(rel, at(baseSha, rel, oldF), swapsBase);
       const newT = filled(rel, at(newSha, rel), swapsNew, appNew);
-      const ours = read(target);
+      let ours = read(target);
+      if (rel === MANIFEST && ours === null && oldT === null && status === 'A') {
+        ours = manifestOf(read);
+        const base = manifestOf(r => filled(r, at(baseSha, r, oldF), swapsBase));
+        if (ours && base && !ours.equals(base)) {
+          const m = merge3(ours.toString('utf8'), base.toString('utf8'), newT.toString('utf8'), ['app', `template ${result.from}`, `template ${short}`]);
+          write(target, m.text);
+          if (m.conflicts) { result.conflicts.push(target); note('conflict', target, `${m.conflicts} to resolve`); } else note('merged', target, 'with the app\'s own modules');
+          continue;
+        }
+        ours = null;
+      }
       if (status === 'D') {
         if (ours === null) continue;
         const own = owned.find(o => rel === o.path || rel.startsWith(`${o.path}/`));
@@ -249,9 +272,9 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       if (ours.equals(newT) || (crlf && o === newT.toString('utf8'))) continue;
       if (oldT && (ours.equals(oldT) || (crlf && o === oldT.toString('utf8')))) { write(target, crlf ? Buffer.from(toApp(newT.toString('utf8'))) : newT); note('updated', target); continue; }
       if (!textual) { result.conflicts.push(target); note('conflict', target, 'binary, changed on both sides: the app\'s kept'); continue; }
-      const m = merge3(hold(rel, o), hold(rel, lf((oldT ?? Buffer.from('')).toString('utf8'))), hold(rel, newT.toString('utf8')),
+      const m = merge3(hold(rel, o, generated), hold(rel, lf((oldT ?? Buffer.from('')).toString('utf8')), generated), hold(rel, newT.toString('utf8'), generated),
         ['app', `template ${result.from}`, `template ${short}`]);
-      const text = toApp(putBack(rel, m.text, o));
+      const text = toApp(putBack(rel, m.text, o, generated));
       if (text === ours.toString('utf8')) continue;
       write(target, text);
       if (m.conflicts) { result.conflicts.push(target); note('conflict', target, `${m.conflicts} to resolve`); }
@@ -288,7 +311,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       fs.writeFileSync(metaPath, JSON.stringify({ ...(unflavour ? { ...plain, app: appNew } : meta), ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
-    for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in${m === 'files' ? ', then rebuild the rules (node .devkit/tools/build-rules.mjs app/firestore.app.rules)' : ''}`);
+    for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in`);
     if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
     return result;
   } finally { repo.done(); }
@@ -301,6 +324,13 @@ export function after(dir, { install = true, changedPkg = true, log = console.lo
   const v = syncVersions(html, fs.readFileSync(pkgPath, 'utf8'));
   if (v.map.length !== 1 || v.map[0] !== v.dep) log(`warning: app-sync named differently: import map ${v.map.join(', ') || 'none'}, package.json ${v.dep ?? 'none'} (bump both with --sync <version>)`);
   if (install && changedPkg) { log('npm install (package-lock.json)'); exec('npm', ['install', '--no-audit', '--no-fund'], dir); }
+  // the app's own tools/modules.mjs (the template's newest after an update) writes every generated place from
+  // modules.json; an app from before it gets sw.js's list and the hash as they were made then
+  if (fs.existsSync(path.join(dir, 'tools/modules.mjs'))) {
+    const r = spawnSync('node', ['tools/modules.mjs'], { cwd: dir, encoding: 'utf8' });
+    log(r.status === 0 ? r.stdout.trim() : `warning: modules failed (run npm install, then node tools/modules.mjs): ${r.stderr.trim()}`);
+    return;
+  }
   if (fs.existsSync(path.join(dir, 'tools/sw-files.mjs'))) {
     const r = spawnSync('node', ['tools/sw-files.mjs', 'app'], { cwd: dir, encoding: 'utf8' });
     log(r.status === 0 ? 'sw.js SHELL regenerated' : `warning: sw-files failed (run npm install, then node tools/sw-files.mjs app): ${r.stderr.trim()}`);

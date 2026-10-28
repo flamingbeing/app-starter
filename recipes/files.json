@@ -2,9 +2,15 @@
   "module": "files",
   "about": "Photos and files on items (@core/files): offline-first queue, thumbnails, EXIF date; the bytes go to the Worker's R2 bucket (worker/files.js).",
   "root": "recipes/files",
-  "importMap": {
-    "@core/files": "./files/index.js"
+  "modules": {
+    "@core/files": {
+      "url": "./files/index.js",
+      "types": "./app/public/files/index.js"
+    }
   },
+  "styles": [
+    "css/files.css"
+  ],
   "vendor": [
     "app/public/vendor/exifr/7.1.3",
     "app/public/vendor/idb-keyval/6.3.0"
@@ -38,6 +44,18 @@
       "from": "worker/test/files.test.mjs"
     },
     {
+      "from": "worker/files-route.js"
+    },
+    {
+      "from": "app/rules/files.rules"
+    },
+    {
+      "from": "app/test/rules/files.mjs"
+    },
+    {
+      "from": "app/public/css/files.css"
+    },
+    {
       "to": "app/src/modules.js",
       "after": "// add: imports",
       "line": "import { itemFiles } from './screens/item-files.js';"
@@ -58,39 +76,14 @@
       "line": "  files: filesData,"
     },
     {
-      "to": "worker/sites.js",
+      "to": "worker/modules.js",
       "after": "// add: worker imports",
-      "block": "recipes/files/worker-import.txt"
+      "line": "import { filesRoute } from './files-route.js';"
     },
     {
-      "to": "worker/sites.js",
+      "to": "worker/modules.js",
       "after": "// add: worker routes",
-      "block": "recipes/files/worker-route.txt"
-    },
-    {
-      "to": "worker/sites.js",
-      "after": "// add: worker handlers",
-      "block": "recipes/files/worker-handler.txt"
-    },
-    {
-      "to": "app/firestore.app.rules",
-      "after": "// add: rules",
-      "block": "recipes/files/rules.txt"
-    },
-    {
-      "to": "app/test/rules.test.mjs",
-      "after": "// add: rules cases",
-      "block": "recipes/files/rules-case.txt"
-    },
-    {
-      "to": "app/test/rules.test.mjs",
-      "after": "// add: rules tests",
-      "block": "recipes/files/rules-test.txt"
-    },
-    {
-      "to": "app/public/app.css",
-      "after": "/* add: css */",
-      "block": "recipes/files/app.css.txt"
+      "line": "  filesRoute,"
     },
     {
       "to": "wrangler.jsonc",
@@ -108,11 +101,6 @@
       "line": "  FILES: memoryBucket(),"
     }
   ],
-  "tsconfigPaths": {
-    "@core/files": [
-      "./app/public/files/index.js"
-    ]
-  },
   "tsconfigInclude": [
     "app/public/files/*"
   ],
@@ -120,6 +108,6 @@
     "make the files bucket once before the first deploy: npx wrangler r2 bucket create <name>-files (the deploy fails without it)"
   ],
   "docs": [
-    "files: the data side is app/src/files-data.js, the sheet and list parts are app/src/screens/item-files.js; the Worker route is worker/files.js (100 MB cap, the same ID token check as /api/claims). Rebuild the rules after adding: node .devkit/tools/build-rules.mjs app/firestore.app.rules."
+    "files: the data side is app/src/files-data.js, the sheet and list parts are app/src/screens/item-files.js; the Worker route is worker/files.js, listed in worker/modules.js through worker/files-route.js (100 MB cap, the same ID token check as /api/claims); the rules are app/rules/files.rules and the styles app/public/css/files.css."
   ]
 }

@@ -5,9 +5,8 @@
 import { defineConfig } from 'vite';
 
 // Where each local module's source is, for builds that bundle core from source (tools/vite-pieces.mjs); this build
-// keeps them external like the rest of core. `node tools/add.mjs <recipe>` writes the lines after the mark.
+// keeps them external like the rest of core. Generated from modules.json's "alias" fields: node tools/modules.mjs.
 export const SOURCE_ALIAS = {
-  // add: viteAlias
 };
 
 export default defineConfig({

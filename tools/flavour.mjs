@@ -7,8 +7,9 @@
 //   flavour     the name .starter.json "flavour" records
 //   remove      paths taken out (a folder takes everything under it)
 //   root        a folder that mirrors the app: every file under it is put at the same path (replacing the template's)
-//   importMap   { name: url | null } set in or taken out of app/index.html's import map
-//   tsconfigPaths { name: [path] } added to tsconfig.json's "paths"
+//   modules     { name: entry | null } set in or taken out of modules.json's "imports" (tools/modules.mjs), and the
+//               import map, tsconfig paths and Vite alias written from it (a tree from before modules.json reads
+//               importMap { name: url | null } and tsconfigPaths { name: [path] } and edits those places itself)
 //   json        { file: [dotted keys] } taken out of a JSON file (package.json scripts)
 // and in every text file the lines from a `cloud{` mark to its `}cloud` mark (a comment of the file's kind:
 // `// cloud{`, `# cloud{`, `<!-- cloud{ -->`; the rest of the line is free) are taken out, marks included, and the
@@ -22,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { editImportMap, putLine } from './add.mjs';
+import { MANIFEST, applyEdits, formatManifest, generate } from './modules.mjs';
 
 export const FLAVOURS = ['static'];
 const OPEN = /^\s*(?:\/\/|#|<!--)\s*cloud\{/;
@@ -78,9 +80,19 @@ export function render(files, flavour) {
   }
   if (root) for (const [rel, buf] of Object.entries(files)) if (rel.startsWith(root)) out[rel.slice(root.length)] = buf;
   const edit = (rel, fn) => { if (!out[rel]) throw new Error(`${spec.flavour}: no ${rel} to edit`); out[rel] = Buffer.from(fn(out[rel].toString('utf8'))); };
-  if (spec.importMap) edit('app/index.html', html => editImportMap(html, spec.importMap));
-  for (const [name, paths] of Object.entries(spec.tsconfigPaths ?? {}))
-    edit('tsconfig.json', t => putLine(t, '"paths": {', `      ${JSON.stringify(name)}: ${JSON.stringify(paths)},`, `${JSON.stringify(name)}:`));
+  if (out[MANIFEST] && (spec.modules || spec.importMap || spec.tsconfigPaths)) {
+    const manifest = applyEdits(JSON.parse(out[MANIFEST].toString('utf8')), spec);
+    out[MANIFEST] = Buffer.from(formatManifest(manifest));
+    const text = rel => out[rel]?.toString('utf8');
+    const g = generate(manifest, text('package.json') ?? '{}', { html: text('app/index.html') ?? '', tsconfig: text('tsconfig.json'), vite: text('vite.config.mjs') });
+    out['app/index.html'] = Buffer.from(g.html);
+    if (g.tsconfig != null) out['tsconfig.json'] = Buffer.from(g.tsconfig);
+    if (g.vite != null) out['vite.config.mjs'] = Buffer.from(g.vite);
+  } else {
+    if (spec.importMap) edit('app/index.html', html => editImportMap(html, spec.importMap));
+    for (const [name, paths] of Object.entries(spec.tsconfigPaths ?? {}))
+      edit('tsconfig.json', t => putLine(t, '"paths": {', `      ${JSON.stringify(name)}: ${JSON.stringify(paths)},`, `${JSON.stringify(name)}:`));
+  }
   for (const [rel, keys] of Object.entries(spec.json ?? {})) edit(rel, t => {
     const j = JSON.parse(t);
     for (const k of keys) dropKey(j, k);
