@@ -50,6 +50,7 @@ test('items: text required and at most 500 characters; no extra fields', async (
   assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1 }, at)).ok, true);
   assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1, createdAt: 1 }, at)).ok, true, 'createdAt allowed');
   assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1, createdAt: 'x' }, at)).ok, false, 'createdAt is a number');
+  assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1, createdAt: 2 }, at)).ok, false, 'createdAt cannot change');
   const edits = { text: { by: 'Sam', device: 'Phone', at: 1 } };   // who changed each field and when (app-sync edits)
   assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1, _edits: edits }, at)).ok, true, '_edits allowed');
   assert.equal((await as('member').set('spaces/_/items/a', { text: 'ok', updatedAt: 1, _edits: 'x' }, at)).ok, false, '_edits is a map');
