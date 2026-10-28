@@ -39,6 +39,7 @@
   <script type="module" src="src/boot.js"></script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="https://design.flamingbeing.com/v1/tokens.css">
   <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/theme/theme.css">
   <link rel="stylesheet" href="https://core.anawj.com/ui/1.0.0-rc.13/ui/ui.css">
@@ -60,7 +61,7 @@
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
-      <p class="ui-sidebar-name">Starter app</p>
+      <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Starter app</p>
       <a class="ui-side-link" href="./" data-tab-page="#items-page" aria-current="page">Items</a>
       <a class="ui-side-link" href="./" data-tab-page="#settings-page" id="side-settings">Settings</a>
     </nav>
@@ -73,6 +74,7 @@
         <!-- }cloud -->
         <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
         <div id="signed-out" hidden>
+          <img class="app-mark app-mark-big" src="icons/icon.svg" alt="" width="72" height="72">
           <p>Sign in to see the list.</p>
           <div id="sign-in-sheet" class="sheet"></div>
         </div>
