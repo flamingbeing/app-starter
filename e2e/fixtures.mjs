@@ -36,9 +36,13 @@ async function routeSync(context, served) {
 // after changing a version), the stylesheet is empty and the Google hosts are refused. A core file not in the copy fails loudly.
 const CORE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'core');
 const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+// Under app-sync's consumer test (app-devkit serve-candidate) the engine and update module come from the candidate:
+// its route sits under this one, so /sync/ and /update/ fall through to it.
+const CANDIDATE = !!process.env.SERVE_CANDIDATE_SYNC;
 async function routeHermetic(context) {
   await context.route(/^https:\/\/core\.anawj\.com\//, route => {
     const rel = decodeURIComponent(new URL(route.request().url()).pathname);
+    if (CANDIDATE && /^\/(sync|update)\//.test(rel)) return route.fallback();
     const file = path.join(CORE, rel);
     if (!file.startsWith(CORE + path.sep) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: `not in e2e/fixtures/core: ${rel}` });
     return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] || 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
