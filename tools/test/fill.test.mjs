@@ -185,3 +185,12 @@ test('arguments', () => {
   assert.deepEqual(parseArgs(['--static']), { static: true });
   assert.throws(() => parseArgs(['--nope']), /unknown argument/);
 });
+
+test('a rename is refused while the current name is a word in the code (it would rename the collection, rules, imports)', () => {
+  const dir = copy();
+  fill({ dir, ...ARGS, name: 'items', title: 'Items' });
+  const before = read(dir, 'app/src/items.js');
+  assert.throws(() => fill({ dir, ...ARGS, name: 'pantry', title: 'Items' }), /--name: the current name 'items' is also a word in the code/);
+  assert.equal(read(dir, 'app/src/items.js'), before, 'nothing changed');
+  assert.deepEqual(fill({ dir, ...ARGS, name: 'items', title: 'Items', check: true }).changed, [], 'same name again: still fine');
+});
