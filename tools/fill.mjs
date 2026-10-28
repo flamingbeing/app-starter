@@ -137,7 +137,8 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   // a rename swaps the old name and title as words in every file: fine for the template's placeholders, but an app
   // named after a word its code uses (items, notes, list) would have that word changed too (its collection, rules,
   // imports). So refuse while the old name or title appears in the code; rename those places by hand first.
-  const inCode = rel => (rel.startsWith('app/src/') && rel !== 'app/src/config.js') || rel.startsWith('worker/') || rel.endsWith('.rules');
+  // (the app's code and rules carry no name of their own: config.js does, and the worker's routes name the app on purpose)
+  const inCode = rel => (rel.startsWith('app/src/') && rel !== 'app/src/config.js') || rel.endsWith('.rules');
   for (const [key, re] of [['name', wordRe(old.name)], ['title', new RegExp(`(?<![A-Za-z0-9])${esc(old.title)}(?![A-Za-z0-9])`)]]) {
     if (old[key] === app[key]) continue;
     const hits = files(dir).filter(rel => inCode(rel) && new RegExp(re.source).test(fs.readFileSync(path.join(dir, rel), 'utf8')));
