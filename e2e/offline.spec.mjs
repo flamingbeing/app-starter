@@ -46,7 +46,19 @@ test('with no network and an expired sign-in token, the app still starts and sho
   await page.clock.resume();
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#list-view')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('#items')).toContainText(t);
+  const t0 = Date.now();
+  try { await expect(page.locator('#items')).toContainText(t, { timeout: 10_000 }); }
+  catch {
+    const diag = await page.evaluate(x => {
+      const kept = JSON.parse(localStorage.getItem('app:last-list') || '[]'), rows = [...document.querySelectorAll('#items li')];
+      return { ready: window.starter.ready, status: window.starter.status, rows: rows.length, disabled: document.querySelectorAll('#items button[disabled]').length,
+        kept: kept.length, inKept: kept.some(r => r.text === x), keptBefore: kept.filter(r => r.text < x).length, hint: localStorage.getItem('app:signed-in'),
+        sw: !!navigator.serviceWorker.controller, signedOutHidden: document.querySelector('#signed-out')?.hidden, who: document.querySelector('#who')?.textContent };
+    }, t).catch(e => ({ evalError: String(e).slice(0, 80) }));
+    await expect.poll(() => page.locator('#items').textContent(), { timeout: 40_000 }).toContain(t).catch(() => {});
+    const late = (await page.locator('#items').textContent())?.includes(t) ? Date.now() - t0 : -1;
+    throw new Error(`DIAG late=${late} errors=${errors.length} ${JSON.stringify(diag)}`);
+  }
   expect(errors, 'uncaught errors').toEqual([]);
   // back online, it gets a new token and saves reach the server again
   await setOffline(page.context(), false);
