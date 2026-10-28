@@ -65,7 +65,7 @@ test('asked for more contrast: solid card colour, no blur', async ({ phone }) =>
 });
 
 // (the springs finished, so axe and the screenshots see the parts at rest, not mid fade-in)
-const settled = page => page.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished)));
+const settled = page => page.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))));
 
 const MODES = [
   ['light', { theme: 'light', dark: 'dark', material: 'glass' }],
