@@ -13,6 +13,7 @@ export default baseConfig({
   testMatch: '*.spec.mjs',
   projects: ['phone'],
   retries: 0,   // a flake is a bug to fix, not a retry
+  workers: 1,   // DIAG: one worker
   globalSetup: './e2e/global-setup.mjs',
   // PW_CHROMIUM: a Chromium already on the machine (when the pinned Playwright's own download isn't there)
   use: { baseURL: `http://localhost:${PORT}`, launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {} },

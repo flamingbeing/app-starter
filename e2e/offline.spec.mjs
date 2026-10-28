@@ -59,7 +59,7 @@ test('with no network and an expired sign-in token, the app still starts and sho
     const late = (await page.locator('#items').textContent())?.includes(t) ? Date.now() - t0 : -1;
     throw new Error(`DIAG late=${late} errors=${errors.length} ${JSON.stringify(diag)}`);
   }
-  expect(errors, 'uncaught errors').toEqual([]);
+  expect(errors, `uncaught errors: ${errors.join(' | ').slice(0, 300)}`).toEqual([]);
   // back online, it gets a new token and saves reach the server again
   await setOffline(page.context(), false);
   const t2 = uniq('after');
