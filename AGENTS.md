@@ -57,8 +57,8 @@ Every change keeps the app:
 - **Buffet recipes:** each module is a recipe an app picks on its own, with no other module needed, and leaves no
   trace when removed.
 - **Fixed at the source:** a bug the app hits in a shared part is fixed where that part lives: app-sync or app-ui
-  (fix, release, then bump the pin here), or this template for recipes and starter files (the app then takes it with
-  `node tools/update-from-starter.mjs`). Never patch a shared part inside the app; an urgent stopgap goes in only
+  (fix, release, then bump the pin here), or this template for recipes, starter files and the build (Vite config, `tools/vite-*.mjs`, `tools/modules.mjs`;
+  the app then takes it with `node tools/update-from-starter.mjs`). Never patch a shared part inside the app; an urgent stopgap goes in only
   alongside the upstream fix, linked from the PR, and is removed at the bump.
 
 ## Checks before merging
