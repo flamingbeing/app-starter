@@ -18,3 +18,8 @@ body { margin: 0; padding-bottom: calc(var(--tap) * 2 + env(safe-area-inset-bott
 .toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 600px) { body { padding-bottom: 0; } .toasts { bottom: var(--pad); } }
 
+
+/* the app's icon beside its name in the side bar, and large on the signed-out screen */
+.ui-sidebar-name { display: flex; align-items: center; gap: .5rem; }
+.app-mark { flex: none; border-radius: 22%; }
+.app-mark-big { display: block; margin: var(--pad) 0 var(--gap); }
