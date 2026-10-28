@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: flamingbeing/app-devkit/setup-node@v1.13.6
       - uses: flamingbeing/app-devkit/setup-tools@v1.13.6
       - run: node .devkit/tools/check.mjs
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: gitleaks (pinned release, checksum checked)
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: flamingbeing/app-devkit/setup-node@v1.13.6
         with:
           install: 'false'
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: changes
         uses: flamingbeing/app-devkit/changed-files@v1.13.6
       - if: steps.changes.outputs.app == 'true'
@@ -102,7 +102,7 @@ jobs:
       # }cloud
       - if: steps.changes.outputs.app == 'true'
         run: npx playwright test
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.changes.outputs.app == 'true' && (failure())
         with:
           name: e2e-results
@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: changes
         uses: flamingbeing/app-devkit/changed-files@v1.13.6
       - if: steps.changes.outputs.app == 'true'
@@ -136,7 +136,7 @@ jobs:
         run: npx playwright test
         env:
           APP_DIR: dist
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.changes.outputs.app == 'true' && (failure())
         with:
           name: e2e-vite-results
@@ -156,7 +156,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: changes
         uses: flamingbeing/app-devkit/changed-files@v1.13.6
       - if: steps.changes.outputs.app == 'true'
@@ -209,7 +209,7 @@ jobs:
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
         working-directory: ${{ runner.temp }}/app
         run: npx -y wrangler@4.45.0 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.changes.outputs.app == 'true' && (failure())
         with:
           name: full-results-${{ matrix.mode }}
@@ -228,7 +228,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: changes
         uses: flamingbeing/app-devkit/changed-files@v1.13.6
       - if: steps.changes.outputs.app == 'true'
@@ -298,7 +298,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: changes
         uses: flamingbeing/app-devkit/changed-files@v1.13.6
       - if: steps.changes.outputs.app == 'true'
@@ -346,7 +346,7 @@ jobs:
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
         working-directory: ${{ runner.temp }}/static-app
         run: npx -y wrangler@4.45.0 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.changes.outputs.app == 'true' && (failure())
         with:
           name: static-results-${{ matrix.mode }}
