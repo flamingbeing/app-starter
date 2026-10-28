@@ -7,11 +7,16 @@ import { APP } from './config.js';
 import { $ } from './dom.js';
 import { SETTING_SECTIONS } from './options.js';
 
-/** @param {{ settings: import('app-ui/settings/types').SettingsApi, update: import('app-ui/ui/types').UpdateApi | null } | null} app  null: not set up, so no Settings page */
-export function startShell(app) {
+// The shell starts first, as soon as the page's scripts have run, so the tabs and the menu work while the app is still
+// starting; the Settings page follows (settingsPage) once the app and its options are there.
+export function startShell() {
   const kit = startGestures();
   const shell = adaptiveShell(/** @type {HTMLElement} */ (document.querySelector('.ui-shell')), { screens: kit.screens });
   Object.assign(window, { kit, shell });   // for the tests
+}
+
+/** @param {{ settings: import('app-ui/settings/types').SettingsApi, update: import('app-ui/ui/types').UpdateApi | null } | null} app  null: not set up, so no Settings page */
+export function settingsPage(app) {
   if (!app) {
     for (const id of ['tab-settings', 'side-settings']) $(id).hidden = true;
     return;

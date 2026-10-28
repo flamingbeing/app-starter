@@ -5,7 +5,7 @@ import { toaster } from '@core/ui';
 import { start } from './local.js';
 import { $ } from './dom.js';
 import { listScreen } from './screens/list.js';
-import { startShell } from './shell.js';
+import { startShell, settingsPage } from './shell.js';
 
 const typing = () => document.activeElement?.tagName === 'INPUT' && !!(/** @type {HTMLInputElement} */ (document.activeElement).value);
 const sheetOpen = () => !!document.querySelector('dialog[open]');
@@ -16,8 +16,9 @@ const params = new URLSearchParams(location.search);
 const withSW = 'serviceWorker' in navigator && (!params.has('test') || params.has('sw'));
 
 window.starter = { ready: false, add: text => app?.add(text) };   // for the tests
+startShell();   // the tabs and menu work while the app starts
 const app = await start({ canReload: withSW ? () => !typing() && !sheetOpen() : null });
-startShell(app);
+settingsPage(app);
 // the browser keeps nothing (a private window): this device's list is the only copy, so say so
 if (!app.sync.kept) toaster($('toasts')).show('This browser is not keeping data here: the list goes when the page closes');
 app.status$(st => { window.starter.status = st.state; });

@@ -59,7 +59,7 @@ export async function start({ canReload = null }) {
     },
     // add and edit resolve to '' once stored, or to the reason it could not be (the device's storage refused it)
     /** @param {string} text @returns {Promise<string>} */
-    add: text => stored(sync.save(COLL, SPACE, { id: id(), text }, null)),
+    add: text => stored(sync.save(COLL, SPACE, { id: id(), text, createdAt: Date.now() }, null)),
     /** @param {Item} item @param {string} text @returns {Promise<string>} */
     edit: (item, text) => stored(sync.save(COLL, SPACE, { ...item, text }, item)),
     /** @param {Item} item @param {unknown[]} [_attached] */

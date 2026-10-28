@@ -10,6 +10,9 @@ input { padding: .5rem; flex: 1; min-width: 10rem; }
 /* an item changed (here or on another device) since the list last showed */
 #items li.changed button { border-inline-start: 3px solid var(--accent); }
 
+/* when an item was added and last changed (list.js) */
+#items li .item-when { display: block; padding: 0 .75rem .5rem; font-size: .75rem; opacity: .7; }
+
 /* the sample options (src/options.js) */
 #items.big li button { padding: 1rem .75rem; font-size: 1.15rem; }
 

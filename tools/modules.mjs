@@ -32,6 +32,7 @@ const PATHS_RE = /("paths":\s*\{\n)([\s\S]*?)(\n\s*\})/;
 const ALIAS_RE = /(export const SOURCE_ALIAS = \{\n)([\s\S]*?)(\};)/;
 const HASH_RE = /(export const IMPORT_MAP = )"'sha256-[A-Za-z0-9+/=]+'"/;
 const STYLE_LINE = /^[ \t]*<link rel="stylesheet" href="[^"]*" data-module>\n/gm;
+const PRELOAD_LINE = /^[ \t]*<link rel="modulepreload" href="[^"]*" data-module>\n/gm;
 const RULES_RE = /^([ \t]*)(\/\/ modules: rules\{[^\n]*\n)([\s\S]*?)(^[ \t]*\/\/ \}modules[^\n]*)$/m;
 const VERSION = /^(?:github:[^#]+#v|[\^~]?)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/;
 const CORE = { 'app-sync': 'https://core.anawj.com/sync/', 'app-ui': 'https://core.anawj.com/ui/' };
@@ -107,7 +108,7 @@ export function formatManifest(m) {
   const styles = m.styles?.length ? `[\n${m.styles.map((s, i) => `    ${JSON.stringify(s)}${i < m.styles.length - 1 ? ',' : ''}`).join('\n')}\n  ]` : '[]';
   return `{\n  "about": ${JSON.stringify(m.about ?? ABOUT)},\n  "core": ${obj(m.core)},\n  "imports": ${obj(m.imports)},\n  "paths": ${obj(m.paths)},\n  "styles": ${styles}\n}\n`;
 }
-const ABOUT = 'The app\'s modules, named once: node tools/modules.mjs writes the import map, tsconfig paths, Vite aliases, style links, sw.js list, CSP hash and rules from this (README, "Modules").';
+const ABOUT = 'The app\'s modules, named once: node tools/modules.mjs writes the import map, tsconfig paths, Vite aliases, style and modulepreload links, sw.js list, CSP hash and rules from this (README, "Modules").';
 
 /** a manifest read from an app made before modules.json: its import map, tsconfig paths and SOURCE_ALIAS */
 export function manifestFrom({ html, tsconfig, vite }) {
@@ -115,11 +116,13 @@ export function manifestFrom({ html, tsconfig, vite }) {
   const tsPaths = JSON.parse(`{${(tsconfig?.match(PATHS_RE)?.[2] ?? '').replace(/,\s*$/, '')}}`);
   const alias = {};
   for (const m of (vite?.match(ALIAS_RE)?.[2] ?? '').matchAll(/^\s*'([^']+)':\s*'([^']+)',?$/gm)) alias[m[1]] = m[2];
+  const preloaded = new Set([...html.matchAll(/<link rel="modulepreload" href="([^"]*)" data-module>/g)].map(m => m[1]));
   const imports = {};
   for (const [name, url] of Object.entries(map)) {
     imports[name] = entryFromUrl(url);
     if (tsPaths[name]) { imports[name].types = tsPaths[name][0]; delete tsPaths[name]; }
     if (alias[name]) imports[name].alias = alias[name];
+    if (preloaded.has(url)) imports[name].preload = true;
   }
   const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]*)" data-module>/g)].map(m => m[1]);
   return { about: ABOUT, core: { ...CORE }, imports, paths: tsPaths, styles };
@@ -145,6 +148,15 @@ export function generate(manifest, pkgText, { html, tsconfig, vite }) {
     const at = page.match(/^([ \t]*)<link rel="stylesheet" href="app\.css">\n/m);
     if (!at) throw new Error('app/index.html has no <link rel="stylesheet" href="app.css"> to put the modules\' styles after');
     page = page.replace(at[0], () => at[0] + styles.map(s => `${at[1]}<link rel="stylesheet" href="${s}" data-module>\n`).join(''));
+  }
+  // the modules the page starts with (entries marked "preload"): fetched in parallel with the page's own scripts, each with
+  // the modules it imports, instead of one step down the import chain at a time; right before the first module script
+  page = page.replace(PRELOAD_LINE, '');
+  const preload = Object.entries(manifest.imports ?? {}).filter(([, e]) => e.preload).map(([n]) => imports[n]);
+  if (preload.length) {
+    const at = page.match(/^([ \t]*)<script type="module" src="src\/boot\.js"><\/script>\n/m);
+    if (!at) throw new Error('app/index.html has no <script type="module" src="src/boot.js"> to put the modulepreload links before');
+    page = page.replace(at[0], () => preload.map(u => `${at[1]}<link rel="modulepreload" href="${u}" data-module>\n`).join('') + at[0]);
   }
   const out = { html: page };
   if (tsconfig != null) {

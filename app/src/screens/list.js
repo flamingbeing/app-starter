@@ -28,12 +28,24 @@ export function listScreen(app) {
   /** @type {Item[]} */
   let all = [];
   const filter = modules.listFilter?.({ slot: $('list-tools'), redraw: () => api.draw(all, new Set()) });
-  /** the items to show, in order: the filter's pick, else all of them by text */
-  const visible = () => filter?.pick(all) ?? [...all].sort((a, b) => String(a.text).localeCompare(String(b.text)));
+  /** a stamp as ms: a number, or an ISO string (app-sync reads either); 0 when there is none */
+  const num = (/** @type {unknown} */ v) => (typeof v === 'number' ? v : typeof v === 'string' ? Date.parse(v) || 0 : 0);
+  /** @type {Record<string, (a: Item, b: Item) => number>} */
+  const ORDER = {
+    text: (a, b) => String(a.text).localeCompare(String(b.text)),
+    modified: (a, b) => num(b.updatedAt) - num(a.updatedAt),
+    created: (a, b) => num(b.createdAt ?? b.updatedAt) - num(a.createdAt ?? a.updatedAt),
+  };
+  /** the items to show, in order: the filter's pick, else all of them as this device's "Sort the list" says */
+  const visible = () => filter?.pick(all) ?? [...all].sort(ORDER[app.settings.get('sort')] ?? ORDER.text);
+  const when = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  /** "Added 28 Oct, 14:02 · Changed 29 Oct, 09:10" (an item from before createdAt has only the second) */
+  const stamps = (/** @type {Item} */ item) => [['Added', item.createdAt], ['Changed', item.updatedAt]]
+    .filter(([, t]) => num(t)).map(([w, t]) => `${w} ${when.format(num(t))}`).join(' · ');
   const toasts = toaster($('toasts'));
   const toast = toasts.show;
   const loading = loadState($('items-state'));   // skeleton rows until the list first arrives
-  loading.loading();
+  if (!$('items').children.length) loading.loading();   // (rows from the last visit are already up: app.js)
   const files = modules.itemFiles?.({ app, toast });
   const sheet = itemSheet(app, toast, undoToast(toasts), files);
   const empty = emptyState($('empty'), { title: 'Nothing here yet', hint: 'Items you add show up here.', action: { label: 'Add the first item', onClick: () => input('new-text').focus() } });
@@ -70,17 +82,23 @@ export function listScreen(app) {
       b.addEventListener('click', () => sheet.open(item));
       const thumbs = files?.thumbs(item);
       if (thumbs) b.append(thumbs);
+      const meta = stamps(item);
       li.classList.toggle('changed', changed.has(item.id));
       li.append(b);
+      // (beside the button, not in it: the button's name stays the item's text)
+      if (meta) { const s = document.createElement('small'); s.className = 'item-when'; s.textContent = meta; li.append(s); }
       return li;
     }));
     $('count').textContent = list.length === items.length ? `${items.length} ${items.length === 1 ? 'item' : 'items'}` : `${list.length} of ${items.length} items`;
     empty.show(items.length === 0 && canWrite);
   };
+  app.settings.watch('sort', () => draw(all, new Set()));
   const api = {
     ...screen,
     /** @param {Item[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */
     draw,
+    /** @returns {Item[]} all the items in this device's sort order (what the next start paints first) */
+    shown: () => [...all].sort(ORDER[app.settings.get('sort')] ?? ORDER.text),
     /** @param {Map<string, unknown[]>} by  every item's files */
     drawFiles(by) { files?.feed(by); draw(all, new Set()); sheet.redraw(); },
   };
