@@ -55,7 +55,7 @@ test('with no network and an expired sign-in token, the app still starts and sho
         kept: kept.length, inKept: kept.some(r => r.text === x), keptBefore: kept.filter(r => r.text < x).length, hint: localStorage.getItem('app:signed-in'),
         sw: !!navigator.serviceWorker.controller, signedOutHidden: document.querySelector('#signed-out')?.hidden, who: document.querySelector('#who')?.textContent };
     }, t).catch(e => ({ evalError: String(e).slice(0, 80) }));
-    await expect.poll(() => page.locator('#items').textContent(), { timeout: 40_000 }).toContain(t).catch(() => {});
+    await expect.poll(() => page.locator('#items').textContent(), { timeout: 15_000 }).toContain(t).catch(() => {});
     const late = (await page.locator('#items').textContent())?.includes(t) ? Date.now() - t0 : -1;
     throw new Error(`DIAG late=${late} errors=${errors.length} ${JSON.stringify(diag)}`);
   }
