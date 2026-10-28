@@ -1,1 +1,0 @@
-    if (url.pathname.startsWith('/api/files/')) return finish(await files(request, env, url, local, project));

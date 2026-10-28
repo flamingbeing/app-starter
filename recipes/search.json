@@ -1,8 +1,12 @@
 {
   "module": "search",
   "about": "Full-text search over the list with operators (@core/search, MiniSearch loaded on first need); local here until a second kind of app wants it.",
-  "importMap": {
-    "@core/search": "./search/index.js"
+  "modules": {
+    "@core/search": {
+      "url": "./search/index.js",
+      "types": "./app/public/search/index.js",
+      "alias": "./app/public/search/index.js"
+    }
   },
   "vendor": [
     "app/public/vendor/minisearch/7.2.0"
@@ -34,18 +38,10 @@
       "line": "  listFilter: listSearch,"
     }
   ],
-  "tsconfigPaths": {
-    "@core/search": [
-      "./app/public/search/index.js"
-    ]
-  },
   "tsconfigInclude": [
     "app/public/search/*.js",
     "app/public/search/*.d.ts"
   ],
-  "viteAlias": {
-    "@core/search": "./app/public/search/index.js"
-  },
   "docs": [
     "search: the box is app/src/screens/list-search.js (its operators has: and is: are samples; make them the app's own); the API is in app/public/search/index.js."
   ],

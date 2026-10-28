@@ -4,11 +4,13 @@
 // (./firebase-app.js). tools/firebase.lock.json holds the version and the sha256 of each gstatic file.
 //   node tools/vendor-firebase.mjs <ver>    download <ver>, replace the old version, point the import map at it
 //   node tools/vendor-firebase.mjs --check  no network: the files are gstatic's (lock), at the import map's version (CI)
-// After a bump: node tools/sw-files.mjs app, and the import map's hash in worker/headers.js (its test says the new one).
+// A bump points modules.json's firebase/* entries at the new folder and runs node tools/modules.mjs (the import map,
+// sw.js's list and the import map's hash follow).
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { MANIFEST, run } from './modules.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const APP = path.join(ROOT, 'app'), LOCK = path.join(ROOT, 'tools/firebase.lock.json');
@@ -50,8 +52,9 @@ async function vendor(v) {
   fs.mkdirSync(path.join(vendorDir, v), { recursive: true });
   for (const f of FILES) fs.writeFileSync(path.join(vendorDir, v, f), rewrite(got[f], v));
   fs.writeFileSync(LOCK, JSON.stringify({ version: v, source: GSTATIC(v), files }, null, 2) + '\n');
-  const index = path.join(APP, 'index.html');
-  fs.writeFileSync(index, fs.readFileSync(index, 'utf8').replace(/"(firebase\/\w+)": "[^"]+\/(firebase-\w+\.js)"/g, `"$1": "./vendor/firebase/${v}/$2"`));
+  const manifest = path.join(ROOT, MANIFEST);
+  fs.writeFileSync(manifest, fs.readFileSync(manifest, 'utf8').replace(/"\.\/vendor\/firebase\/[^/"]+\/(firebase-\w+\.js)"/g, `"./vendor/firebase/${v}/$1"`));
+  await run({ dir: ROOT });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -63,7 +66,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       console.log(`vendor-firebase: ok (${lock.version}, ${FILES.length} files are gstatic's)`);
     } else if (/^\d+\.\d+\.\d+$/.test(a[0] || '')) {
       await vendor(a[0]);
-      console.log(`vendor-firebase: ${a[0]} in app/public/vendor/firebase/; now run node tools/sw-files.mjs app`);
+      console.log(`vendor-firebase: ${a[0]} in app/public/vendor/firebase/, modules.json and everything generated from it`);
     } else throw new Error('usage: node tools/vendor-firebase.mjs <x.y.z> | --check');
   } catch (e) { console.error('vendor-firebase: ' + e.message); process.exit(1); }
 }

@@ -44,12 +44,11 @@ No step of it is a manual check: after each deploy `live-smoke.yml` signs the te
 For a library a screen imports only when it is opened (`await import('<name>')`), on top of the README's "Adding an
 outside package":
 
-- [ ] **Import map:** its entry in `app/index.html`. The import map is the page's one inline script, allowed by its
-  hash, so any edit to it changes the hash: run `node tools/update-from-starter.mjs --refresh` (or copy the hash
-  `worker/test/headers.test.mjs` prints) to update `IMPORT_MAP` in `worker/headers.js`.
+- [ ] **Import map:** its entry in `modules.json`, then `node tools/modules.mjs`: it writes the import map and its
+  hash in `worker/headers.js` (the import map is the page's one inline script, allowed by that hash), and `sw.js`'s
+  list, so the vendored file is cached for offline (CI's `--check` fails until then).
 - [ ] **Vite:** add its name to the `external` test in `vite.config.mjs` when the page loads it through the import map,
   so the build leaves the `import()` alone instead of bundling or failing on it.
-- [ ] **Offline:** `node tools/sw-files.mjs app`, so `sw.js` caches the vendored file (CI's `--check` fails until then).
 - [ ] A browser test that opens the screen offline after one online visit.
 
 ## 5. Things that look like one thing and are another

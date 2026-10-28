@@ -3,8 +3,15 @@
 // (from the repo root, after setup-tools or with .devkit/ copied from app-devkit)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { suite } from '../../.devkit/rules/suite.mjs';
+
+// The optional modules' cases (app/test/rules/<module>.mjs, written by tools/add.mjs): each exports `collections`
+// (more rows for the shared cases) and `tests({ test, assert, emu, as })`.
+const dir = new URL('./rules/', import.meta.url);
+const mods = existsSync(dir)
+  ? await Promise.all(readdirSync(dir).filter(f => f.endsWith('.mjs')).sort().map(f => import(new URL(f, dir).href)))
+  : [];
 
 const emu = suite({
   project: 'demo-starter-app',
@@ -13,7 +20,7 @@ const emu = suite({
   collections: [
     { path: 'spaces/_/items/i1', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
       data: { text: 'hello', updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
-    // add: rules cases
+    ...mods.flatMap(m => m.collections ?? []),
   ],
 });
 
@@ -73,4 +80,4 @@ test('account options: one doc per person, only theirs, only the allowed fields'
   assert.equal((await as('member').set('spaces/_/settings/u-member', { itemCount: null, profile: null, updatedAt: 2 }, at)).ok, true, 'null forgets a value');
 });
 
-// add: rules tests
+for (const m of mods) m.tests?.({ test, assert, emu, as });
