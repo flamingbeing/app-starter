@@ -250,3 +250,5 @@ the build), so switching is one small PR that changes what is deployed, not the 
    from source instead (app-sync's package entries, unused modules shaken out) is a later, separate choice.
 4. `index.html` may then move to the repo root and `src/` beside it (Vite's default layout); `vite.config.mjs`'s
    `root` changes with it.
+
+
