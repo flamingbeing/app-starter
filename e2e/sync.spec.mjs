@@ -20,6 +20,25 @@ test('a save made offline is kept on the phone and sent once back online, even a
   await synced(again);
 });
 
+test('the bar\'s sync button shows the state as its icon; offline, a tap retries and the save goes once back online', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await synced(page);
+  const btn = page.locator('.ui-bar #sync-btn');
+  await expect(btn).toHaveAttribute('data-state', 'synced');
+  await expect(btn).toHaveAttribute('aria-label', /Sync now$/);
+  await page.context().setOffline(true);
+  const t = uniq('button');
+  await add(page, t);
+  await expect(btn).not.toHaveAttribute('data-state', 'synced');
+  await btn.click();
+  expect(await page.evaluate(() => window.starter.syncTaps)).toBe(1);
+  await page.context().setOffline(false);
+  await btn.click();
+  await serverHas(t);
+  await expect(btn).toHaveAttribute('data-state', 'synced', { timeout: 15_000 });
+});
+
 test('two phones see each other’s changes', async ({ phone }) => {
   const a = await phone(), b = await phone();
   const { email } = await signIn(a, 'member');

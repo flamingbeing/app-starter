@@ -1,5 +1,5 @@
 // Back after a redirect sign-in: the page the sign-in left from is kept whole by the browser (the back/forward cache),
-// still on the sign-in screen. Back to it must open it as it is now (the list), and Back from there leaves the app.
+// still on the sign-in screen. Back (asked once) to it must open it as it is now (the list), and Back from there leaves the app.
 // Playwright turns that cache off, so this test has its own browser with it on.
 import { test as base, expect, chromium } from '@playwright/test';
 import { APP, db, uniq } from './fixtures.mjs';
@@ -29,13 +29,17 @@ test('Back after signing in never shows the sign-in screen again, and Back from 
   await db.put(`members/${await page.locator('#uid').textContent()}`, { role: 'member', v: 1 });
   await expect(page.locator('#list-view')).toBeVisible();
 
-  // (a page from the cache fires no load event)
+  // (a page from the cache fires no load event; each page's first Back asks "Press Back again to close")
+  await page.goBack({ waitUntil: 'commit' });
+  await expect(page.getByText('Press Back again to close')).toBeVisible();
   await page.goBack({ waitUntil: 'commit' });
   await expect.poll(() => page.evaluate(() => window.__shown).catch(() => null)).toEqual([false]);   // loaded again
   expect(new URL(page.url()).search).toBe('?emulator');
   await expect(page.locator('#list-view')).toBeVisible();
   await expect(page.locator('#signed-out')).toBeHidden();
 
+  await page.goBack({ waitUntil: 'commit' });   // asks once
+  await expect(page.getByText('Press Back again to close')).toBeVisible();
   await page.goBack({ waitUntil: 'commit' });
   await expect.poll(() => page.url()).toBe('about:blank');
 });
