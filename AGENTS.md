@@ -69,9 +69,11 @@ Every change keeps the app:
 node .devkit/tools/check.mjs
 node tools/modules.mjs --check
 node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
-npm run rules && npm run e2e
-npm run vite && APP_DIR=dist npm run e2e
+npm run rules && npm run e2e      # or only the specs the change touches
 ```
+
+PR Checks are the quick tier (README, "Tests"); the Vite build's full run and other slow runs are Full checks, nightly
+and by hand (`full-checks.yml`, `ref` = PR number). Don't re-run the full suite locally for every change.
 
 ## Working with the owner
 
