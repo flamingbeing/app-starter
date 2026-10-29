@@ -93,3 +93,13 @@ test('Clear deletes the done tasks after a question', async ({ phone }) => {
   await expect(page.locator('#done')).not.toContainText(t);
   await synced(page);
 });
+
+test('a start with nothing kept for Today: the early skeleton goes once the tasks arrive', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await page.evaluate(() => localStorage.setItem('app:last-list', '[]'));   // as after a visit with Today empty
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  await expect(page.locator('#today-state .load-row')).toHaveCount(0);
+  await expect(page.locator('#today-state')).not.toHaveAttribute('aria-busy', 'true');
+});

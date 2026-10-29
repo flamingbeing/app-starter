@@ -41,7 +41,10 @@ export function tasksScreen(app) {
   const undo = undoToast(toasts);
   const filter = modules.listFilter?.({ slot: $('list-tools'), redraw: () => draw(all, new Set()) });
   const files = modules.itemFiles?.({ app, toast });
-  const loading = loadState($('today-state'));   // skeleton rows until the tasks first arrive
+  // skeleton rows until the tasks first arrive. app.js may already show its own (an early frame): that one goes, or
+  // done() here clears only this block and the early skeleton stays for good
+  $('today-state').replaceChildren();
+  const loading = loadState($('today-state'));
   if (!$('today').children.length) loading.loading();   // (rows from the last visit are already up: app.js)
   const lists = listPicker(app, { toast, redraw: () => draw(all, new Set()), tasks: () => all });
   const sheet = taskSheet(app, { toast, undo, files, lists: lists.lists });
