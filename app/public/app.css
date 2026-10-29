@@ -16,10 +16,10 @@ input { padding: .5rem; flex: 1; min-width: 10rem; }
 /* the sample options (src/options.js) */
 #items.big li button { padding: 1rem .75rem; font-size: 1.15rem; }
 
-/* toasts sit above the tab bar on a phone */
-body { margin: 0; padding-bottom: calc(var(--tap) * 2 + env(safe-area-inset-bottom, 0px)); }
+/* toasts sit above the tab bar on a phone (the page's own room under its last row is the kit's: .ui-screen::after) */
+body { margin: 0; }
 .toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }
-@media (min-width: 600px) { body { padding-bottom: 0; } .toasts { bottom: var(--pad); } }
+@media (min-width: 600px) { .toasts { bottom: var(--pad); } }
 
 
 /* the app's icon beside its name in the side bar, and large on the signed-out screen */
