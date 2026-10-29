@@ -53,7 +53,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   await expect(row).toBeVisible();
   await loaded(row.locator('img.thumb'));   // from this device's cache, with no network
   expect(await records(`${t}.png`)).toEqual([]);
-  await a.click('#edit button[value=cancel]');
+  await a.click('#task-sheet [data-close]');
   await loaded(a.locator('#today li', { hasText: t }).locator('img.thumb'));
   expect(await axe(a), 'the list with a thumbnail').toEqual([]);
 
@@ -68,7 +68,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   await openItem(b, t);
   await loaded(b.locator('#edit-files li', { hasText: `${t}.png` }).locator('img.thumb'));
   expect(await axe(b), 'the sheet with a photo').toEqual([]);
-  await b.click('#edit button[value=cancel]');
+  await b.click('#task-sheet [data-close]');
 
   await openItem(a, t);
   await a.getByRole('button', { name: `Remove ${t}.png` }).click();
@@ -89,7 +89,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await attach(page, `${t}.txt`, Buffer.from('made-up notes'), 'text/plain');
   await expect(page.locator('#edit-files li', { hasText: `${t}.txt` })).toBeVisible();
   await expect(page.locator('#edit-files li', { hasText: `${t}.txt` }).locator('img')).toHaveCount(0);
-  await page.click('#edit button[value=cancel]');
+  await page.click('#task-sheet [data-close]');
   await expect(page.locator('#today li', { hasText: t })).toContainText('📎');
 
   await openSettings(page);
