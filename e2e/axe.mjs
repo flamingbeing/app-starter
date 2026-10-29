@@ -8,6 +8,7 @@ const src = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.mi
 // after the call (on a slow runner a second or more), so wait at least a second and until none come for half a second.
 export async function byTool(page, fn) {
   const before = await page.evaluate(() => (window.__csp || []).length);
+  const t0 = await page.evaluate(() => Math.round(performance.now()));
   const out = await fn();
   await page.evaluate(() => new Promise(res => {
     let last = (window.__csp || []).length, quiet = 0, ticks = 0;
@@ -16,7 +17,7 @@ export async function byTool(page, fn) {
       if (++ticks >= 20 && quiet >= 10) { clearInterval(t); res(); }
     }, 50);
   }));
-  await page.evaluate(n => { if (window.__csp) window.__csp.length = n; }, before);
+  await page.evaluate(([n, a]) => { (window.__win || []).push([a, Math.round(performance.now())]); if (window.__csp) window.__csp.length = n; }, [before, t0]);
   return out;
 }
 

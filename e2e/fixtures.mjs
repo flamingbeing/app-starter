@@ -96,7 +96,8 @@ const seed = () => {
     set.call(this, url);
   } });
   window.__csp = [];
-  addEventListener('securitypolicyviolation', e => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+  window.__why = []; window.__win = [];
+  addEventListener('securitypolicyviolation', e => { window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`); window.__why.push({ t: Math.round(performance.now()), f: e.sourceFile, l: e.lineNumber, s: e.sample, st: new Error().stack }); });
   try {
     if (!localStorage.getItem('core-glass-guard')) localStorage.setItem('core-glass-guard', JSON.stringify({ solid: false, why: '' }));
   } catch { /* an opaque origin: nothing to keep */ }
@@ -168,6 +169,7 @@ async function check(made) {
   for (const { context, page, served } of made) {
     const v = await page.evaluate(() => window.__csp || []).catch(() => []);
     await context.close();
+    if (v.length) console.log('REPRO', JSON.stringify(await page.evaluate(() => ({ why: window.__why, win: window.__win, now: Math.round(performance.now()) })).catch(e => String(e))));
     expect(v, 'CSP violations').toEqual([]);
     if (!served) continue;
     if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);

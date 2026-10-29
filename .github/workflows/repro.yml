@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        n: [1, 2, 3, 4]
+        n: [1, 2, 3, 4, 5, 6]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -28,6 +28,8 @@ jobs:
         run: npm run vite
       - name: Loop the axe spec
         working-directory: ${{ runner.temp }}/static-app
-        run: npx playwright test e2e/theme.spec.mjs -g "passes axe" --repeat-each 6 --workers 2
+        run: |
+          for i in 1 2 3 4; do (while :; do :; done) & done
+          npx playwright test e2e/theme.spec.mjs -g "passes axe" --repeat-each 8 --workers 4
         env:
           APP_DIR: dist
