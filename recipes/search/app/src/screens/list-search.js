@@ -21,7 +21,7 @@ function drawBox(/** @type {HTMLElement} */ slot) {
   return { q, msg };
 }
 
-/** @type {import('./list.js').ListFilter} */
+/** @type {import('./tasks.js').ListFilter} */
 export function listSearch({ slot, redraw }) {
   const { q, msg } = drawBox(slot);
   const search = createSearch({
