@@ -1,7 +1,23 @@
 // axe-core in the page: serious and critical problems only, as "rule: target" lines (empty = none).
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-const src = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+const raw = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+
+// axe's elementsFromPoint polyfill puts a <style> element in <head> while it runs, which the page's CSP reports as
+// `style-src-elem inline`. The report is delivered as a task of its own, and on a loaded runner it came after byTool's
+// wait (so the test failed once in a while). Give axe the same rule as an adopted (constructed) style sheet, which the
+// policy does not govern, and no report is made at all. Each piece must match once, so a new axe-core that words this
+// differently fails here, loudly.
+const PATCHES = [
+  ['(s=document.createElement("style")).innerHTML=e?"* { pointer-events: all }":"* { visibility: visible }"',
+    '(s=new CSSStyleSheet).replaceSync(e?"* { pointer-events: all }":"* { visibility: visible }")'],
+  ['document.head.appendChild(s)', 'document.adoptedStyleSheets=[...document.adoptedStyleSheets,s]'],
+  ['document.head.removeChild(s)', 'document.adoptedStyleSheets=document.adoptedStyleSheets.filter(x=>x!==s)'],
+];
+const src = PATCHES.reduce((code, [from, to]) => {
+  if (code.split(from).length !== 2) throw new Error(`axe-core: expected one "${from.slice(0, 40)}..." to patch (see e2e/axe.mjs)`);
+  return code.replace(from, () => to);
+}, raw);
 
 // Run a tool that works inside the page (axe, a screenshot: Playwright's WebKit screenshot adds an inline <style>), and
 // drop the CSP reports it caused: they are the tool's, not the page's. The events arrive asynchronously, in WebKit well
