@@ -1,0 +1,35 @@
+name: Repro
+on:
+  push:
+    branches: [repro/csp-final]
+permissions:
+  contents: read
+jobs:
+  loop:
+    name: loop ${{ matrix.n }}
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: flamingbeing/app-devkit/setup-node@v1.14.0
+      - uses: flamingbeing/app-devkit/setup-tools@v1.14.0
+      - uses: flamingbeing/app-devkit/setup-browser@v1.14.0
+      - name: Fill
+        run: |
+          mkdir -p "$RUNNER_TEMP/static-app"
+          tar --exclude=.git -cf - . | tar -xf - -C "$RUNNER_TEMP/static-app"
+          cd "$RUNNER_TEMP/static-app"
+          node tools/fill.mjs --name static-check --host static-check.example.net --kit nuhs --commit "$GITHUB_SHA" --static
+      - working-directory: ${{ runner.temp }}/static-app
+        run: npm run vite
+      - name: Loop the axe spec
+        working-directory: ${{ runner.temp }}/static-app
+        run: |
+          for i in 1 2 3 4; do (while :; do :; done) & done
+          npx playwright test e2e/theme.spec.mjs -g "passes axe" --repeat-each 8 --workers 4
+        env:
+          APP_DIR: dist
