@@ -27,12 +27,12 @@ test('no sign-in: no account footer, no sync chip, settings open at once', async
   await signIn(page);
   await expect(page.locator('#signed-out, #sign-out, #sync-chip')).toHaveCount(0);
   await openSettings(page);
-  await page.getByRole('switch', { name: /Show how many items/ }).check();
+  await page.getByRole('switch', { name: /Show how many are open/ }).click();
   await openToday(page);
-  await expect(page.locator('#count')).toBeVisible();
+  await expect(page.locator('#today-page .list-chip[data-list="all"]')).toHaveText(/ \d+$/);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
-  await expect(page.locator('#count')).toBeVisible();
+  await expect(page.locator('#today-page .list-chip[data-list="all"]')).toHaveText(/ \d+$/);
 });
 
 test('another tab of the app hears each change', async ({ phone }) => {

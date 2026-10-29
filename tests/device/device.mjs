@@ -74,10 +74,10 @@ async function signIn(page, cfg) {
   await until(() => page.evaluate(() => window.starter?.ready), 'app ready');
 }
 const synced = page => until(() => page.evaluate(() => window.starter?.status === 'synced'), 'status synced', 30_000);
-const add = async (page, text) => { await page.fill('#new-text', text); await page.click('#add button[type=submit]'); await page.locator('#items', { hasText: text }).waitFor(); };
+const add = async (page, text) => { await page.fill('#new-text', text); await page.click('#add button[type=submit]'); await page.locator('#today', { hasText: text }).waitFor(); };
 // Click that survives the phone's soft keyboard resizing the viewport after a filled field (Android: the dialog's
 // button is then reported not visible): drop focus, bring it into view, and fall back to a DOM click.
-// (the confirm dialog's Delete button also matches the sheet's own #edit-delete: callers take .last(), the one on top)
+// (the confirm dialog's Delete button also matches the sheet's own #task-delete: callers take .last(), the one on top)
 const tap = async loc => {
   await loc.page().evaluate(() => document.activeElement?.blur?.()).catch(() => {});
   await loc.scrollIntoViewIfNeeded().catch(() => {});
@@ -104,10 +104,10 @@ async function cleanup(page) {
   if (!page || page.isClosed()) return;
   await page.goto(`${URL_}/app/?sw`).catch(() => {});
   for (let i = 0; i < 40; i++) {
-    const row = page.locator('#items button', { hasText: RUN }).first();
+    const row = page.locator('#today button', { hasText: RUN }).first();
     if (!(await row.count())) return;
     await row.click();
-    await tap(page.locator('#edit-delete'));
+    await tap(page.locator('#task-delete'));
     await tap(page.getByRole('button', { name: 'Delete', exact: true }).last());
     await sleep(500);
   }
@@ -148,25 +148,25 @@ try {
       await a.close();                    // force-quit: the page goes away with the save unsent
       a = await ctxA.newPage();
       await a.goto(`${URL_}/app/?sw`);    // reopened still offline, from the service worker
-      await a.locator('#items', { hasText: t }).waitFor({ timeout: 20_000 });
+      await a.locator('#today', { hasText: t }).waitFor({ timeout: 20_000 });
       await ctxA.setOffline(false);
       await synced(a);
-      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#items').innerText()).includes(t); }, 'other device sees the save', 40_000);
+      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#today').innerText()).includes(t); }, 'other device sees the save', 40_000);
       await shot(a, '1-offline-save');
     });
 
     await check('2 two devices: edit + delete on one, seen on the other', async () => {
       const t = uniq('two'), t2 = `${t}-edited`;
       await add(a, t); await synced(a);
-      await b.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await b.locator('#today', { hasText: t }).waitFor({ timeout: 30_000 });
       await a.getByRole('button', { name: t }).click();
-      await a.fill('#edit-text', t2); await a.click('#edit-save'); await synced(a);
-      await b.locator('#items', { hasText: t2 }).waitFor({ timeout: 30_000 });
+      await a.fill('#task-text', t2); await a.click('#task-save'); await synced(a);
+      await b.locator('#today', { hasText: t2 }).waitFor({ timeout: 30_000 });
       await a.getByRole('button', { name: t2 }).click();
-      await tap(a.locator('#edit-delete'));
+      await tap(a.locator('#task-delete'));
       await tap(a.getByRole('button', { name: 'Delete', exact: true }).last());
       await synced(a);
-      await until(async () => !(await b.locator('#items').innerText()).includes(t2), 'delete seen on the other device', 30_000);
+      await until(async () => !(await b.locator('#today').innerText()).includes(t2), 'delete seen on the other device', 30_000);
       await shot(b, '2-two-devices');
     });
 
@@ -177,22 +177,22 @@ try {
       await a.click('#sign-out').catch(() => {});
       await ctxA.setOffline(false);
       await signIn(a, cfg);
-      await a.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await a.locator('#today', { hasText: t }).waitFor({ timeout: 30_000 });
       await synced(a);
-      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#items').innerText()).includes(t); }, 'sent after sign-in', 40_000);
+      await until(async () => { await b.reload(); await b.locator('#list-view').waitFor(); return (await b.locator('#today').innerText()).includes(t); }, 'sent after sign-in', 40_000);
       await shot(a, '3-sign-out-in');
     });
   }
 
   if (phase === 'extra') {
     const ctxBx = b.context();
-    const listB = async prefix => { await b.reload(); await b.locator('#list-view').waitFor(); return b.locator('#items button', { hasText: prefix }).allInnerTexts(); };
-    const edit = async (page, from, to) => { await page.getByRole('button', { name: from }).click(); await page.fill('#edit-text', to); await tap(page.locator('#edit-save')); await page.locator('#items', { hasText: to }).waitFor(); };
+    const listB = async prefix => { await b.reload(); await b.locator('#list-view').waitFor(); return b.locator('#today button', { hasText: prefix }).allInnerTexts(); };
+    const edit = async (page, from, to) => { await page.getByRole('button', { name: from }).click(); await page.fill('#task-text', to); await tap(page.locator('#task-save')); await page.locator('#today', { hasText: to }).waitFor(); };
 
     await check('5 same item edited offline on both devices: converges, nothing lost or doubled', async () => {
       const t = uniq('conf');
       await add(a, t); await synced(a);
-      await b.locator('#items', { hasText: t }).waitFor({ timeout: 30_000 });
+      await b.locator('#today', { hasText: t }).waitFor({ timeout: 30_000 });
       await ctxA.setOffline(true); await ctxBx.setOffline(true);
       await edit(a, t, `${t}-A`); await edit(b, t, `${t}-B`);
       await ctxA.setOffline(false); await synced(a);
@@ -204,7 +204,7 @@ try {
       let rows;
       await until(async () => {
         await a.reload(); await a.locator('#list-view').waitFor();
-        const ra = await a.locator('#items button', { hasText: t }).allInnerTexts(); const rb = await listB(t);
+        const ra = await a.locator('#today button', { hasText: t }).allInnerTexts(); const rb = await listB(t);
         rows = [ra, rb];
         return ra.length === 1 && rb.length === 1 && ra[0] === rb[0];
       }, 'both devices end on one and the same item', 45_000);
