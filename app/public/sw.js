@@ -36,6 +36,8 @@ const SHELL = [
   'src/screens/not-set-up.js',
   'src/screens/signed-out.js',
   'src/shell.js',
+  'src/task-ops.js',
+  'src/tasks.js',
   'vendor/firebase/12.19.0/firebase-app.js',
   'vendor/firebase/12.19.0/firebase-auth.js',
   'vendor/firebase/12.19.0/firebase-firestore.js',
