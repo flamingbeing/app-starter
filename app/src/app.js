@@ -1,7 +1,7 @@
 // The page's wiring: the shell and Settings page (shell.js), the kit's sync chip, the account block, and the screen
 // switch. The screens (screens/) are the three task tabs with add, edit, tick, delete, conflicts and refused saves; a new app
 // replaces them and keeps this wiring, cloud.js and the kit (@core/ui, @core/theme).
-import { syncChip, plural, loadState } from '@core/ui';
+import { syncChip, syncButton, plural, loadState } from '@core/ui';
 import { start, usingEmulator, emulatorSignIn, lastSignedIn, keepList, keptList } from './cloud.js';
 import { $ } from './dom.js';
 import { dayKey } from './tasks.js';
@@ -48,6 +48,11 @@ else {
     fn(state === 'synced' && st.unsent > 0 ? { state: 'pending', count: st.unsent } : { state, count: st.count });
   });
   syncChip($('sync-chip'), { sync: /** @type {any} */ ({ status$: chipStatus$ }) });   // (the chip reads only status$)
+  // the bar's sync button: the same state; a tap wakes the sync and sends what waits now (window.starter.syncTaps for the tests)
+  syncButton($('sync-btn'), { sync: /** @type {any} */ ({ status$: chipStatus$ }), syncNow: async () => {
+    window.starter.syncTaps = Number(window.starter.syncTaps ?? 0) + 1;
+    app.sync.nudge('wake'); await app.sync.flush();
+  } });
   chipStatus$(st => { window.starter.status = st.state; });
   const list = tasksScreen(app);
   const show = screenSwitch({
