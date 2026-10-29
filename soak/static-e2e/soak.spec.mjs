@@ -18,7 +18,7 @@ const reload = page => (engine(page) === 'firefox' ? page.goto(page.url(), { wai
 const ready = page =>
   expect.poll(() => page.evaluate(() => window.starter.ready).catch(() => false), { timeout: 20_000 })   // (a worker update may reload the page under the poll)
   .toBe(true);
-const texts = page => page.locator('#items').evaluate(el => el.textContent);
+const texts = page => page.locator('#today').evaluate(el => el.textContent);
 
 test('offline: saves made with no network are there after an offline reload', async ({ phone }) => {
   const page = await slow(await phone());
@@ -29,11 +29,11 @@ test('offline: saves made with no network are there after an offline reload', as
   for (const x of t) await add(page, x);
   await reload(page);
   await ready(page);
-  for (const x of t) await expect(page.locator('#items')).toContainText(x);
+  for (const x of t) await expect(page.locator('#today')).toContainText(x);
   await setOffline(page.context(), false);
   await reload(page);
   await ready(page);
-  for (const x of t) await expect(page.locator('#items')).toContainText(x);
+  for (const x of t) await expect(page.locator('#today')).toContainText(x);
 });
 
 test('reload in the middle of a save: shown means kept, never doubled', async ({ phone }) => {
@@ -45,7 +45,7 @@ test('reload in the middle of a save: shown means kept, never doubled', async ({
     await page.fill('#new-text', x);
     await page.click('#add button[type=submit]');
     if (i % 2) await page.waitForTimeout(i * 7);   // 0..49 ms: the reload lands before, during or after the write
-    const shown = await page.locator('#items').evaluate((el, x) => el.textContent.includes(x), x).catch(() => false);
+    const shown = await page.locator('#today').evaluate((el, x) => el.textContent.includes(x), x).catch(() => false);
     await reload(page);
     await ready(page);
     const body = await texts(page);
@@ -68,12 +68,12 @@ test('IndexedDB deleted under a running page: no crash, a reload gives an empty 
   });
   await reload(page);
   await ready(page);
-  await expect(page.locator('#items')).not.toContainText(x);
+  await expect(page.locator('#today')).not.toContainText(x);
   const y = uniq('after');
   await add(page, y);
   await reload(page);
   await ready(page);
-  await expect(page.locator('#items')).toContainText(y);
+  await expect(page.locator('#today')).toContainText(y);
   expect(errors, 'page errors').toEqual([]);
 });
 
@@ -96,12 +96,12 @@ test('IndexedDB refuses writes (quota): the page keeps working, the next start i
   await expect(page.locator('#list-view')).toBeVisible();   // still there, not a blank page
   await reload(page);     // new document: the stub is gone
   await ready(page);
-  await expect(page.locator('#items')).toContainText(before);
+  await expect(page.locator('#today')).toContainText(before);
   const y = uniq('ok');
   await add(page, y);
   await reload(page);
   await ready(page);
-  await expect(page.locator('#items')).toContainText(y);
+  await expect(page.locator('#today')).toContainText(y);
 });
 
 // How a browser says "no storage" (private windows, blocked cookies, lockdown): each way must leave a working list.
@@ -142,9 +142,9 @@ test('a new version found while the list has saved items: nothing lost, online o
   await page.waitForTimeout(500);
   await reload(page);
   await ready(page);
-  await expect(page.locator('#items')).toContainText(x);
+  await expect(page.locator('#today')).toContainText(x);
   await setOffline(page.context(), true);
   await reload(page);
   await ready(page);
-  await expect(page.locator('#items')).toContainText(x);
+  await expect(page.locator('#today')).toContainText(x);
 });

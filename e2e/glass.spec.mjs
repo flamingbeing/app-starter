@@ -2,7 +2,7 @@
 // the modules run), solid where the device asks for less transparency or more contrast, axe on glass, the screen
 // switch as a view transition. Screenshots of the sample in light, dark, OLED and Solid go to test-results/ for the PR.
 import AxeBuilder, { byTool } from './axe.mjs';
-import { test, expect, clickOpens, signIn, add, APP, openSettings, openItems } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, APP, openSettings, openToday } from './fixtures.mjs';
 
 /** @param {import('@playwright/test').Page} page @param {string} sel @param {string} prop */
 const style = (page, sel, prop) => page.locator(sel).first().evaluate((e, p) => getComputedStyle(e).getPropertyValue(p), prop);
@@ -87,7 +87,7 @@ for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a
   await page.getByLabel('Theme').selectOption(pick.theme);
   await page.getByLabel('Dark style').selectOption(pick.dark);
   await page.getByLabel('Bars and sheets').selectOption(pick.material);
-  await openItems(page);
+  await openToday(page);
   await add(page, `Toast for ${name} ${run}`);
   await expect(page.locator('.toast').last()).toBeVisible();
   await page.evaluate(() => scrollTo(0, 260));   // (content under the bar, so the scroll edge and the glass show)
@@ -95,12 +95,12 @@ for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a
   expect(await AxeBuilder(page), `${name}: page with a toast`).toEqual([]);
   await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}.png`) }));
 
-  await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#edit'));
+  await clickOpens(page.getByRole('button', { name: `Sample item 3 ${run}`, exact: true }), page.locator('#task-sheet'));
   await settled(page);
   expect(await AxeBuilder(page), `${name}: the item sheet`).toEqual([]);
   await byTool(page, () => page.screenshot({ path: info.outputPath(`glass-${name}-sheet.png`) }));
-  await page.locator('#edit').getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.locator('#edit')).toBeHidden();
+  await page.locator('#task-sheet').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('#task-sheet')).toBeHidden();
 });
 
 // cloud{ (a static app has one screen)

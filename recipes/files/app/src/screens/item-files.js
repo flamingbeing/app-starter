@@ -6,7 +6,7 @@ import { thumbOf, attachmentRows } from './attachments.js';
 /** @typedef {import('../files-data.js').Attachment} Attachment */
 /** @typedef {import('../cloud.js').Item} Item */
 
-/** @type {import('./list.js').ItemFilesSlot} */
+/** @type {import('./tasks.js').ItemFilesSlot} */
 export function itemFiles({ app, toast }) {
   /** @type {Map<string, Attachment[]>} */
   let by = new Map();

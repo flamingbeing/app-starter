@@ -1,6 +1,6 @@
 // Sign-in, roles from the role doc, and the list: add, edit, delete to the bin.
 import AxeBuilder from './axe.mjs';
-import { test, expect, clickOpens, signIn, add, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, add, synced, serverHas, db, uniq, today, APP } from './fixtures.mjs';
 
 test('signed out: the sign-in screen, accessible', async ({ phone }) => {
   const page = await phone();
@@ -25,25 +25,25 @@ test('a member adds, edits and deletes; the delete lands in the bin', async ({ p
   await serverHas(t);
   expect(await AxeBuilder(page)).toEqual([]);
 
-  await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
-  await page.fill('#edit-text', t + ' edited');
-  await page.click('#edit-save');
-  await expect(page.locator('#items')).toContainText(t + ' edited');
+  await clickOpens(page.getByRole('button', { name: t }), page.locator('#task-sheet'));
+  await page.fill('#task-text', t + ' edited');
+  await page.click('#task-save');
+  await expect(page.locator('#today')).toContainText(t + ' edited');
   await serverHas(t + ' edited');
 
-  await clickOpens(page.getByRole('button', { name: t + ' edited' }), page.locator('#edit'));
-  await page.click('#edit-delete');
-  await expect(page.locator('#items')).not.toContainText(t);
+  await clickOpens(page.getByRole('button', { name: t + ' edited' }), page.locator('#task-sheet'));
+  await page.click('#task-delete');
+  await expect(page.locator('#today')).not.toContainText(t);
   await expect.poll(async () => (await db.list('spaces/_/bin')).some(b => b.data?.text === t + ' edited'), { timeout: 15_000 }).toBe(true);
-  await expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === t + ' edited')).toBe(false);
+  await expect.poll(async () => (await db.list('spaces/_/tasks')).some(d => d.text === t + ' edited')).toBe(false);
 });
 
 test('a viewer reads but cannot add or edit', async ({ phone }) => {
   const t = uniq('seen');
-  await db.put(`spaces/_/items/${t}`, { text: t, updatedAt: Date.now() });
+  await db.put(`spaces/_/tasks/${t}`, { text: t, due: today(), done: false, updatedAt: Date.now() });
   const page = await phone();
   await signIn(page, 'viewer');
-  await expect(page.locator('#items')).toContainText(t);
+  await expect(page.locator('#today')).toContainText(t);
   await expect(page.locator('#add')).toBeHidden();
   await expect(page.getByRole('button', { name: t })).toBeDisabled();
 });
@@ -115,10 +115,10 @@ test('typing the next item while the last one saves keeps the new draft (slow or
     box.value = second;
     box.dispatchEvent(new Event('input', { bubbles: true }));
   }, { first, second });
-  await expect(page.locator('#items')).toContainText(first);
+  await expect(page.locator('#today')).toContainText(first);
   await expect(page.locator('#new-text')).toHaveValue(second);
   await page.click('#add button[type=submit]');
-  await expect(page.locator('#items')).toContainText(second);
+  await expect(page.locator('#today')).toContainText(second);
   await expect(page.locator('#new-text')).toHaveValue('');
   await page.context().setOffline(false);
   await serverHas(first);

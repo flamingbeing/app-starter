@@ -5,7 +5,8 @@ import AxeBuilder from './axe.mjs';
 
 // the add form clears itself a moment after the item shows; wait for that before the next one
 const addOne = async (page, text) => { await add(page, text); await expect(page.locator('#new-text')).toHaveValue(''); };
-const shown = page => page.locator('#items li button').allTextContents();
+// (a row's button also holds its sub line and thumbnails: read just the task's own text)
+const shown = page => page.locator('#today li .task-main').evaluateAll(bs => bs.map(b => b.firstChild?.textContent ?? ''));
 
 test('the search box narrows the list, with phrase, leave-out, operators and a hint', async ({ phone }) => {
   const a = await phone();
@@ -18,7 +19,6 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
 
   await q.fill(`${tag} spinal`);
   await expect.poll(() => shown(a)).toHaveLength(2);
-  await expect(a.locator('#count')).toHaveText(/^2 of \d+ items$/)   // the list may hold other tests' items;
 
   await q.fill(`${tag} -spinal`);
   await expect.poll(() => shown(a)).toEqual([`${tag} epidural for hip, 12 hours`]);
@@ -36,7 +36,6 @@ test('the search box narrows the list, with phrase, leave-out, operators and a h
   await expect(a.locator('#search-msg')).toHaveText('No matches');
 
   await q.fill('');
-  await expect(a.locator('#count')).toHaveText(/^\d+ items$/);
   expect((await shown(a)).filter(t => t.startsWith(tag))).toHaveLength(3);
 });
 

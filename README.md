@@ -15,9 +15,11 @@ are safe from day one. Replace this first paragraph with what the app is once it
   answers `/api/claims` (app-devkit `claims.js`, roles from `members.js`) and `/api/csp` (CSP reports, one line each
   in the Worker log: `csp-report.js`), and passes Firebase's sign-in helper pages (`/__/auth/`, `/__/firebase/`) on
   to the project, so sign-in stays on the app's address (those pages get only the framing rule, not the app's CSP).
-- **Sample app** (`app/`): a list with add, edit, delete (to the bin), a conflict sheet, a list of saves the server
+- **Sample app** (`app/`): a tasks app: Today (with a quick add), Upcoming (grouped by day; tasks with no date sit in a
+  trailing "No date" group) and Done tabs, lists (Inbox plus your own, a chip picker and an "Edit lists" sheet), a task
+  sheet (notes, due day and time, list), tick-off with Undo, delete (to the bin), a conflict sheet, a list of saves the server
   refused, a status chip, Google sign-in, sign-out that keeps the device copy (forget wipes it, once nothing is
-  unsent), an edit sheet that follows its item, "check for updates" and the version line (in Settings). Sync is
+  unsent), a task sheet that follows its task, "check for updates" and the version line (in Settings). Sync is
   [app-sync](https://github.com/flamingbeing/app-sync)'s modules (`createApp` with `auth`, `sync` and `update`, in
   `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
   map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).

@@ -3,7 +3,7 @@
 // asks its slot here; an empty slot costs the page nothing.
 // add: imports
 
-/** @type {{ listFilter?: import('./screens/list.js').ListFilter, itemFiles?: import('./screens/list.js').ItemFilesSlot }} */
+/** @type {{ listFilter?: import('./screens/tasks.js').ListFilter, itemFiles?: import('./screens/tasks.js').ItemFilesSlot }} */
 export const modules = {
   // add: slots
 };

@@ -3,22 +3,23 @@
 // A new app replaces these with its own.
 export const SETTINGS_COLL = 'settings';
 
-/** how the list can be sorted (the Settings choice and list.js): by text, newest change first, newest item first */
-export const SORTS = /** @type {[string, string][]} */ ([['text', 'By text'], ['modified', 'Last changed first'], ['created', 'Newest first']]);
+/** how a day's tasks are ordered (Today and Upcoming): by due time, by text, newest first */
+export const SORTS = /** @type {[string, string][]} */ ([['due', 'By due time'], ['title', 'By text'], ['newest', 'Newest first']]);
 
 /** @type {Record<string, import('app-ui/settings/types').OptionSpec>} */
 export const OPTIONS = {
-  // this device only: a phone and a computer can differ
   bigRows: { scope: 'device', default: false },
-  sort: { scope: 'device', default: 'text', clean: v => (SORTS.some(([k]) => k === v) ? v : 'text') },
-  itemCount: { scope: 'device', default: false },
+  sort: { scope: 'device', default: 'due', clean: v => (SORTS.some(([k]) => k === v) ? v : 'due') },
+  showCounts: { scope: 'device', default: false },
+  // the list the tabs show: 'all', 'inbox' or a list's id (a deleted list falls back to 'all'); new tasks go into it
+  defaultList: { scope: 'device', default: 'all', clean: v => (typeof v === 'string' && v.length <= 80 ? v : 'all') },
 };
 
 /** The Settings page's rows (src/shell.js: @core/ui settingsScreen); a row is a switch for a yes/no option. */
 export const SETTING_SECTIONS = [
-  { title: 'List', rows: [
-    { key: 'bigRows', label: 'Larger list rows', sub: 'This device' },
-    { key: 'sort', label: 'Sort the list', sub: 'This device', choices: SORTS },
-    { key: 'itemCount', label: 'Show how many items there are', sub: 'This device' },
+  { title: 'Tasks', rows: [
+    { key: 'sort', label: 'Order within a day', sub: 'This device', choices: SORTS },
+    { key: 'showCounts', label: 'Show how many are open in each list', sub: 'This device' },
+    { key: 'bigRows', label: 'Larger rows', sub: 'This device' },
   ] },
 ];

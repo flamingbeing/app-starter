@@ -57,25 +57,27 @@
     <header class="ui-bar">
       <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
       <h2 class="ui-bar-title" aria-hidden="true">Starter app</h2>
-      <span class="ui-bar-side ui-bar-end"></span>
+      <span class="ui-bar-side ui-bar-end"><button type="button" class="ui-primary" id="new-task" hidden>New</button></span>
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
       <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Starter app</p>
-      <a class="ui-side-link" href="./" data-tab-page="#items-page" aria-current="page">Items</a>
+      <a class="ui-side-link" href="./" data-tab-page="#today-page" aria-current="page">Today</a>
+      <a class="ui-side-link" href="./" data-tab-page="#upcoming-page">Upcoming</a>
+      <a class="ui-side-link" href="./" data-tab-page="#done-page">Done</a>
       <a class="ui-side-link" href="./" data-tab-page="#settings-page" id="side-settings">Settings</a>
     </nav>
 
     <main class="ui-screens">
-      <section class="ui-screen" id="items-page" aria-labelledby="items-title">
-        <h1 class="ui-large-title" id="items-title">Items</h1>
+      <section class="ui-screen" id="today-page" aria-labelledby="today-title">
+        <h1 class="ui-large-title" id="today-title">Today</h1>
         <!-- cloud{ the sync chip: a static app's list is never unsent -->
         <p class="status-line"><span id="sync-chip"></span></p>
         <!-- }cloud -->
         <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
         <div id="signed-out" hidden>
           <img class="app-mark app-mark-big" src="icons/icon.svg" alt="" width="72" height="72">
-          <p>Sign in to see the list.</p>
+          <p>Sign in to see your tasks.</p>
           <div id="sign-in-sheet" class="sheet"></div>
         </div>
         <div id="no-access" hidden>
@@ -91,18 +93,33 @@
           <div id="refused-list"></div>
           <p id="edit-msg" class="small" role="status"></p>
           <div id="list-tools"></div>
+          <div class="list-picker" role="group" aria-label="Lists"></div>
           <form id="add" autocomplete="off">
-            <label for="new-text">New item</label>
+            <label for="new-text">New task</label>
             <div class="row">
               <input id="new-text" name="text" maxlength="500" required>
               <button type="submit">Add</button>
             </div>
           </form>
-          <p id="count" class="small" role="status" hidden></p>
-          <div id="items-state"></div>
-          <ul id="items" class="ui-list" aria-label="Items"></ul>
-          <div id="empty"></div>
+          <div id="today-state"></div>
+          <ul id="today" class="ui-list" aria-label="Today"></ul>
+          <div id="today-empty"></div>
         </div>
+      </section>
+
+      <section class="ui-screen ui-tab-page" id="upcoming-page" aria-labelledby="upcoming-title" hidden>
+        <h1 class="ui-large-title" id="upcoming-title">Upcoming</h1>
+        <div class="list-picker" role="group" aria-label="Lists"></div>
+        <div id="upcoming" class="task-groups"></div>
+        <div id="upcoming-empty"></div>
+      </section>
+
+      <section class="ui-screen ui-tab-page" id="done-page" aria-labelledby="done-title" hidden>
+        <h1 class="ui-large-title" id="done-title">Done</h1>
+        <div class="list-picker" role="group" aria-label="Lists"></div>
+        <p class="done-tools"><button type="button" id="clear-done" hidden>Clear done tasks</button></p>
+        <ul id="done" class="ui-list" aria-label="Done"></ul>
+        <div id="done-empty"></div>
       </section>
 
       <section class="ui-screen ui-tab-page" id="settings-page" aria-labelledby="settings-title" hidden>
@@ -119,26 +136,53 @@
     </main>
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">
-      <button type="button" class="ui-tab" data-tab-page="#items-page" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Items</button>
+      <button type="button" class="ui-tab" data-tab-page="#today-page" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Today</button>
+      <button type="button" class="ui-tab" data-tab-page="#upcoming-page"><span class="ui-tab-icon" aria-hidden="true">▤</span>Upcoming</button>
+      <button type="button" class="ui-tab" data-tab-page="#done-page"><span class="ui-tab-icon" aria-hidden="true">●</span>Done</button>
       <button type="button" class="ui-tab" data-tab-page="#settings-page" id="tab-settings"><span class="ui-tab-icon" aria-hidden="true">≡</span>Settings</button>
     </nav>
   </div>
 
   <div id="toasts"></div>
 
-  <dialog id="edit" aria-labelledby="edit-title">
-    <form method="dialog" id="edit-form">
-      <h2 id="edit-title">Edit item</h2>
-      <label for="edit-text">Text</label>
-      <input id="edit-text" maxlength="500" required>
-      <p id="edit-live" class="small" role="status"></p>
-      <div id="edit-extras"></div>
-      <div class="row">
-        <button id="edit-save" value="save">Save</button>
-        <button id="edit-delete" value="delete" type="button" class="danger">Delete</button>
-        <button value="cancel" formnovalidate>Cancel</button>
+  <dialog class="ui-sheet" id="task-sheet" data-detents="medium large" data-wide="panel" aria-labelledby="task-title">
+    <div class="ui-sheet-grabber" aria-label="Expand or collapse"></div>
+    <form method="dialog" id="task-form">
+      <div class="ui-sheet-head">
+        <h2 id="task-title">New task</h2>
+        <button type="button" data-close>Cancel</button>
+      </div>
+      <div class="ui-sheet-body">
+        <label class="kit-field">Task <input id="task-text" maxlength="500" required autocomplete="off"></label>
+        <label class="kit-field">Notes <textarea id="task-notes" maxlength="2000" rows="3"></textarea></label>
+        <div class="task-when">
+          <label class="kit-field">Due day <input id="task-due" type="date"></label>
+          <label class="kit-field">Time <input id="task-time" type="time"></label>
+        </div>
+        <label class="kit-field">List <select id="task-list"></select></label>
+        <p id="task-live" class="small" role="status"></p>
+        <div id="edit-extras"></div>
+        <div class="row">
+          <button id="task-save" value="save" class="ui-primary">Save</button>
+          <button id="task-delete" value="delete" type="button" class="danger">Delete</button>
+        </div>
       </div>
     </form>
+  </dialog>
+
+  <dialog class="ui-sheet" id="lists-sheet" data-detents="medium large" data-wide="panel" aria-labelledby="lists-title">
+    <div class="ui-sheet-grabber" aria-label="Expand or collapse"></div>
+    <div class="ui-sheet-head">
+      <h2 id="lists-title">Lists</h2>
+      <button type="button" data-close>Done</button>
+    </div>
+    <div class="ui-sheet-body">
+      <p class="small">Inbox always exists. Deleting a list moves its tasks to Inbox.</p>
+      <ul id="lists-manage" class="ui-list" aria-label="Your lists"></ul>
+      <form id="list-add" autocomplete="off">
+        <label class="kit-field">New list <span class="row"><input id="list-name" maxlength="60" required><button type="submit">Add list</button></span></label>
+      </form>
+    </div>
   </dialog>
 </body>
 </html>

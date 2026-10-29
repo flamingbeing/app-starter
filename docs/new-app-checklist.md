@@ -90,7 +90,7 @@ side bar from 600 px, and the phone drawer. It is wired in `app/src/shell.js` (`
 - [ ] A new page: a `<section class="ui-screen ui-tab-page" id="x-page" hidden>` in `main.ui-screens` (with an
   `h1.ui-large-title`), a `<button class="ui-tab" data-tab-page="#x-page">` in `nav.ui-tabbar` (optional
   `span.ui-tab-icon`) and a `ui-side-link` for it in `nav#side`. Swipe and the bar title follow by themselves; the e2e
-  `openSettings` / `openItems` helpers in `e2e/fixtures.mjs` show how a test reaches a page.
+  `openSettings` / `openToday` / `openTab` helpers in `e2e/fixtures.mjs` show how a test reaches a page.
 - [ ] The shell is the files `app/index.html`, `app/src/shell.js`, `app/public/app.css` and `options.js`; take template
   changes to them with `tools/update-from-starter.mjs` (section 6), not by hand.
 

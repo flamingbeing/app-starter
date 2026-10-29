@@ -1,6 +1,6 @@
 // The 1.0 engine features the starter shows: sign-out keeps this device's data, forget wipes it, refused saves wait
 // in a list, the edit sheet follows its item live (watchDoc), the list marks what changed, and "Check for updates".
-import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP, openSettings, openItems } from './fixtures.mjs';
+import { test, expect, clickOpens, signIn, signInAgain, add, synced, serverHas, uniq, db, itemIdOf, APP, openSettings, openToday } from './fixtures.mjs';
 
 const kept = page => page.evaluate(async () => {
   let n = 0;
@@ -28,14 +28,14 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   await add(page, t);
   await openSettings(page);
   await page.click('#sign-out');
-  await openItems(page);
+  await openToday(page);
   await expect(page.locator('#signed-out')).toBeVisible();
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
   await page.context().setOffline(false);
   await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#list-view')).toBeVisible();
-  await expect(page.locator('#items')).toContainText(t);
+  await expect(page.locator('#today')).toContainText(t);
   await serverHas(t);
 });
 
@@ -47,7 +47,7 @@ test('forget this device: refused while unsent, then wipes the phone', async ({ 
   await add(page, uniq('unsent'));
   await openSettings(page);
   await page.click('#sign-out');
-  await openItems(page);
+  await openToday(page);
   await page.click('#forget');
   await expect(page.locator('#forget-msg')).toContainText('not sent yet');
   await expect(page.locator('#forget-force')).toBeVisible();
@@ -78,20 +78,20 @@ test('the edit sheet follows its item: a change elsewhere shows, a delete elsewh
   // the watch says what changed: note every item marked so (other tests share the list, and their saves move the mark)
   await b.evaluate(() => {
     const seen = window.changedSeen = /** @type {string[]} */ ([]);
-    new MutationObserver(() => document.querySelectorAll('#items li.changed').forEach(li => seen.push(li.textContent || '')))
-      .observe(document.getElementById('items'), { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => document.querySelectorAll('#today li.changed').forEach(li => seen.push(li.textContent || '')))
+      .observe(document.getElementById('today'), { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   });
   await add(a, t);
-  await expect(b.locator('#items')).toContainText(t);
+  await expect(b.locator('#today')).toContainText(t);
   await expect.poll(() => b.evaluate(t => window.changedSeen.some(x => x.includes(t)), t)).toBe(true);
-  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#task-sheet'));
   const itemId = await itemIdOf(t);
-  const doc = await db.get(`spaces/_/items/${itemId}`);
+  const doc = await db.get(`spaces/_/tasks/${itemId}`);
   const noNulls = JSON.parse(JSON.stringify(doc, (k, v) => v === null ? undefined : v));   // (the admin helper can't write null)
-  await db.put(`spaces/_/items/${itemId}`, { ...noNulls, text: t + '-2', updatedAt: Date.now() });
-  await expect(b.locator('#edit-live')).toContainText(t + '-2');
-  await db.del(`spaces/_/items/${itemId}`);
-  await expect(b.locator('#edit')).not.toBeVisible();
+  await db.put(`spaces/_/tasks/${itemId}`, { ...noNulls, text: t + '-2', updatedAt: Date.now() });
+  await expect(b.locator('#task-live')).toContainText(t + '-2');
+  await db.del(`spaces/_/tasks/${itemId}`);
+  await expect(b.locator('#task-sheet')).not.toBeVisible();
   await expect(b.locator('#edit-msg')).toContainText('deleted on another device');
 });
 
@@ -101,14 +101,14 @@ test('a delete elsewhere keeps a draft in the edit sheet; saving it adds it back
   await signInAgain(b, email);
   const t = uniq('draft');
   await add(a, t);
-  await expect(b.locator('#items')).toContainText(t);
-  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
-  await b.fill('#edit-text', t + '-typed');
-  await db.del(`spaces/_/items/${await itemIdOf(t)}`);
-  await expect(b.locator('#edit-live')).toContainText('deleted on another device');
-  await expect(b.locator('#edit')).toBeVisible();
-  await b.click('#edit-save');
-  await expect(b.locator('#items')).toContainText(t + '-typed');
+  await expect(b.locator('#today')).toContainText(t);
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#task-sheet'));
+  await b.fill('#task-text', t + '-typed');
+  await db.del(`spaces/_/tasks/${await itemIdOf(t)}`);
+  await expect(b.locator('#task-live')).toContainText('deleted on another device');
+  await expect(b.locator('#task-sheet')).toBeVisible();
+  await b.click('#task-save');
+  await expect(b.locator('#today')).toContainText(t + '-typed');
   await serverHas(t + '-typed');
 });
 
