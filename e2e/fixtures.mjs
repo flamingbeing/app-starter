@@ -168,8 +168,8 @@ export { expect };
 async function check(made) {
   for (const { context, page, served } of made) {
     const v = await page.evaluate(() => window.__csp || []).catch(() => []);
-    await context.close();
     if (v.length) console.log('REPRO', JSON.stringify(await page.evaluate(() => ({ why: window.__why, win: window.__win, now: Math.round(performance.now()) })).catch(e => String(e))));
+    await context.close();
     expect(v, 'CSP violations').toEqual([]);
     if (!served) continue;
     if (SYNC_DIR) expect(served.n, 'app-sync files served from SYNC_DIR').toBeGreaterThan(0);
