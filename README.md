@@ -78,7 +78,7 @@ lines between `cloud{` and `}cloud` marks go, and `flavours/static/` puts in its
 to what it has. `node tools/add.mjs cloud --project <firebase-project-id>` later makes it the cloud app: the cloud
 files come in, the static files it never changed go (changed ones stay and are listed), and fill sets the project;
 then the steps under "Fill". The device's list is not uploaded. In the template, a cloud-only line in a shared file
-goes inside marks; CI's `static` jobs fill a scratch copy as a static app and run its whole suite.
+goes inside marks; the `static` jobs in Full checks fill a scratch copy as a static app and run its whole suite.
 
 ## Start an app
 
@@ -132,6 +132,15 @@ npm run vite      # Vite build into dist/ (core, Firebase and register.js stay e
 APP_DIR=dist npm run e2e   # the same browser tests on that build
 node tools/modules.mjs --check && node tools/vendor-firebase.mjs --check   # modules.json's places and Firebase (no network)
 ```
+
+CI has two tiers. **Checks** (`checks.yml`, every PR and push to `main`, ~1.5-2 min; Deploy waits for it): repo
+checks, unit tests, type check, rules, secret scan, the browser tests in Chromium on a phone split over parallel
+shards (app-devkit `e2e.yml`; raise `shards` when one runs much over a minute), and the Vite build with a short smoke
+(tests tagged `@smoke`). **Full checks** (`full-checks.yml`): the whole suite on the Vite build, the template's own
+jobs, and anything slow an app adds (other browsers, a jank gate, heavy axe runs). They run nightly with the soak and
+by hand: Actions, "Full checks", Run workflow, with `ref` = a PR number, branch, tag or SHA (or
+`gh workflow run full-checks.yml -f ref=123`). A vital app sets the repo variable `FULL_CHECKS_ON_PRS=true`, and its
+PRs run Full checks too. Locally, run what the change touches; CI runs the rest.
 
 `.devkit/` holds app-devkit's `playwright/`, `rules/`, `tools/` and `worker/` at the pinned version (CI's setup
 blocks put it there; locally, `. tools/dev-setup.sh` copies them at the same tag).
@@ -209,8 +218,8 @@ A recipe adds entries to registries, not code to the app's files:
 
 `wrangler.jsonc` bindings (files' R2 bucket) and the e2e server's stand-ins stay inserts after an `add:` mark. Every
 edit is idempotent; re-adding from a newer source merges three-way into files the app changed. Afterwards
-`tools/modules.mjs` runs, and `.starter.json` `"modules"` records where each module came from. CI's `full` and
-`full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
+`tools/modules.mjs` runs, and `.starter.json` `"modules"` records where each module came from. Full checks' `full`
+and `full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
 
 ## Update from the template
 
@@ -241,8 +250,8 @@ For an app already made from this template (or on the one-object `createApp` of 
 
 ## Switch to Vite in one PR
 
-Vite is already here as a check (`vite.config.mjs`, `npm run vite`, CI job "vite" runs the whole browser suite on
-the build), so switching is one small PR that changes what is deployed, not the app:
+Vite is already here as a check (`vite.config.mjs`, `npm run vite`, Checks job "vite" runs a
+smoke on the build, Full checks the whole browser suite), so switching is one small PR that changes what is deployed, not the app:
 
 1. `.assetsignore`: add `app`, remove `dist`; `worker/routes.js`: the root folder becomes `dist/` (and `SHARED`, if
    any). `e2e`: set `APP_DIR=dist` for every run (the tests already pass on it).
