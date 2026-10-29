@@ -33,6 +33,9 @@ export function tasksScreen(app) {
   let all = [];
   /** @type {Task[]} */
   let todayShown = [];
+  /** @type {Task[]} */
+  let doneShown = [];
+  let drawnDay = dayKey();
   const toasts = toaster($('toasts'));
   const toast = toasts.show;
   const undo = undoToast(toasts);
@@ -69,7 +72,7 @@ export function tasksScreen(app) {
   });
   $('new-task').addEventListener('click', () => sheet.open(null, startFields(document.getElementById('today-page')?.hidden === false)));
   $('clear-done').addEventListener('click', async () => {
-    const done = doneTasks(all);
+    const done = doneShown;   // what the Done tab shows: the picked list and the search narrow it
     if (!done.length || !await confirmModal(`Delete ${done.length} done ${done.length === 1 ? 'task' : 'tasks'}?`, { title: 'Clear done tasks', danger: true, yes: 'Delete' })) return;
     for (const t of done) await app.remove(t, files?.of(t.id) ?? []);
     toast('Cleared');
@@ -85,7 +88,7 @@ export function tasksScreen(app) {
     check.addEventListener('change', async () => {
       const done = check.checked;
       if (await app.tick(t, done)) { check.checked = !done; toast(REFUSED); return; }
-      if (done) undo.show(`Done “${t.text.length > 40 ? `${t.text.slice(0, 40)}…` : t.text}”`, async () => { if (await app.tick({ ...t, done: true }, false)) toast(REFUSED); });
+      if (done) undo.show(`Done “${t.text.length > 40 ? `${t.text.slice(0, 40)}…` : t.text}”`, async () => { const now = all.find(x => x.id === t.id); if (now && await app.tick(now, false)) toast(REFUSED); });
     });
     main.type = 'button'; main.className = 'task-main'; main.textContent = t.text; main.disabled = !canWrite;
     main.addEventListener('click', () => sheet.open(t));
@@ -113,7 +116,7 @@ export function tasksScreen(app) {
   const draw = (items, changed) => {
     all = items; filter?.feed(items);
     loading.done();
-    const today = dayKey(), sort = app.settings.get('sort');
+    const today = drawnDay = dayKey(), sort = app.settings.get('sort');
     const narrowed = inList(filter?.pick(items) ?? items, lists.pick(), lists.lists());
     todayShown = todayTasks(narrowed, today, sort);
     $('today').replaceChildren(...todayShown.map(t => row(t, today, changed.has(t.id), true)));
@@ -128,13 +131,17 @@ export function tasksScreen(app) {
       return sec;
     }));
     emptyOf.upcoming.show(groups.length === 0 && canWrite);
-    const done = doneTasks(narrowed);
+    const done = doneShown = doneTasks(narrowed);
     $('done').replaceChildren(...done.map(t => row(t, today, changed.has(t.id), false)));
     $('clear-done').hidden = !canWrite || done.length === 0;
     emptyOf.done.show(done.length === 0 && canWrite);
     lists.repaint();
   };
   app.settings.watch('sort', () => draw(all, new Set()));
+  // an app left open past midnight: the days (and what is overdue) move on when the page is seen again, and each minute
+  const newDay = () => { if (dayKey() !== drawnDay) draw(all, new Set()); };
+  document.addEventListener('visibilitychange', newDay);
+  setInterval(newDay, 60_000);
   return {
     ...screen,
     /** @param {Task[]} items @param {Set<string>} changed  ids changed (here or elsewhere) since the last draw */

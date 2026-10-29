@@ -41,14 +41,17 @@ export function listPicker(app, { toast, redraw, tasks }) {
       const more = document.createElement('button');
       more.type = 'button'; more.className = 'list-chip list-edit'; more.textContent = 'Edit lists'; more.hidden = !writable;
       more.addEventListener('click', () => { paintManage(); sheet.showModal(); });
+      const focused = host.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement).dataset.list : null;
       host.replaceChildren(...buttons, more);
+      if (focused) /** @type {HTMLElement | undefined} */ (buttons.find(b => b.dataset.list === focused))?.focus();   // a redraw keeps the keyboard where it was
     }
   };
+  // (a list name is capped at 60, as the rules cap it)
   const paintManage = () => {
     manage.replaceChildren(...orderedLists(lists).map(l => {
       const li = document.createElement('li'), name = document.createElement('input'), del = document.createElement('button');
       li.className = 'ui-row list-manage-row';
-      name.value = l.name; name.maxLength = 80; name.setAttribute('aria-label', `Name of the list ${l.name}`);
+      name.value = l.name; name.maxLength = 60; name.setAttribute('aria-label', `Name of the list ${l.name}`);
       name.addEventListener('change', async () => {
         const v = name.value.trim();
         if (!v) { name.value = l.name; return; }

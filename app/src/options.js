@@ -13,7 +13,7 @@ export const OPTIONS = {
   // the person's account: every device they sign in on
   showCounts: { scope: 'account', default: false },
   // the list the tabs show: 'all', 'inbox' or a list's id (a deleted list falls back to 'all'); new tasks go into it
-  defaultList: { scope: 'account', default: 'all', clean: v => (typeof v === 'string' && v.length <= 80 ? v : 'all') },
+  defaultList: { scope: 'account', default: 'all', clean: v => (typeof v === 'string' && v.length <= 64 ? v : 'all') },
 };
 
 /** The Settings page's rows (src/shell.js: @core/ui settingsScreen); a row is a switch for a yes/no option. */
