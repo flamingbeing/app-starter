@@ -26,7 +26,7 @@ test('two phones see each other’s changes', async ({ phone }) => {
   await signInAgain(b, email);
   const t = uniq('shared');
   await add(a, t);
-  await expect(b.locator('#items')).toContainText(t, { timeout: 15_000 });
+  await expect(b.locator('#today')).toContainText(t, { timeout: 15_000 });
 });
 
 test('an edit that meets a change from another phone waits for a choice; keep mine wins everywhere', async ({ phone }) => {
@@ -35,16 +35,16 @@ test('an edit that meets a change from another phone waits for a choice; keep mi
   await signInAgain(b, email);
   const t = uniq('both');
   await add(a, t);
-  await expect(b.locator('#items')).toContainText(t, { timeout: 15_000 });
+  await expect(b.locator('#today')).toContainText(t, { timeout: 15_000 });
   await synced(b);
 
   await b.context().setOffline(true);
-  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
-  await b.fill('#edit-text', t + ' from b');
-  await b.click('#edit-save');
-  await clickOpens(a.getByRole('button', { name: t }), a.locator('#edit'));
-  await a.fill('#edit-text', t + ' from a');
-  await a.click('#edit-save');
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#task-sheet'));
+  await b.fill('#task-text', t + ' from b');
+  await b.click('#task-save');
+  await clickOpens(a.getByRole('button', { name: t }), a.locator('#task-sheet'));
+  await a.fill('#task-text', t + ' from a');
+  await a.click('#task-save');
   await serverHas(t + ' from a');
   await b.context().setOffline(false);
 
@@ -61,7 +61,7 @@ test('an edit that meets a change from another phone waits for a choice; keep mi
   await expect(sides).toContainText('Computer');
   await b.getByRole('button', { name: 'Keep mine' }).click();
   await serverHas(t + ' from b');
-  await expect(a.locator('#items')).toContainText(t + ' from b', { timeout: 15_000 });
+  await expect(a.locator('#today')).toContainText(t + ' from b', { timeout: 15_000 });
   await expect(b.locator('#attention')).toBeHidden();
 });
 
@@ -71,15 +71,15 @@ test('keep theirs drops this phone’s held change and nothing else', async ({ p
   await signInAgain(b, email);
   const t = uniq('theirs');
   await add(a, t);
-  await expect(b.locator('#items')).toContainText(t, { timeout: 15_000 });
+  await expect(b.locator('#today')).toContainText(t, { timeout: 15_000 });
   await synced(b);
   await b.context().setOffline(true);
-  await clickOpens(b.getByRole('button', { name: t }), b.locator('#edit'));
-  await b.fill('#edit-text', t + ' from b');
-  await b.click('#edit-save');
-  await clickOpens(a.getByRole('button', { name: t }), a.locator('#edit'));
-  await a.fill('#edit-text', t + ' from a');
-  await a.click('#edit-save');
+  await clickOpens(b.getByRole('button', { name: t }), b.locator('#task-sheet'));
+  await b.fill('#task-text', t + ' from b');
+  await b.click('#task-save');
+  await clickOpens(a.getByRole('button', { name: t }), a.locator('#task-sheet'));
+  await a.fill('#task-text', t + ' from a');
+  await a.click('#task-save');
   await serverHas(t + ' from a');
   await b.context().setOffline(false);
   await expect(b.locator('#attention')).toBeVisible({ timeout: 20_000 });
@@ -87,6 +87,6 @@ test('keep theirs drops this phone’s held change and nothing else', async ({ p
   await expect(b.locator('#status')).toHaveAttribute('data-state', 'attention');
   await b.click('#attention');
   await b.getByRole('button', { name: 'Keep theirs' }).click();
-  await expect(b.locator('#items')).toContainText(t + ' from a', { timeout: 15_000 });
+  await expect(b.locator('#today')).toContainText(t + ' from a', { timeout: 15_000 });
   await expect(b.locator('#attention')).toBeHidden();
 });

@@ -10,19 +10,19 @@ input, textarea, select { padding: .5rem; }
 .task-row { list-style: none; display: flex; align-items: center; gap: .5rem; }
 .task-check { flex: none; width: 1.4rem; height: 1.4rem; margin: 0; }
 .task-main { flex: 1; text-align: left; background: none; border: 0; padding: .5rem 0; font: inherit; color: inherit; min-width: 0; }
-.task-sub { display: block; font-size: .8rem; opacity: .75; }
-.task-sub.overdue { color: var(--danger); opacity: 1; }
-.task-row.done .task-main { text-decoration: line-through; opacity: .7; }
+.task-sub { display: block; font-size: .8rem; color: var(--muted); }
+.task-sub.overdue { color: var(--danger); }
+.task-row.done .task-main { text-decoration: line-through; }
 /* a task changed (here or on another device) since the tabs last showed */
 .task-row.changed { border-inline-start: 3px solid var(--accent); }
 .big .task-main { padding: 1rem 0; font-size: 1.15rem; }
-.task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: var(--gap) 0 .25rem; opacity: .75; }
+.task-group-title { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: var(--gap) 0 .25rem; color: var(--muted); }
 
 /* the list picker under each title: chips in a row that scrolls sideways on a phone */
 .list-picker { display: flex; gap: .4rem; overflow-x: auto; padding-block: .25rem var(--gap); }
 .list-chip { flex: none; border-radius: var(--pill-r, 1em); }
 .list-chip[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
-.list-edit { opacity: .8; }
+
 .task-when { display: flex; gap: var(--gap); }
 .task-when > label { flex: 1; }
 .list-manage-row input { flex: 1; min-width: 0; }

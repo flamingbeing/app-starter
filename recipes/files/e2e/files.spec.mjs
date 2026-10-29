@@ -3,7 +3,7 @@
 // unsent upload for the same account's next sign-in, and another account signing in wipes this device's files.
 import zlib from 'node:zlib';
 import axe from './axe.mjs';
-import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced, openSettings, openItems } from './fixtures.mjs';
+import { test, expect, clickOpens, setOffline, uniq, signIn, signInAgain, add, db, synced, openSettings, openToday } from './fixtures.mjs';
 
 // A small solid-colour PNG, made here (no binary fixture in the repo).
 function png(w, h, [r, g, b]) {
@@ -22,7 +22,7 @@ function png(w, h, [r, g, b]) {
     chunk('IDAT', zlib.deflateSync(Buffer.concat(Array.from({ length: h }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const openItem = (page, text) => clickOpens(page.getByRole('button', { name: text, exact: true }), page.locator('#edit'));
+const openItem = (page, text) => clickOpens(page.getByRole('button', { name: text, exact: true }), page.locator('#task-sheet'));
 const attach = (page, name, buffer, mimeType = 'image/png') => page.setInputFiles('#edit-file', { name, mimeType, buffer });
 // the shared space's file records on the server (db.list leaves document ids out)
 const records = async name => (await db.list('spaces/_/files')).filter(d => d.name === name);
@@ -54,7 +54,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   await loaded(row.locator('img.thumb'));   // from this device's cache, with no network
   expect(await records(`${t}.png`)).toEqual([]);
   await a.click('#edit button[value=cancel]');
-  await loaded(a.locator('#items li', { hasText: t }).locator('img.thumb'));
+  await loaded(a.locator('#today li', { hasText: t }).locator('img.thumb'));
   expect(await axe(a), 'the list with a thumbnail').toEqual([]);
 
   await setOffline(a.context(), false);
@@ -64,7 +64,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
 
   const b = await phone({ blobs: true });
   await signInAgain(b, email);
-  await loaded(b.locator('#items li', { hasText: t }).locator('img.thumb'));   // fetched from the Worker
+  await loaded(b.locator('#today li', { hasText: t }).locator('img.thumb'));   // fetched from the Worker
   await openItem(b, t);
   await loaded(b.locator('#edit-files li', { hasText: `${t}.png` }).locator('img.thumb'));
   expect(await axe(b), 'the sheet with a photo').toEqual([]);
@@ -75,7 +75,7 @@ test('a photo added offline shows at once, uploads online, opens on another phon
   await a.getByRole('button', { name: 'Remove', exact: true }).click();   // the confirm
   await expect(row).toHaveCount(0);
   await expect.poll(() => records(`${t}.png`), { timeout: 15_000 }).toEqual([]);
-  await expect(b.locator('#items li', { hasText: t }).locator('img.thumb')).toHaveCount(0, { timeout: 15_000 });
+  await expect(b.locator('#today li', { hasText: t }).locator('img.thumb')).toHaveCount(0, { timeout: 15_000 });
 });
 
 test('a file that is not a picture is kept as it is; sign-out keeps an unsent upload, another account wipes the files', async ({ phone }) => {
@@ -90,12 +90,12 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await expect(page.locator('#edit-files li', { hasText: `${t}.txt` })).toBeVisible();
   await expect(page.locator('#edit-files li', { hasText: `${t}.txt` }).locator('img')).toHaveCount(0);
   await page.click('#edit button[value=cancel]');
-  await expect(page.locator('#items li', { hasText: t })).toContainText('📎');
+  await expect(page.locator('#today li', { hasText: t })).toContainText('📎');
 
   await openSettings(page);
   await page.click('#sign-out');
   await expect(page.locator('#sign-out-msg')).toContainText('unsent');
-  await openItems(page);
+  await openToday(page);
   const [job] = await page.evaluate(() => window.starter.files().jobs());
   expect(job).toMatchObject({ op: 'put', rec: { name: `${t}.txt` } });
   expect(await cached(page)).toContain(`${job.scope}/${job.id}`);
@@ -108,7 +108,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
 
   await openSettings(page);
   await page.click('#sign-out');
-  await openItems(page);
+  await openToday(page);
   await expect(page.locator('#signed-out')).toBeVisible();
   const other = `${uniq('u')}@example.com`;
   await page.evaluate(e => window.starter.signInAs(e), other);

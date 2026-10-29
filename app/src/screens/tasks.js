@@ -3,7 +3,7 @@
 // (tasks.js) say what goes where. Ticking a task shows an undo toast; the kit's conflict sheet and the refused list sit on Today.
 import { conflictSheet, refusedList, toaster, emptyState, undoToast, loadState, confirmModal } from '@core/ui';
 import { COLL, REFUSED, INBOX, itemText } from '../items.js';
-import { todayTasks, upcomingGroups, doneTasks, inList, dayKey, dayLabel, dueText, isOverdue, listOf } from '../tasks.js';
+import { todayTasks, upcomingGroups, doneTasks, inList, dayKey, dayLabel, dueText, dueOf, timeOf, isOverdue, listOf } from '../tasks.js';
 import { $, input, sectionScreen } from '../dom.js';
 import { taskSheet } from './task-sheet.js';
 import { listPicker } from './lists.js';
@@ -75,8 +75,8 @@ export function tasksScreen(app) {
     toast('Cleared');
   });
 
-  /** @param {Task} t @param {string} today @param {boolean} changed @param {boolean} withList */
-  const row = (t, today, changed, withList) => {
+  /** @param {Task} t @param {string} today @param {boolean} changed @param {boolean} onToday  Today names no day for what is due today */
+  const row = (t, today, changed, onToday) => {
     const li = document.createElement('li'), check = document.createElement('input'), main = document.createElement('button');
     li.className = 'ui-row task-row'; li.dataset.id = t.id;
     li.classList.toggle('changed', changed); li.classList.toggle('done', !!t.done);
@@ -93,8 +93,8 @@ export function tasksScreen(app) {
     if (thumbs) main.append(thumbs);
     const sub = document.createElement('span');
     sub.className = 'ui-row-sub task-sub';
-    const listName = withList && listOf(t, lists.lists()) !== INBOX ? lists.lists().find(l => l.id === t.listId)?.name : '';
-    sub.textContent = [dueText(t, today), listName].filter(Boolean).join(' · ');
+    const listName = listOf(t, lists.lists()) !== INBOX ? lists.lists().find(l => l.id === t.listId)?.name : '';
+    sub.textContent = [onToday && dueOf(t) === today ? timeOf(t) : dueText(t, today), listName].filter(Boolean).join(' · ');
     sub.classList.toggle('overdue', isOverdue(t));
     li.append(check, main);
     if (sub.textContent) main.append(sub);
@@ -123,13 +123,13 @@ export function tasksScreen(app) {
       const sec = document.createElement('section'), h = document.createElement('h2'), ul = document.createElement('ul');
       sec.className = 'task-group'; h.className = 'task-group-title'; h.textContent = g.key ? dayLabel(g.key, today) : 'No date';
       ul.className = 'ui-list'; ul.setAttribute('aria-label', h.textContent);
-      ul.replaceChildren(...g.tasks.map(t => row(t, today, changed.has(t.id), true)));
+      ul.replaceChildren(...g.tasks.map(t => row(t, today, changed.has(t.id), false)));
       sec.append(h, ul);
       return sec;
     }));
     emptyOf.upcoming.show(groups.length === 0 && canWrite);
     const done = doneTasks(narrowed);
-    $('done').replaceChildren(...done.map(t => row(t, today, changed.has(t.id), true)));
+    $('done').replaceChildren(...done.map(t => row(t, today, changed.has(t.id), false)));
     $('clear-done').hidden = !canWrite || done.length === 0;
     emptyOf.done.show(done.length === 0 && canWrite);
     lists.repaint();

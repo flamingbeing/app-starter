@@ -9,16 +9,16 @@ test('delete has no question: an Undo toast puts the item back (as a new item); 
   await add(page, t);
   await expect(page.locator('.toast', { hasText: 'Added' })).toBeVisible();
 
-  await clickOpens(page.getByRole('button', { name: t }), page.locator('#edit'));
-  await page.click('#edit-delete');
+  await clickOpens(page.getByRole('button', { name: t }), page.locator('#task-sheet'));
+  await page.click('#task-delete');
   await expect(page.locator('dialog.modal')).toHaveCount(0);
-  await expect(page.locator('#items')).not.toContainText(t);
+  await expect(page.locator('#today')).not.toContainText(t);
   const toast = page.locator('.toast', { hasText: 'Deleted' });
   await expect(toast).toBeVisible();
   expect(await AxeBuilder(page)).toEqual([]);
 
   await toast.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.locator('#items')).toContainText(t);
+  await expect(page.locator('#today')).toContainText(t);
 });
 
 test('a toast can be dismissed', async ({ phone }) => {

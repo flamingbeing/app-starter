@@ -15,6 +15,8 @@ export const APP = '/app/?emulator';
 // ?test: no service worker unless ?sw is given too (app.js)
 export const APP = '/app/?test';
 }static */
+/** today as the browser sees it: YYYY-MM-DD, local time (the tests' browser has this machine's time zone) */
+export const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const uniq = (p = 't') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 // SYNC_DIR: a local app-sync build (its entry files and src/) served in place of core.anawj.com/sync/<version>/, so
@@ -214,7 +216,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
 export async function add(page, text) {
   await page.fill('#new-text', text);
   await page.click('#add button[type=submit]');
-  await expect(page.locator('#items')).toContainText(text);
+  await expect(page.locator('#today')).toContainText(text);
 }
 // Open a dialog from its button and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the files
 // snapshot follows the first list one); a pointer click whose button is swapped out between press and release is dropped
@@ -224,17 +226,18 @@ const tabLink = id => `.ui-tab[data-tab-page="#${id}"]:visible, .ui-side-link[da
 // (the tab bar folds its other tabs away once the page scrolls down: back at the top they show)
 const toTop = page => page.evaluate(() => { scrollTo(0, 0); document.querySelector('.ui-tabbar')?.classList.remove('is-minimised'); });
 export const openSettings = async page => { await toTop(page); await page.locator(tabLink('settings-page')).first().click(); await expect(page.locator('#settings-host')).toBeVisible(); };
-export const openItems = async page => { await toTop(page); await page.locator(tabLink('items-page')).first().click(); await expect(page.locator('#items-page')).toBeVisible(); };
+export const openToday = async page => { await toTop(page); await page.locator(tabLink('today-page')).first().click(); await expect(page.locator('#today-page')).toBeVisible(); };
+export const openTab = async (page, name) => { await toTop(page); await page.locator(tabLink(`${name}-page`)).first().click(); await expect(page.locator(`#${name}-page`)).toBeVisible(); };
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 // cloud{
-export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/items')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
+export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/tasks')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
 // The id of the shared item with this text (db.list leaves document ids out).
 export async function itemIdOf(text) {
   const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
   // (every page: the shared list grows over a long --repeat-each soak, past one page)
   for (let token = ''; ;) {
-    const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/items?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
+    const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/tasks?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
     const j = await r.json();
     const d = (j.documents || []).find(x => x.fields?.text?.stringValue === text);
     if (d) return d.name.split('/').pop();

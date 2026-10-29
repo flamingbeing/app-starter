@@ -5,7 +5,7 @@ import AxeBuilder from './axe.mjs';
 
 // the add form clears itself a moment after the item shows; wait for that before the next one
 const addOne = async (page, text) => { await add(page, text); await expect(page.locator('#new-text')).toHaveValue(''); };
-const shown = page => page.locator('#items li button').allTextContents();
+const shown = page => page.locator('#today li button').allTextContents();
 
 test('the search box narrows the list, with phrase, leave-out, operators and a hint', async ({ phone }) => {
   const a = await phone();
