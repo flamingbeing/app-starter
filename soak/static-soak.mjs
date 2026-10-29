@@ -28,7 +28,7 @@ if (!(THROTTLE >= 1)) { console.log('FAIL --throttle wants a number >= 1'); proc
 const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'static-soak')));
 const SKIP = new Set(opt('skip', '').split(',').filter(Boolean));
 const KEEP = argv.includes('--keep');
-const KITS = ['homedesign', 'nuhs'];
+const KITS = ['homedesign', 'nuhs', 'ntf'];
 const env = { ...process.env, METADATA_SERVER_DETECTION: 'none', CI: '', PW_TEST_HTML_REPORT_OPEN: 'never' };
 if (!env.PW_CHROMIUM && fs.existsSync('/opt/pw-browsers/chromium')) env.PW_CHROMIUM = '/opt/pw-browsers/chromium';
 

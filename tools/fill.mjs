@@ -1,13 +1,13 @@
 // Turns a copy of this template into one app: its name, address, design kit and Firebase project.
 //
-//   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs --project <firebase-project-id>
+//   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs|ntf --project <firebase-project-id>
 //                       [--title "<Title>"] [--accent '#rrggbb'] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
-//   node tools/fill.mjs --static --name <name> --host <host> --kit homedesign|nuhs [...]   a static app: no sign-in, no
+//   node tools/fill.mjs --static --name <name> --host <host> --kit homedesign|nuhs|ntf [...]   a static app: no sign-in, no
 //                       Firebase project (tools/flavour.mjs renders it first; README, "Pick a starter")
 //
 // The values in use now are in .starter.json ("app"); each is replaced by the new one in every text file (the emulator
 // project demo-<name>, the kit's address, the host, the name, the title), app/src/config.js is written afresh (with the
-// default look's colour from --accent, else kept, and the web app's apiKey and appId from --web-config: the JSON
+// default look's colour from --accent, else kept (a kit's own default follows the kit: ntf's wine), and the web app's apiKey and appId from --web-config: the JSON
 // `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's FIREBASE_PROJECT is set. Running it again with the same
 // values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A static app
 // (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs cloud --project <id>`) and has
@@ -19,7 +19,9 @@ import { fileURLToPath } from 'node:url';
 import { renderDir } from './flavour.mjs';
 import { after } from './update-from-starter.mjs';
 
-export const KITS = { homedesign: 'https://design.flamingbeing.com', nuhs: 'https://design.anawj.com' };
+export const KITS = { homedesign: 'https://design.flamingbeing.com', nuhs: 'https://design.anawj.com', ntf: 'https://design.anantf.com' };
+// a kit's own default look colour; a kit with none takes ACCENT
+export const KIT_ACCENT = { ntf: '#633d3c' };
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
 // never changed: these three name the placeholders on purpose; the other two are app-devkit's files (CI compares them)
 const KEEP = ['tools/fill.mjs', 'tools/test/fill.test.mjs', 'tools/test/update-from-starter.test.mjs', 'worker/claims.js', 'worker/custom-token.js'];
@@ -123,7 +125,10 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   const cfgPath = path.join(dir, 'app/src/config.js');
   const before = fs.readFileSync(cfgPath, 'utf8');
   const kept = JSON.parse(before.match(/export const firebaseConfig = (\{[\s\S]*?\});/)?.[1] || '{}');
-  const accent = (opts.accent ?? JSON.parse(before.match(/export const APP = (\{.*\});/)?.[1] || '{}').accent ?? ACCENT).toLowerCase();
+  // a kept colour that is the old kit's default follows a new kit to its own
+  const keptAccent = JSON.parse(before.match(/export const APP = (\{.*\});/)?.[1] || '{}').accent?.toLowerCase();
+  const kitDefault = kit => KIT_ACCENT[kit] ?? ACCENT;
+  const accent = (opts.accent ?? (keptAccent && keptAccent !== kitDefault(old.kit) ? keptAccent : kitDefault(app.kit))).toLowerCase();
   if (!/^#[0-9a-f]{6}$/.test(accent)) throw new Error(`--accent '${accent}': a colour like #3a6390`);
   let web = { projectId: app.project, authDomain: app.host, apiKey: '', appId: '' };
   if (opts['web-config']) {

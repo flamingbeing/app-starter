@@ -194,3 +194,16 @@ test('a rename is refused while the current name is a word in the code (it would
   assert.equal(read(dir, 'app/src/items.js'), before, 'nothing changed');
   assert.deepEqual(fill({ dir, ...ARGS, name: 'items', title: 'Items', check: true }).changed, [], 'same name again: still fine');
 });
+
+test("--kit ntf: the NTF kit's origin and its own colour; a chosen colour is kept across a kit change", () => {
+  const dir = copy();
+  fill({ dir, ...ARGS, kit: 'ntf' });
+  const cfg = read(dir, 'app/src/config.js');
+  assert.match(cfg, /export const KIT = 'https:\/\/design\.anantf\.com\/v1\/';/);
+  assert.match(cfg, /"accent":"#633d3c"/);
+  fill({ dir, ...ARGS, kit: 'nuhs' });
+  assert.match(read(dir, 'app/src/config.js'), /"accent":"#3a6390"/, "back to the default with the kit's own");
+  fill({ dir, ...ARGS, kit: 'nuhs', accent: '#0f766e' });
+  fill({ dir, ...ARGS, kit: 'ntf' });
+  assert.match(read(dir, 'app/src/config.js'), /"accent":"#0f766e"/, 'a chosen colour stays');
+});
