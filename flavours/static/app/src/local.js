@@ -44,7 +44,7 @@ export async function start({ canReload = null }) {
   await app.ready;
   const sync = /** @type {import('./local-store.js').LocalSync} */ (app.sync);
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
-  const ops = taskOps({ save: (coll, record, base) => sync.save(coll, SPACE, record, base), id });
+  const ops = taskOps({ save: (coll, record, base) => sync.save(coll, SPACE, /** @type {any} */ (record), /** @type {any} */ (base)), id });
   return {
     // the modules' apis, for the UI kit (update: with a service worker only, else null)
     sync, settings: app.settings, update: app.update || null,
