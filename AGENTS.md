@@ -69,11 +69,12 @@ Every change keeps the app:
 node .devkit/tools/check.mjs
 node tools/modules.mjs --check
 node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
-npm run rules && npm run e2e      # or only the specs the change touches
+npx playwright test e2e/<the-spec-you-are-fixing>.spec.mjs   # only when fixing one
 ```
 
-PR Checks are the quick tier (README, "Tests"); the Vite build's full run and other slow runs are Full checks, nightly
-and by hand (`full-checks.yml`, `ref` = PR number). Don't re-run the full suite locally for every change.
+Locally: checks and unit tests only. Browser tests and rules tests run on GitHub: PR Checks are the quick tier
+(README, "Tests"); the Vite build's full run and other slow runs are Full checks, nightly and by hand
+(`full-checks.yml`, `ref` = PR number).
 
 ## Working with the owner
 
