@@ -31,7 +31,7 @@ export function csp({ kit = KIT, project = '', local = false, framedBySelf = fal
     'default-src': ["'self'"],
     'script-src': ["'self'", IMPORT_MAP, CORE, GOOGLE_API, kit],
     'style-src': ["'self'", CORE, kit, FONTS_CSS],
-    'font-src': ["'self'", kit, FONTS],
+    'font-src': ["'self'", CORE, kit, FONTS],
     'img-src': ["'self'", 'data:', 'blob:', kit, 'https://lh3.googleusercontent.com', 'https://www.google.com'],   // (the SDK's connectivity ping)
     'connect-src': ["'self'", CORE, kit, FONTS_CSS, FONTS, 'https://*.googleapis.com', GOOGLE_API, ...emulators],
     'frame-src': frames,
