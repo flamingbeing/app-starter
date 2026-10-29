@@ -9,7 +9,7 @@ input, textarea, select { padding: .5rem; }
 /* a task: the tick, then its text with the due day under it */
 .task-row { list-style: none; display: flex; align-items: center; gap: .5rem; }
 .task-check { flex: none; width: 1.4rem; height: 1.4rem; margin: 0; }
-.task-main { flex: 1; text-align: left; background: none; border: 0; padding: .5rem 0; font: inherit; color: inherit; min-width: 0; }
+.task-main { flex: 1; display: block; justify-content: flex-start; text-align: left; background: none; border: 0; padding: .5rem 0; font: inherit; color: inherit; min-width: 0; }
 .task-sub { display: block; font-size: .8rem; color: var(--muted); }
 .task-sub.overdue { color: var(--danger); }
 .task-row.done .task-main { text-decoration: line-through; }
