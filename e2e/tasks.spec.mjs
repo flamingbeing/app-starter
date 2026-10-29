@@ -59,7 +59,7 @@ test('the task sheet sets a day, time, notes and list; New defaults to today on 
   await page.click('#today-page .list-edit');
   await page.fill('#list-name', list);
   await page.click('#list-add button[type=submit]');
-  await expect(page.locator('#lists-manage input')).toHaveValue(list);
+  await expect(page.locator('#lists-manage').getByLabel(`Name of the list ${list}`)).toHaveValue(list);   // (the lists are shared: look for this one)
   await page.locator('#lists-sheet').getByRole('button', { name: 'Done' }).click();
   await page.click('#new-task');
   await expect(page.locator('#task-due')).toHaveValue(day(0));
