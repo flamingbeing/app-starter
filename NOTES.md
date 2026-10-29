@@ -4,8 +4,8 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 
 ## How to test
 
-See README, "Tests". The browser tests use one shared list (`spaces/_/items`), so each test uses its own made-up
-accounts and item texts and checks only those; they run side by side.
+See README, "Tests". The browser tests use one shared list (`spaces/_/tasks`), so each test uses its own made-up
+accounts and task texts and checks only those; they run side by side.
 
 ## UI kit gestures and the `/kit/` gallery (app-ui)
 
@@ -37,7 +37,7 @@ Firebase has restored the sign-in and says nobody is signed in (it used to flash
 signed in paints the list as last drawn, read-only, until the real list replaces it (`src/hint.js`, a yes/no and at most
 100 rows, cleared whenever the sign-in says signed out); `modules.json` entries marked `"preload"` get a
 `<link rel="modulepreload">` each (written by `node tools/modules.mjs`). Not here: lazy sheets (the starter has none;
-an app with many gets them from its own `list.js`) and the Vite bundle (`npm run vite`, still opt-in).
+an app with many gets them from its own module) and the Vite bundle (`npm run vite`, still opt-in).
 
 ## Later
 
@@ -84,7 +84,7 @@ be saved. Where values live (change these only with a migration; `settings.unit.
 `createSearch({ fields, boost, store, operators, newest })` (`app/public/search/`) is an in-memory index over vendored
 MiniSearch 7.2.0 (`app/public/vendor/minisearch/7.2.0/`, ESM build, types and LICENSE; its `package.json` only says
 `"sideEffects": false` so a page that imports `parseQuery` alone carries none of MiniSearch). It holds no storage and
-no module: build it at start, `feed` the list, and keep it current from the list watch (the sample list feeds only records whose
+no module: build it at start, `feed` the list, and keep it current from the list watch (the sample tasks feed only records whose
 text changed). Nothing is saved, so there is no format to migrate.
 
 - Query syntax (`query.js`, ported from a working parser): words (all must match, prefix + fuzzy 0.2), `field:value`,
