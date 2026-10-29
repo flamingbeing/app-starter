@@ -95,9 +95,9 @@ goes inside marks; CI's `static` jobs fill a scratch copy as a static app and ru
 ## Fill (make it a new app)
 
 ```bash
-node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs --project <firebase-project-id> \
+node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs|ntf --project <firebase-project-id> \
   [--title "<Title>"] [--web-config sdkconfig.json] [--commit <template sha>]
-node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs --static   # a static app (above)
+node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs|ntf --static   # a static app (above)
 ```
 
 It replaces the template's values (kept in `.starter.json`) in every text file, writes `app/src/config.js` (with the web
