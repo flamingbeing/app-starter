@@ -265,6 +265,13 @@ screens.warmUp();                                           // after the first s
 
 Over budget means move code off startup, not raise the number: a phone on slow Wi-Fi waits for every startup file.
 
+The deploy also bundles (`deploy.yml` `bundle`, app-devkit `bundle-page.mjs`): it joins the startup files and the core
+at its pin into a few, each lazy screen its own file, and points `index.html` and `sw.js` at them. The source stays
+build-free and the bundle is never committed; Checks job "bundle" runs a smoke on it. Two rules keep it right: every
+`import()` is literal (`import('./screens/report.js')`, a full core address), or the module loads twice with its own
+state; and a test reaches Firebase only through the import map's names (`import('firebase/auth')`), which stay outside
+the bundle.
+
 ## Switch to Vite in one PR
 
 Vite is already here as a check (`vite.config.mjs`, `npm run vite`, Checks job "vite" runs a

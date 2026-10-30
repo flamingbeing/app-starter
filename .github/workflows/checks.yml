@@ -110,6 +110,18 @@ jobs:
       emulators: firestore,auth
       # }cloud
 
+  bundle:
+    # the deployed shape (deploy.yml's bundle): a short smoke on the bundled page
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.16.0
+    with:
+      name: bundle
+      bundle: app/index.html --sw app/public/sw.js
+      devkit-ref: v1.16.0
+      args: --grep=@smoke
+      # cloud{
+      emulators: firestore,auth
+      # }cloud
+
   full:
     # the repo variable FULL_CHECKS_ON_PRS=true (a vital app) runs Full checks on its PRs as well
     if: github.event_name == 'pull_request' && vars.FULL_CHECKS_ON_PRS == 'true'
