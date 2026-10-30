@@ -30,8 +30,11 @@ const TAB_RULES = { fixed: ['settings'] };
 
 // The shell starts first, as soon as the page's scripts have run, so the tabs and the menu work while the app is still
 // starting; the Settings page follows (settingsPage) once the app and its options are there.
+// A page that draws itself late (a lazy screen, a list filled on first view) listens for 'draw-ahead' and draws a
+// still copy then, so a swipe or a quick flick never brings it in blank (app-ui rc.69 `ahead`, from the logbook).
+// An app that empties its hidden pages must spare the `.is-beside` ones.
 export function startShell() {
-  const kit = startGestures();
+  const kit = startGestures(document, { ahead: page => page.dispatchEvent(new CustomEvent('draw-ahead')) });
   const shell = adaptiveShell(/** @type {HTMLElement} */ (document.querySelector('.ui-shell')), { screens: kit.screens });
   Object.assign(window, { kit, shell });   // for the tests
 }
