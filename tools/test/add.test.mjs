@@ -90,6 +90,8 @@ for (const [module, gone, grep] of [
       for (const f of gone) assert.ok(fs.existsSync(path.join(dir, f)), `added: ${f}`);
       assert.equal(JSON.parse(read(dir, '.starter.json')).modules[module], recipe);
       assert.deepEqual(add({ source: recipe, dir, log: quiet }).changes, []);
+      // a Settings page lands inside the settingsPages group, never as a top-level slot (shell.js lists the group)
+      if (/Settings/.test(grep.source)) assert.match(read(dir, 'app/src/modules.js'), /settingsPages: \{[^}]*\w+: \w+Settings,/);
 
       add({ source: module, remove: true, dir, log: quiet });
       const back = tree(dir);

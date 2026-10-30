@@ -57,7 +57,7 @@ const el = (tag, attrs = {}, kids = []) => {
 export function backupSettings({ app }) {
   const backup = tasksBackup();
   return {
-    title: 'Backup', icon: ARCHIVE, sub: 'Your tasks as a file, and restore', group: 'Your data', find: 'export import spreadsheet csv excel restore',
+    title: 'Backup', icon: ARCHIVE, sub: 'Your tasks as a file, and restore', group: 'Data', find: 'export import spreadsheet csv excel restore',
     mount(host) {
       const save = (/** @type {string} */ ext, /** @type {string} */ label) => el('button', { type: 'button', 'data-backup': ext }, [label]);
       const file = /** @type {HTMLInputElement} */ (el('input', { type: 'file', id: 'backup-file', accept: '.gz,.json,.csv,.xlsx' }));

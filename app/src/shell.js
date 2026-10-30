@@ -12,10 +12,18 @@ import { SETTING_SECTIONS } from './options.js';
 import { modules } from './modules.js';
 
 /**
- * A recipe's own Settings page (modules.js "backup", "bin", "feedback", "shareIn"; their recipes fill them): made once the app is there; null
+ * A recipe's own Settings page (modules.js `settingsPages`, one entry per recipe: backup, bin, feedback, shareIn; the recipes fill them): made once the app is there; null
  * when the page has nothing to show (the feedback page in a static app).
  * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection | null} SettingsSlot
  */
+
+// The Settings menu's headings, in this order; a page whose group is not listed goes under 'Other' (last), so a new
+// page is never left out and a recipe never edits this list
+const SETTINGS_GROUPS = ['Tasks', 'Look', 'Sharing', 'Data', 'Advanced', 'Other'];
+/** @param {import('app-ui/ui/settings-screen.js').SettingSection[]} sections */
+const byGroup = sections => sections
+  .map(s => (SETTINGS_GROUPS.includes(s.group ?? '') ? s : { ...s, group: 'Other' }))
+  .sort((a, b) => SETTINGS_GROUPS.indexOf(a.group ?? '') - SETTINGS_GROUPS.indexOf(b.group ?? ''));
 
 // Settings always stays on the bar (the tabs off it are listed at the top of its menu)
 const TAB_RULES = { fixed: ['settings'] };
@@ -83,19 +91,19 @@ export function settingsPage(app) {
   settingsScreen($('settings-host'), {
     settings,
     menu: { steps: createTransients({ history, location, events: window }), top: offBar },
-    sections: [
+    sections: byGroup([
       ...SETTING_SECTIONS,
-      { title: 'Tab bar', icon: ICONS.menu, sub: 'Order, and which tabs show', group: 'This device', find: 'arrange tabs', mount: host => {
+      { title: 'Tab bar', icon: ICONS.menu, sub: 'Order, and which tabs show', group: 'Look', find: 'arrange tabs', mount: host => {
         let stop = () => {};
         const draw = () => { stop(); stop = tabArranger(host, { tabs: barTabs(), get: () => settings.get('tabs'), set: v => settings.set('tabs', v), rules: TAB_RULES }); };
         repaints.add(draw);
         draw();
         return () => { repaints.delete(draw); stop(); };
       } },
-      { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'This device', mount: host => { themeSwitch(host); } },
+      { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'Look', mount: host => { themeSwitch(host); } },
       // the recipes' own pages (an empty slot adds none)
-      ...[modules.backup, modules.bin, modules.feedback, modules.shareIn].flatMap(slot => { const section = slot?.({ app }); return section ? [section] : []; }),
-    ],
+      ...Object.values(modules.settingsPages ?? {}).flatMap(slot => { const section = slot?.({ app }); return section ? [section] : []; }),
+    ]),
     about: { name: APP.title || APP.name, update: app.update },
   });
 

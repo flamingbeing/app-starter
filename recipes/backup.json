@@ -32,8 +32,8 @@
     },
     {
       "to": "app/src/modules.js",
-      "after": "// add: slots",
-      "line": "  backup: backupSettings,"
+      "after": "// add: settings pages",
+      "line": "    backup: backupSettings,"
     }
   ],
   "tsconfigInclude": [

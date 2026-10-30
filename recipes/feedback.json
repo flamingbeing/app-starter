@@ -10,7 +10,7 @@
     { "from": "app/rules/feedback.rules" },
     { "from": "app/test/rules/feedback.mjs" },
     { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { feedbackSettings } from './screens/feedback-settings.js';" },
-    { "to": "app/src/modules.js", "after": "// add: slots", "line": "  feedback: feedbackSettings," },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    feedback: feedbackSettings," },
     { "to": "app/src/data-modules.js", "after": "// add: imports", "line": "import { feedbackData } from './feedback-data.js';" },
     { "to": "app/src/data-modules.js", "after": "// add: slots", "line": "  feedback: feedbackData," }
   ],

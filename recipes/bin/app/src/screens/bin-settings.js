@@ -20,7 +20,7 @@ const el = (tag, attrs = {}, kids = []) => {
 /** @type {import('../shell.js').SettingsSlot} */
 export function binSettings({ app }) {
   return {
-    title: 'Bin', icon: TRASH, sub: 'Deleted items, kept for 30 days', group: 'Your data', find: 'trash deleted restore recover',
+    title: 'Bin', icon: TRASH, sub: 'Deleted items, kept for 30 days', group: 'Data', find: 'trash deleted restore recover',
     mount(host) {
       const bin = app.bin;
       const msg = el('p', { id: 'bin-msg', class: 'small', role: 'status' });
