@@ -1,6 +1,6 @@
 {
   "module": "search",
-  "about": "Full-text search over the list with operators (@core/search, MiniSearch loaded on first need); local here until a second kind of app wants it.",
+  "about": "Full-text search over the list with operators, and the matched passage of a task's notes under its row (@core/search, MiniSearch loaded on first need); local here until a second kind of app wants it.",
   "modules": {
     "@core/search": {
       "url": "./search/index.js",
@@ -8,6 +8,9 @@
       "alias": "./app/public/search/index.js"
     }
   },
+  "styles": [
+    "css/search.css"
+  ],
   "vendor": [
     "app/public/vendor/minisearch/7.2.0"
   ],
@@ -16,10 +19,16 @@
       "from": "app/public/search"
     },
     {
+      "from": "app/public/css/search.css"
+    },
+    {
       "from": "app/src/screens/list-search.js"
     },
     {
       "from": "app/test/search.unit.test.mjs"
+    },
+    {
+      "from": "app/test/snippet.unit.test.mjs"
     },
     {
       "from": "app/test/search-lazy.unit.test.mjs"
@@ -43,7 +52,7 @@
     "app/public/search/*.d.ts"
   ],
   "docs": [
-    "search: the box is app/src/screens/list-search.js (its operators has: and is: are samples; make them the app's own); the API is in app/public/search/index.js."
+    "search: the box is app/src/screens/list-search.js (its fields, the passage's field and the operators has: and is: are samples; make them the app's own); the API is in app/public/search/index.js; the passage's look is app/public/css/search.css."
   ],
   "root": "recipes/search"
 }

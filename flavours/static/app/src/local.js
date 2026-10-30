@@ -44,6 +44,8 @@ export async function start({ canReload = null }) {
   await app.ready;
   const sync = /** @type {import('./local-store.js').LocalSync} */ (app.sync);
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
+  /** @type {Item[]} the tasks as last heard (items()) */
+  let latest = [];
   const ops = taskOps({ save: (coll, record, base) => sync.save(coll, SPACE, /** @type {any} */ (record), /** @type {any} */ (base)), id });
   return {
     // the modules' apis, for the UI kit (update: with a service worker only, else null)
@@ -56,7 +58,8 @@ export async function start({ canReload = null }) {
       onState({ phase: 'ready', role: 'admin' });
       let first = true;
       sync.watch(SPACE, COLL, (list, { changed }) => {
-        onList(/** @type {Item[]} */ (list.filter(x => !x._deleted)), new Set(first ? [] : changed));
+        latest = /** @type {Item[]} */ (list.filter(x => !x._deleted));
+        onList(latest, new Set(first ? [] : changed));
         first = false;
       });
       sync.watch(SPACE, LISTS, list => { onLists(/** @type {TaskList[]} */ (list.filter(x => !x._deleted))); });
@@ -68,5 +71,10 @@ export async function start({ canReload = null }) {
     remove: async (item, _attached = []) => { await ops.removeTask(item); },
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => sync.watchDoc([COLL, itemId], d => cb(/** @type {Item | null} */ (d))),
+    // the tasks as last heard, a whole task saved under its own id, and the copy (this device's: always in) a restore
+    // waits for (the backup recipe)
+    items: () => latest,
+    put: ops.put,
+    serverCopyIn: () => true,
   };
 }

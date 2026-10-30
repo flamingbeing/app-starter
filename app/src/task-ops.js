@@ -23,6 +23,8 @@ export function taskOps({ save, id, now = Date.now }) {
     edit: (task, patch) => refusal(save(COLL, { ...task, ...cleanFields(patch) }, task)),
     /** @param {Task} task @param {boolean} done @returns {Promise<string>} */
     tick: (task, done) => refusal(save(COLL, { ...task, done, doneAt: done ? now() : null }, task)),
+    /** a whole task under its own id, as a new save (a restore brings one back) @param {Task} task @returns {Promise<string>} */
+    put: task => refusal(save(COLL, { ...task }, null)),
     /** @param {Task} task */
     removeTask: async task => { await save(COLL, { id: task.id, _deleted: true }, task); },
     /** @param {string} name @returns {Promise<string>} */

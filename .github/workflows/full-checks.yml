@@ -49,7 +49,7 @@ jobs:
 
   # cloud{ the template's own jobs (a static app is made from the template, not a template)
   full:
-    # the template only: the lean app is what the jobs above check; here both recipes (files, search) are added to a
+    # the template only: the lean app is what the jobs above check; here every recipe (files, search, backup) is added to a
     # scratch copy with tools/add.mjs, and the whole app is checked: unit tests, type check, rules, browser tests, Worker
     name: ${{ matrix.mode == 'plain' && 'full' || 'full-vite' }}
     strategy:
@@ -84,9 +84,9 @@ jobs:
           tar --exclude=.git --exclude=node_modules -cf - . | tar -xf - -C "$RUNNER_TEMP/app"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/app/node_modules"
           cd "$RUNNER_TEMP/app"
-          for m in files search; do node tools/add.mjs "recipes/$m.json"; done
+          for m in files search backup; do node tools/add.mjs "recipes/$m.json"; done
           node tools/modules.mjs --check
-          jq -e '.modules.files and .modules.search' .starter.json
+          jq -e '.modules.files and .modules.search and .modules.backup' .starter.json
       - name: Checks on the full app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
         working-directory: ${{ runner.temp }}/app

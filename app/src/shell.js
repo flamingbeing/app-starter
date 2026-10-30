@@ -9,6 +9,12 @@ import { APP } from './config.js';
 import { $ } from './dom.js';
 import { ICONS } from './icons.js';
 import { SETTING_SECTIONS } from './options.js';
+import { modules } from './modules.js';
+
+/**
+ * A recipe's own Settings page (modules.js "backup"; the backup recipe fills it): made once the app is there.
+ * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection} SettingsSlot
+ */
 
 // Settings always stays on the bar (the tabs off it are listed at the top of its menu)
 const TAB_RULES = { fixed: ['settings'] };
@@ -38,7 +44,7 @@ function listIn(host, items) {
   host.append(list);
 }
 
-/** @param {{ settings: import('app-ui/settings/types').SettingsApi, update: import('app-ui/ui/types').UpdateApi | null } | null} app  null: not set up, so no Settings page */
+/** @param {import('./items.js').ItemsApp | null} app  null: not set up, so no Settings page */
 export function settingsPage(app) {
   if (!app) {
     for (const id of ['tab-settings', 'side-settings']) $(id).hidden = true;
@@ -86,6 +92,8 @@ export function settingsPage(app) {
         return () => { repaints.delete(draw); stop(); };
       } },
       { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'This device', mount: host => { themeSwitch(host); } },
+      // the recipes' own pages (an empty slot adds none)
+      ...[modules.backup].flatMap(slot => (slot ? [slot({ app })] : [])),
     ],
     about: { name: APP.title || APP.name, update: app.update },
   });

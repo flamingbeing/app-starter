@@ -37,4 +37,8 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
  * @property {(list: TaskList, name: string) => Promise<string>} renameList
  * @property {(list: TaskList) => Promise<void>} removeList  its tasks go to Inbox
  * @property {(taskId: string, cb: (task: Task | null) => void) => () => void} watchItem  cb(null) once it is gone -> stop()
+ * @property {() => Task[]} items  the tasks as last heard (a backup takes them)
+ * @property {(task: Task) => Promise<string>} put  a whole task under its own id (a restore); '' or the reason, as add
+ * @property {() => boolean} serverCopyIn  whether the server's copy has arrived yet (a restore waits for it; always true
+ *   in a static app)
  */
