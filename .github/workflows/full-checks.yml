@@ -84,7 +84,7 @@ jobs:
           tar --exclude=.git --exclude=node_modules -cf - . | tar -xf - -C "$RUNNER_TEMP/app"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/app/node_modules"
           cd "$RUNNER_TEMP/app"
-          for m in files search backup; do node tools/add.mjs "recipes/$m.json"; done
+          for m in files search backup bin; do node tools/add.mjs "recipes/$m.json"; done
           node tools/modules.mjs --check
           jq -e '.modules.files and .modules.search and .modules.backup' .starter.json
       - name: Checks on the full app

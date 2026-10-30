@@ -164,7 +164,7 @@ tools/      fill.mjs, modules.mjs (everything made from modules.json), sw-files.
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
             vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
             to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps), add.mjs (modules)
-recipes/    one JSON file per optional module (files, search, backup) and the files each brings (README, "Modules")
+recipes/    one JSON file per optional module (files, search, backup, bin) and the files each brings (README, "Modules")
 docs/       decisions
 ```
 
@@ -194,11 +194,11 @@ node tools/add.mjs <owner/repo>@<tag|sha>:recipes/<module>.json   # a recipe fro
 node tools/add.mjs --remove search                 # takes it out again; a file the app changed is kept and listed
 ```
 
-The template ships three recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
+The template ships four recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
 once), `search` (`@core/search`, operators `field:`, `"phrase"`, `-leave-out`, `OR`, with `insertOperator` and
 `usesOperators` for a "?" list, and `snippetOf` for the matched passage under a row) and `backup` (`@core/backup`, a
 Settings page that saves the items as `.json.gz`, CSV or Excel and restores by adding only what is missing, with a
-dry-run line first; SheetJS loads only for Excel). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
+dry-run line first; SheetJS loads only for Excel) and `bin` (Settings > Bin: the items deleted in the last 30 days, with Restore and Delete forever; the cloud app only). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
 names the module's `modules` entries, vendored folders, files, tsconfig `include`, style sheets, CSS custom properties,
 owner steps (printed as NEEDS-YOU lines) and notes.
 
@@ -211,7 +211,7 @@ hash, and the rules. CI runs `node tools/modules.mjs --check`.
 A recipe adds entries to registries, not code to the app's files:
 
 - `app/src/modules.js` and `app/src/data-modules.js`: one import and one slot per module (search fills the list's
-  `listFilter` slot; `#list-tools` holds its box; backup fills `backup`, a Settings page);
+  `listFilter` slot; `#list-tools` holds its box; backup and bin fill `backup` and `bin`, Settings pages);
 - `worker/modules.js`: one import and one route (`{ match(url), handle(request, env, ctx) }`) per module, which
   `worker/sites.js` asks in turn after its own routes;
 - `app/rules/<module>.rules`: written into the generated block of `app/firestore.app.rules`, then built into

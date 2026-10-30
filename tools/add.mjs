@@ -225,7 +225,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     opened.push(src);
     const result = { module: src.recipe.module, changes: [], conflicts: [] };
     const { recipe } = src;
-    if (meta.flavour && !remove && recipe.module === 'files') throw new Error(`the files module needs the cloud (its Worker routes and rules): node tools/add.mjs cloud --project <id> first`);
+    if (meta.flavour && !remove && ['files', 'bin'].includes(recipe.module)) throw new Error(`the ${recipe.module} module needs the cloud (its ${recipe.module === 'files' ? 'Worker routes and rules' : 'data side and rules'}): node tools/add.mjs cloud --project <id> first`);
     const was = !remove && recorded[recipe.module] ? pinned(recorded[recipe.module], meta, dir) : null;
     const prevSource = was && was !== from ? was : null;
     const prev = prevSource ? openSource(prevSource, dir, github, clones) : null;

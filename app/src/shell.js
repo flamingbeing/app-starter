@@ -12,7 +12,7 @@ import { SETTING_SECTIONS } from './options.js';
 import { modules } from './modules.js';
 
 /**
- * A recipe's own Settings page (modules.js "backup"; the backup recipe fills it): made once the app is there.
+ * A recipe's own Settings page (modules.js "backup", "bin"; the recipes fill them): made once the app is there.
  * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection} SettingsSlot
  */
 
@@ -93,7 +93,7 @@ export function settingsPage(app) {
       } },
       { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'This device', mount: host => { themeSwitch(host); } },
       // the recipes' own pages (an empty slot adds none)
-      ...[modules.backup].flatMap(slot => (slot ? [slot({ app })] : [])),
+      ...[modules.backup, modules.bin].flatMap(slot => (slot ? [slot({ app })] : [])),
     ],
     about: { name: APP.title || APP.name, update: app.update },
   });
