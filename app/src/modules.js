@@ -4,7 +4,7 @@
 // add: imports
 
 /** @type {{ listFilter?: import('./screens/tasks.js').ListFilter, itemFiles?: import('./screens/tasks.js').ItemFilesSlot,
- *   backup?: import('./shell.js').SettingsSlot }} */
+ *   backup?: import('./shell.js').SettingsSlot, feedback?: import('./shell.js').SettingsSlot }} */
 export const modules = {
   // add: slots
 };
