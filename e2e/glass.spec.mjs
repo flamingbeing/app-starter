@@ -22,7 +22,7 @@ const collapsed = page => page.evaluate(() => document.querySelector('.ui-bar')?
 test('glass by default; Solid in the switch takes it off, kept on reload and before the modules run', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  await openSettings(page);
+  await openSettings(page, 'Look');
   const root = page.locator('html');
   await expect(root).toHaveClass(/\bglass\b/);
   await collapsed(page);
@@ -34,7 +34,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
   await collapsed(page);
   expect(await style(page, '.ui-bar', 'backdrop-filter')).toBe('none');
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await openSettings(page);
+  await openSettings(page, 'Look');
   await expect(root).not.toHaveClass(/\bglass\b/);
   await expect(page.getByLabel('Bars and sheets')).toHaveValue('solid');
 
@@ -44,7 +44,7 @@ test('glass by default; Solid in the switch takes it off, kept on reload and bef
   await expect(root).not.toHaveClass(/\bglass\b/);
   await page.unroute('**/theme/index.js');
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  await openSettings(page);
+  await openSettings(page, 'Look');
 
   await page.getByLabel('Bars and sheets').selectOption('glass');
   await expect(root).toHaveClass(/\bglass\b/);
@@ -83,7 +83,7 @@ for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a
   for (let i = 1; i <= 14; i++) await page.evaluate(t => window.starter.add(t), `Sample item ${i} ${run}`);
   // (other tests add to the same list in parallel: wait for this test's last item, not a total)
   await expect(page.getByRole('button', { name: `Sample item 14 ${run}`, exact: true })).toBeVisible();
-  await openSettings(page);
+  await openSettings(page, 'Look');
   await page.getByLabel('Theme').selectOption(pick.theme);
   await page.getByLabel('Dark style').selectOption(pick.dark);
   await page.getByLabel('Bars and sheets').selectOption(pick.material);

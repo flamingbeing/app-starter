@@ -3,7 +3,7 @@
 import { test, expect, signIn, signInAgain, synced, openSettings, openToday } from './fixtures.mjs';
 import AxeBuilder from './axe.mjs';
 
-const open = openSettings;
+const open = (page, title = 'Tasks') => openSettings(page, title);
 const big = page => page.getByRole('switch', { name: /Larger rows/ });
 const count = page => page.getByRole('switch', { name: /Show how many are open/ });
 const chip = page => page.locator('#today-page .list-chip[data-list="all"]');
@@ -40,6 +40,7 @@ test('the device value survives sign-out and a reload', async ({ phone }) => {
   const { email } = await signIn(a, 'member');
   await open(a);
   await big(a).check();
+  await openSettings(a);
   await a.click('#sign-out');
   await openToday(a);
   await expect(a.locator('#signed-out')).toBeVisible();
@@ -56,6 +57,7 @@ test('a settings file: exported, imported on another account, bad keys dropped',
   await synced(a);
   await open(a);
   await count(a).check();
+  await open(a, 'Settings file');
   const [download] = await Promise.all([a.waitForEvent('download'), a.getByRole('button', { name: 'Export' }).click()]);
   const file = JSON.parse(await (await import('node:fs/promises')).readFile(await download.path(), 'utf8'));
   expect(file.kind).toBe('core-settings');
@@ -78,8 +80,10 @@ test('a settings file: exported, imported on another account, bad keys dropped',
 test('the Settings page passes axe', async ({ phone }) => {
   const a = await phone();
   await signIn(a, 'member');
+  await openSettings(a);
+  expect(await AxeBuilder(a)).toEqual([]);   // the menu
   await open(a);
-  expect(await AxeBuilder(a)).toEqual([]);
+  expect(await AxeBuilder(a)).toEqual([]);   // a page
 });
 
 test('a direct switch from one account to another follows the new account\'s settings', async ({ phone }) => {

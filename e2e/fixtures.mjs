@@ -226,7 +226,17 @@ export async function add(page, text) {
 const tabLink = id => `.ui-tab[data-tab-page="#${id}"]:visible, .ui-side-link[data-tab-page="#${id}"]:visible`;
 // (the tab bar folds its other tabs away once the page scrolls down: back at the top they show)
 const toTop = page => page.evaluate(() => { scrollTo(0, 0); document.querySelector('.ui-tabbar')?.classList.remove('is-minimised'); });
-export const openSettings = async page => { await toTop(page); await page.locator(tabLink('settings-page')).first().click(); await expect(page.locator('#settings-host')).toBeVisible(); };
+// (Settings opens on its menu; given a page's title, that page opens, from the menu or from another page via its Back)
+export const openSettings = async (page, title) => {
+  await toTop(page);
+  await page.locator(tabLink('settings-page')).first().click();
+  await expect(page.locator('#settings-host')).toBeVisible();
+  if (!title) return;
+  const back = page.locator('#settings-host .ui-settings-back:visible');
+  if (await back.count()) await back.click();
+  await page.locator('#settings-host .ui-settings-menu-groups .ui-settings-go').filter({ hasText: new RegExp(`^${title}`) }).click();
+  await expect(page.locator('#settings-host .ui-settings-back:visible')).toBeVisible();
+};
 export const openToday = async page => { await toTop(page); await page.locator(tabLink('today-page')).first().click(); await expect(page.locator('#today-page')).toBeVisible(); };
 export const openTab = async (page, name) => { await toTop(page); await page.locator(tabLink(`${name}-page`)).first().click(); await expect(page.locator(`#${name}-page`)).toBeVisible(); };
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };

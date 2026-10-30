@@ -118,7 +118,7 @@ test('check for updates: a new version takes over at once', async ({ phone }) =>
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; });
   await page.request.get('/__test/bump');
-  await openSettings(page);   // the About rows are in Settings
+  await openSettings(page, 'About');   // the About rows are in Settings
   await page.locator('.ui-check-update').click();
   await expect.poll(() => page.evaluate(() => window.__same).catch(() => undefined), { timeout: 30_000 }).toBeUndefined();
 });
