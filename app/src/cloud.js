@@ -131,6 +131,15 @@ export async function start({ canReload = null }) {
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
       onRefused: () => 'archive',
+      // after another account's sign-in wipes this device's copy (Firestore ends with it): a new Firestore in place of
+      // the ended one, so the switch needs no reload (a reload would lose an email-link sign-in half way)
+      reopen: async (/** @type {{ sdk: any }} */ { sdk: s }) => {
+        const { F } = s, app = s.db.app;
+        let db;
+        try { db = F.initializeFirestore(app, { localCache: F.memoryLocalCache() }); } catch { db = F.getFirestore(app); }
+        if (s.emulator && emulator) try { F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs); } catch { /* already */ }
+        return db;
+      },
     }),
     ...(dataModules.files ? [dataModules.files.engine(SPACE)] : []),
     settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
@@ -176,7 +185,9 @@ export async function start({ canReload = null }) {
     if (n !== seq) return;
     const u = fa.currentUser, me = app.auth.user();
     if (u && !me) return;   // Firebase has the person; the engine's own copy of the user follows (onUser calls back)
-    if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out' }); return; }
+    // another account signed in while this device holds unsent saves of the last (or its wipe failed): the engine signs
+    // the new one out again and blocked() says why, so the sign-in screen can tell instead of just staying signed out
+    if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out', blocked: app.auth.blocked()?.reason }); return; }
     if (claimsStatus === 503) { setHint(false); onState({ phase: 'not-set-up' }); return; }
     // offline with an expired token Firebase can't refresh it (auth/network-request-failed): the role comes from the
     // last token it holds, so the saved list still shows; back online, the fresh token calls back (onIdTokenChanged)

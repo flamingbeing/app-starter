@@ -1,0 +1,6 @@
+# Checked-out text files are LF on every OS: the build locks and generated files (modules.json, sw.js's list, the CSP
+# hash) hash file bytes, so a Windows checkout with CRLF would fail their --check.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.woff2 binary

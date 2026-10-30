@@ -20,7 +20,7 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
 /** @typedef {{ text?: string, notes?: string | null, listId?: string | null, due?: string | null, dueTime?: string | null }} Fields  what an add or edit sets */
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
-/** @typedef {{ phase: Phase, user?: User, role?: string }} State */
+/** @typedef {{ phase: Phase, user?: User, role?: string, blocked?: 'unsent' | 'wipe' }} State */
 
 /**
  * What the screens use of the app (cloud.js start(); local.js in a static app). A slot or screen that needs more
