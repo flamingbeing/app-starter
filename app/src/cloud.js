@@ -225,6 +225,8 @@ export async function start({ canReload = null }) {
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
     auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
+    // the feedback recipe's messages to the owner (undefined without it)
+    feedback: dataModules.feedback?.api({ sdk, id, user: () => app.auth.user() }),
     // the whole app's status (sync and the modules): { state, count, unsent }
     /** @param {(st: { state: string, count: number, unsent: number }) => void} fn */
     status$: fn => app.status$(fn),

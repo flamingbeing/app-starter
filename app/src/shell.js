@@ -12,8 +12,9 @@ import { SETTING_SECTIONS } from './options.js';
 import { modules } from './modules.js';
 
 /**
- * A recipe's own Settings page (modules.js "backup", "bin"; the recipes fill them): made once the app is there.
- * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection} SettingsSlot
+ * A recipe's own Settings page (modules.js "backup", "bin", "feedback"; their recipes fill them): made once the app is there; null
+ * when the page has nothing to show (the feedback page in a static app).
+ * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection | null} SettingsSlot
  */
 
 // Settings always stays on the bar (the tabs off it are listed at the top of its menu)
@@ -93,7 +94,7 @@ export function settingsPage(app) {
       } },
       { title: 'Look', icon: ICONS.smartphone, sub: 'Theme, colour and density', group: 'This device', mount: host => { themeSwitch(host); } },
       // the recipes' own pages (an empty slot adds none)
-      ...[modules.backup, modules.bin].flatMap(slot => (slot ? [slot({ app })] : [])),
+      ...[modules.backup, modules.bin, modules.feedback].flatMap(slot => { const section = slot?.({ app }); return section ? [section] : []; }),
     ],
     about: { name: APP.title || APP.name, update: app.update },
   });
