@@ -8,7 +8,7 @@
     { "from": "app/src/share/share-settings.js" },
     { "from": "app/test/share-in.unit.test.mjs" },
     { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { shareInSettings } from './share/share-settings.js';" },
-    { "to": "app/src/modules.js", "after": "// add: slots", "line": "  shareIn: shareInSettings," },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    shareIn: shareInSettings," },
     { "to": "app/src/options.js", "after": "// add: options", "line": "  shareIn: { scope: 'device', default: false }," },
     { "to": "app/public/manifest.webmanifest", "after": "\"display\": \"standalone\",", "block": "recipes/share-in/manifest-share-target.txt" },
     { "to": "app/public/sw.js", "after": "// add: service worker handlers", "block": "recipes/share-in/sw-handler.txt" }

@@ -10,7 +10,7 @@
     { "from": "app/rules/bin.rules" },
     { "from": "app/test/rules/bin.mjs" },
     { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { binSettings } from './screens/bin-settings.js';" },
-    { "to": "app/src/modules.js", "after": "// add: slots", "line": "  bin: binSettings," },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    bin: binSettings," },
     { "to": "app/src/data-modules.js", "after": "// add: imports", "line": "import { binData } from './bin-data.js';" },
     { "to": "app/src/data-modules.js", "after": "// add: slots", "line": "  bin: binData," }
   ],
