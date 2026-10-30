@@ -36,7 +36,7 @@ jobs:
 
   vite:
     # the whole browser suite on the Vite build (dist/)
-    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.15.0
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.16.0
     with:
       name: vite-full
       shards: 3
@@ -65,15 +65,15 @@ jobs:
         with:
           ref: ${{ needs.ref.outputs.ref }}
       - id: changes
-        uses: flamingbeing/app-devkit/changed-files@v1.15.0
+        uses: flamingbeing/app-devkit/changed-files@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-node@v1.15.0
+        uses: flamingbeing/app-devkit/setup-node@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-tools@v1.15.0
+        uses: flamingbeing/app-devkit/setup-tools@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-browser@v1.15.0
+        uses: flamingbeing/app-devkit/setup-browser@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-emulators@v1.15.0
+        uses: flamingbeing/app-devkit/setup-emulators@v1.16.0
         with:
           firebase-tools-version: '15.33.0'   # Firestore emulator v1.22 (playwright.config.mjs)
           emulators: firestore,auth
@@ -140,13 +140,13 @@ jobs:
         with:
           ref: ${{ needs.ref.outputs.ref }}
       - id: changes
-        uses: flamingbeing/app-devkit/changed-files@v1.15.0
+        uses: flamingbeing/app-devkit/changed-files@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-node@v1.15.0
+        uses: flamingbeing/app-devkit/setup-node@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-browser@v1.15.0
+        uses: flamingbeing/app-devkit/setup-browser@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-emulators@v1.15.0
+        uses: flamingbeing/app-devkit/setup-emulators@v1.16.0
         with:
           firebase-tools-version: '15.33.0'   # Firestore emulator v1.22 (playwright.config.mjs)
           emulators: firestore,auth
@@ -213,13 +213,13 @@ jobs:
         with:
           ref: ${{ needs.ref.outputs.ref }}
       - id: changes
-        uses: flamingbeing/app-devkit/changed-files@v1.15.0
+        uses: flamingbeing/app-devkit/changed-files@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-node@v1.15.0
+        uses: flamingbeing/app-devkit/setup-node@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-tools@v1.15.0
+        uses: flamingbeing/app-devkit/setup-tools@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        uses: flamingbeing/app-devkit/setup-browser@v1.15.0
+        uses: flamingbeing/app-devkit/setup-browser@v1.16.0
       - if: steps.changes.outputs.app == 'true'
         name: Fill a scratch copy as a static app
         run: |

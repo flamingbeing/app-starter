@@ -13,11 +13,11 @@ permissions:
 jobs:
   deploy:
     if: github.repository != 'flamingbeing/app-starter'
-    uses: flamingbeing/app-devkit/.github/workflows/deploy-rules.yml@v1.11.0
+    uses: flamingbeing/app-devkit/.github/workflows/deploy-rules.yml@v1.16.0
     with:
       working-directory: app
       firebase-project: ${{ vars.FIREBASE_PROJECT }}
       wif-provider: ${{ vars.WIF_PROVIDER }}
       rules-deployer: ${{ vars.RULES_DEPLOYER }}
       build-rules-check: firestore.app.rules
-      devkit-ref: v1.9.2
+      devkit-ref: v1.16.0
