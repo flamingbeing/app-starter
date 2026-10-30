@@ -86,7 +86,7 @@ export function shareSheet(app) {
       if (!sheet.isConnected) document.body.append(sheet);
       if (!app.settings.get('shareIn')) {
         await dropShare().catch(() => {});
-        say('Receiving shares is off, and this one was not kept. Turn it on in Settings, Share in.');
+        say('Receiving shares is off, and this one was not kept. Turn it on in Settings, Features.');
         return;
       }
       const got = await takeShare().catch(() => null);

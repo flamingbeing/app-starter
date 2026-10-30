@@ -22,6 +22,12 @@ export const OPTIONS = {
   // add: options
 };
 
+/** The Features page's rows: a recipe adds one switch for its part (an option here that is on until turned off); with none,
+ * the page does not show. @type {import('app-ui/ui/settings-screen.js').SettingRow[]} */
+const FEATURES = [
+  // add: feature rows
+];
+
 /** The Settings pages (src/shell.js: @core/ui settingsScreen with its menu): a row is a switch for a yes/no option; icon,
  * sub and group are the page's row in the menu. */
 export const SETTING_SECTIONS = [
@@ -30,4 +36,5 @@ export const SETTING_SECTIONS = [
     { key: 'showCounts', label: 'Show how many are open in each list', sub: 'Every device; sign in to change it' },
     { key: 'bigRows', label: 'Larger rows', sub: 'This device' },
   ] },
+  { title: 'Features', icon: ICONS.listChecks, sub: 'Switch optional parts on or off', group: 'Advanced', visible: () => FEATURES.length > 0, rows: FEATURES },
 ];

@@ -132,7 +132,7 @@ export async function start({ canReload = null }) {
       // commitRetry: a send refused with permission-denied just after sign-in (the role check still catching up) is tried
       // once more after 500 ms, as app-sync advises for rules that read a document another write is creating
       backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits', commitRetry: { codes: ['permission-denied'], delay: 500 },
-        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => (coll === COLL || coll === LISTS) && !after && before
+        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => (coll === COLL || coll === LISTS) && !after && before && binOn()
           ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
@@ -146,6 +146,8 @@ export async function start({ canReload = null }) {
     ...(canReload ? [update({ register, app: 'app', sw: 'sw.js', canReload })] : []),
   ];
   const app = createApp({ config: { name: APP.name, sdk }, modules });
+  // the bin is on unless its option (the bin recipe's) is off: a deleted item is then not copied there
+  const binOn = () => { try { return app.settings.get('binOn') !== false; } catch { return true; } };
   await app.ready;
   const { auth: fa } = await sdk();
   // Firebase restores the saved sign-in a moment after it starts: until it has, "no user" is not yet "signed out"
