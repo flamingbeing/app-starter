@@ -47,6 +47,13 @@ export { COLL, itemText, REFUSED } from './items.js';
 /** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;
 // The Firebase SDK, loaded once for every module (the import map names its version).
+/** A Firestore for the app: no SDK offline cache (the engine keeps the device copy and the outbox). */
+function firestoreFor(/** @type {any} */ F, /** @type {any} */ a) {
+  const db = F.getFirestore(a);
+  if (emulator) F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
+  return db;
+}
+
 export function sdk() {
   if (fb) return fb;
   fb = (async () => {
@@ -56,9 +63,8 @@ export function sdk() {
       : { ...firebaseConfig, authDomain: firebaseConfig.authDomain || APP.host };
     const a = app.initializeApp(cfg);
     const auth = A.getAuth(a);
-    const db = F.getFirestore(a);   // no SDK offline cache: the engine keeps the device copy and the outbox
+    const db = firestoreFor(F, a);
     if (emulator) {
-      F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
       A.connectAuthEmulator(auth, `http://127.0.0.1:${emulator.auth}`, { disableWarnings: true });
     }
     return { A, F, auth, db, emulator: !!emulator };
@@ -133,13 +139,7 @@ export async function start({ canReload = null }) {
       onRefused: () => 'archive',
       // after another account's sign-in wipes this device's copy (Firestore ends with it): a new Firestore in place of
       // the ended one, so the switch needs no reload (a reload would lose an email-link sign-in half way)
-      reopen: async (/** @type {{ sdk: any }} */ { sdk: s }) => {
-        const { F } = s, app = s.db.app;
-        let db;
-        try { db = F.initializeFirestore(app, { localCache: F.memoryLocalCache() }); } catch { db = F.getFirestore(app); }
-        if (s.emulator && emulator) try { F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs); } catch { /* already */ }
-        return db;
-      },
+      reopen: async (/** @type {{ sdk: any }} */ { sdk: s }) => firestoreFor(s.F, s.db.app),
     }),
     ...(dataModules.files ? [dataModules.files.engine(SPACE)] : []),
     settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
@@ -185,9 +185,7 @@ export async function start({ canReload = null }) {
     if (n !== seq) return;
     const u = fa.currentUser, me = app.auth.user();
     if (u && !me) return;   // Firebase has the person; the engine's own copy of the user follows (onUser calls back)
-    // another account signed in while this device holds unsent saves of the last (or its wipe failed): the engine signs
-    // the new one out again and blocked() says why, so the sign-in screen can tell instead of just staying signed out
-    if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out', blocked: app.auth.blocked()?.reason }); return; }
+    if (!u || !me || me.uid !== u.uid) { stopList(); setHint(false); onState({ phase: 'signed-out' }); return; }
     if (claimsStatus === 503) { setHint(false); onState({ phase: 'not-set-up' }); return; }
     // offline with an expired token Firebase can't refresh it (auth/network-request-failed): the role comes from the
     // last token it holds, so the saved list still shows; back online, the fresh token calls back (onIdTokenChanged)

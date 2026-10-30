@@ -77,9 +77,6 @@ else {
       $('who').textContent = s.user ? s.user.email : '';
       $('sign-out').hidden = !s.user;
       if (s.user) $('sign-out-msg').textContent = '';
-      else if (s.blocked) $('sign-out-msg').textContent = s.blocked === 'unsent'
-        ? "Not signed in: another account's unsent changes are still on this device. Sign in as that account so they send first."
-        : "Not signed in: the last account's data could not be cleared from this device yet. Try signing in again.";
       show(s);
     },
     onList(items, changed) {
