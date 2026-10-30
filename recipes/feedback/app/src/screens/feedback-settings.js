@@ -70,7 +70,7 @@ export function feedbackSettings({ app }) {
   };
 
   return {
-    title: 'Send feedback', icon: MESSAGE, sub: 'A private message to the owner', group: 'Other', find: 'feedback message report idea bug inbox',
+    title: 'Send feedback', icon: MESSAGE, visible: 'feedbackOn', sub: 'A private message to the owner', group: 'Other', find: 'feedback message report idea bug inbox',
     mount(host) {
       const open = el('button', { type: 'button', id: 'open-feedback', class: 'ui-primary' }, ['Write feedback']);
       open.addEventListener('click', () => { sheet?.remove(); sheet = build(); sheet.showModal(); });
