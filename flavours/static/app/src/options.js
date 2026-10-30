@@ -18,6 +18,7 @@ export const OPTIONS = {
   defaultList: { scope: 'device', default: 'all', clean: v => (typeof v === 'string' && v.length <= 80 ? v : 'all') },
   // the tab bar's order and the tabs off it (this device; Settings, Tab bar)
   tabs: { scope: 'device', default: { order: [], hidden: [] }, clean: cleanTabs },
+  // add: options
 };
 
 /** The Settings pages (src/shell.js: @core/ui settingsScreen with its menu): a row is a switch for a yes/no option; icon,

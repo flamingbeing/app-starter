@@ -147,6 +147,8 @@ const SHELL = [
 ];
 const MANIFEST = {};
 
+// add: service worker handlers
+
 importScripts('https://core.anawj.com/update/0.2.0/sw-core.js');
 AppUpdate.init({
   app: 'app', version: VERSION, shell: SHELL, manifest: MANIFEST,
