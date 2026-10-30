@@ -248,6 +248,21 @@ For an app already made from this template (or on the one-object `createApp` of 
    `connect-src`, and update the import map's hash in `worker/headers.js` (its test prints the new one).
 6. Tests green, including a phone that saved offline on the old version (its outbox sends after the update).
 
+## Keep the first screen fast
+
+Checks' "Startup budget" step (app-devkit `startup-size.mjs`) caps what `app/index.html` loads before it can draw: its
+gzipped JS and its request count. Each app keeps its own numbers in `checks.yml`. A new screen or heavy extra (Excel,
+an editor, PDF) loads on first use, and the rest warm up once the first screen is up:
+
+```js
+import { lazyModules } from '@core/ui';
+const screens = lazyModules({ report: () => import('./screens/report.js') });
+screens.need('report').then(m => m.reportScreen(host));   // on first open
+screens.warmUp();                                           // after the first screen draws
+```
+
+Over budget means move code off startup, not raise the number: a phone on slow Wi-Fi waits for every startup file.
+
 ## Switch to Vite in one PR
 
 Vite is already here as a check (`vite.config.mjs`, `npm run vite`, Checks job "vite" runs a

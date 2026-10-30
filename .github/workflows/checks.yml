@@ -24,8 +24,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.14.0
-      - uses: flamingbeing/app-devkit/setup-tools@v1.14.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.15.0
+      - uses: flamingbeing/app-devkit/setup-tools@v1.15.0
       - run: node .devkit/tools/check.mjs
       - run: node .devkit/tools/proofread.mjs
       - run: node .devkit/tools/check-links.mjs .
@@ -39,6 +39,11 @@ jobs:
           # }cloud
       # cloud{
       - run: node .devkit/tools/build-rules.mjs app/firestore.app.rules --check
+      # What the first screen loads before it can draw, gzipped (template 30 Oct 2026: 266 KiB, Firebase 238 of it; 41
+      # requests). Each app keeps its own numbers here. Over budget: load the new screen or extra on first use
+      # (@core/ui lazyModules), don't raise it.
+      - name: Startup budget
+        run: node .devkit/tools/startup-size.mjs app/index.html --max 290 --max-files 48
       # }cloud
       - name: fill values and app/src/config.js are in their canonical form
         run: node tools/fill.mjs --check
@@ -70,10 +75,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: flamingbeing/app-devkit/setup-node@v1.14.0
+      - uses: flamingbeing/app-devkit/setup-node@v1.15.0
         with:
           install: 'false'
-      - uses: flamingbeing/app-devkit/setup-emulators@v1.14.0
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.15.0
         with:
           firebase-tools-version: '15.33.0'   # Firestore emulator v1.22 (playwright.config.mjs)
           emulators: firestore
@@ -85,7 +90,7 @@ jobs:
 
   e2e:
     # Chromium phone, split so no shard runs much over a minute (raise `shards` when one does)
-    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.14.0
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.15.0
     with:
       shards: 3
       # cloud{
@@ -95,7 +100,7 @@ jobs:
   vite:
     # Vite as a check only (README, "Switch to Vite in one PR"): build app/ into dist/ with core, Firebase and
     # register.js kept external, then a short smoke on the built page. The whole suite on dist/ is in Full checks.
-    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.14.0
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.15.0
     with:
       name: vite
       build-command: npm run vite
