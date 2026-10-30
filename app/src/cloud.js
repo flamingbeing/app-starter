@@ -47,6 +47,13 @@ export { COLL, itemText, REFUSED } from './items.js';
 /** @type {Promise<{ A: typeof import('firebase/auth'), F: typeof import('firebase/firestore'), auth: any, db: any, emulator: boolean }> | null} */
 let fb = null;
 // The Firebase SDK, loaded once for every module (the import map names its version).
+/** A Firestore for the app: no SDK offline cache (the engine keeps the device copy and the outbox). */
+function firestoreFor(/** @type {any} */ F, /** @type {any} */ a) {
+  const db = F.getFirestore(a);
+  if (emulator) F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
+  return db;
+}
+
 export function sdk() {
   if (fb) return fb;
   fb = (async () => {
@@ -56,9 +63,8 @@ export function sdk() {
       : { ...firebaseConfig, authDomain: firebaseConfig.authDomain || APP.host };
     const a = app.initializeApp(cfg);
     const auth = A.getAuth(a);
-    const db = F.getFirestore(a);   // no SDK offline cache: the engine keeps the device copy and the outbox
+    const db = firestoreFor(F, a);
     if (emulator) {
-      F.connectFirestoreEmulator(db, '127.0.0.1', emulator.fs);
       A.connectAuthEmulator(auth, `http://127.0.0.1:${emulator.auth}`, { disableWarnings: true });
     }
     return { A, F, auth, db, emulator: !!emulator };
@@ -131,6 +137,9 @@ export async function start({ canReload = null }) {
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
       onRefused: () => 'archive',
+      // after another account's sign-in wipes this device's copy (Firestore ends with it): a new Firestore in place of
+      // the ended one, so the switch needs no reload (a reload would lose an email-link sign-in half way)
+      reopen: async (/** @type {{ sdk: any }} */ { sdk: s }) => firestoreFor(s.F, s.db.app),
     }),
     ...(dataModules.files ? [dataModules.files.engine(SPACE)] : []),
     settings({ options: OPTIONS, collection: SETTINGS_COLL, scope: SPACE }),
