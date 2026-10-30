@@ -74,7 +74,9 @@ test('resolveSource: a bare name is the template\'s recipe at the app\'s commit,
 for (const [module, gone, grep] of [
   ['search', ['app/public/search/index.js', 'app/src/screens/list-search.js', 'e2e/search.spec.mjs', 'app/public/vendor/minisearch'], /search/i],
   ['backup', ['app/public/backup/index.js', 'app/src/screens/backup-settings.js', 'e2e/backup.spec.mjs', 'app/public/vendor/xlsx'], /@core\/backup|backupSettings/],
-  // cloud{ the files module needs the cloud (a static app has no recipes/files)
+  // cloud{ the bin module needs the cloud (its data side and rules; a static app has no recipes/bin)
+  ['bin', ['app/src/bin.js', 'app/src/bin-data.js', 'app/src/screens/bin-settings.js', 'app/rules/bin.rules'], /binSettings|binData/],
+  // the files module too (a static app has no recipes/files)
   ['files', ['app/public/files/index.js', 'app/src/files-data.js', 'worker/files.js', 'app/public/vendor/exifr', 'e2e/memory-bucket.mjs'], /@core\/files|memoryBucket|filesData/],
   // }cloud
 ]) {

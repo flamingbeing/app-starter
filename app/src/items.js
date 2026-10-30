@@ -18,6 +18,9 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
 /** @typedef {Item} Task */
 /** @typedef {{ id: string, name: string, order?: number, createdAt?: number, updatedAt?: unknown, _deleted?: boolean } & Record<string, unknown>} TaskList */
 /** @typedef {{ text?: string, notes?: string | null, listId?: string | null, due?: string | null, dueTime?: string | null }} Fields  what an add or edit sets */
+/** one entry of the bin: a deleted item's last version (the bin recipe; docId is its document in the bin) */
+/** @typedef {{ docId: string, id: string, kind?: unknown, deletedAt: number, data?: any }} BinEntry */
+/** @typedef {{ list: () => Promise<BinEntry[]>, restore: (entry: BinEntry) => Promise<string>, purge: (entries: BinEntry[]) => Promise<void> }} BinApi */
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
 /** @typedef {{ phase: Phase, user?: User, role?: string }} State */
@@ -39,6 +42,7 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
  * @property {(taskId: string, cb: (task: Task | null) => void) => () => void} watchItem  cb(null) once it is gone -> stop()
  * @property {() => Task[]} items  the tasks as last heard (a backup takes them)
  * @property {(task: Task) => Promise<string>} put  a whole task under its own id (a restore); '' or the reason, as add
+ * @property {BinApi} [bin]  the deleted items (the bin recipe; the cloud app only)
  * @property {() => boolean} serverCopyIn  whether the server's copy has arrived yet (a restore waits for it; always true
  *   in a static app)
  */
