@@ -254,6 +254,8 @@ export async function start({ canReload = null }) {
     items: () => latest,
     put: ops.put,
     serverCopyIn: () => !!app.sync.facts().confirmed,
+    // the deleted items: list, restore, purge (the bin recipe)
+    bin: dataModules.bin?.api({ sdk, space: SPACE, items: () => latest, put: ops.put }),
     // admins: set someone's role, or remove them (they lose access at once; their sessions end). -> '' or the reason
     members: {
       /** @param {string} uid @param {'admin' | 'member' | 'viewer'} role */
