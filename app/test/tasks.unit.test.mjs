@@ -122,6 +122,9 @@ test('task-ops: add, edit, tick, remove and the lists save the right records', a
   assert.deepEqual(saved[6], ['lists', { ...list, name: 'House' }, list]);
   await ops.removeList(list);
   assert.deepEqual(saved[7], ['lists', { id: 'id2', _deleted: true }, list]);
+  // a whole task under its own id (a restore), as a new save
+  assert.equal(await ops.put({ id: 'old1', text: 'kept', done: true }), '');
+  assert.deepEqual(saved[8], ['tasks', { id: 'old1', text: 'kept', done: true }, null]);
 });
 
 test('a refused save is a reason, not a throw', async () => {

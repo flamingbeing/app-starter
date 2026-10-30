@@ -159,6 +159,8 @@ export async function start({ canReload = null }) {
   let offLists = null;
   /** @type {(() => void) | null} */
   let offFiles = null;
+  /** @type {Item[]} the tasks as last heard (items()) */
+  let latest = [];
   let seq = 0;
   // the token Firestore has been told about: its own token listener (added when the SDK started, so before this one)
   // runs in the same notification and restarts its connection with the new token. A list listen sent before that goes
@@ -175,7 +177,7 @@ export async function start({ canReload = null }) {
     try { claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* none */ }
     return { token, claims, stale: true };
   };
-  const stopList = () => { offList?.(); offList = null; offLists?.(); offLists = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
+  const stopList = () => { latest = []; offList?.(); offList = null; offLists?.(); offLists = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
     if (!hooks) return;
@@ -199,7 +201,8 @@ export async function start({ canReload = null }) {
     offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
     let first = true;
     offList ??= app.sync.watch(SPACE, COLL, (/** @type {Item[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
-      onList(list.filter(x => !x._deleted), new Set(first ? [] : meta?.changed || []));
+      latest = list.filter(x => !x._deleted);
+      onList(latest, new Set(first ? [] : meta?.changed || []));
       first = false;
     });
     offLists ??= app.sync.watch(SPACE, LISTS, (/** @type {TaskList[]} */ list) => { onLists(list.filter(x => !x._deleted)); });
@@ -244,6 +247,11 @@ export async function start({ canReload = null }) {
     // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
     /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
     watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),
+    // the tasks as last heard, a whole task saved under its own id, and whether the server's copy has arrived (a
+    // restore: the backup recipe)
+    items: () => latest,
+    put: ops.put,
+    serverCopyIn: () => !!app.sync.facts().confirmed,
     // admins: set someone's role, or remove them (they lose access at once; their sessions end). -> '' or the reason
     members: {
       /** @param {string} uid @param {'admin' | 'member' | 'viewer'} role */

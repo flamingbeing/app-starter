@@ -87,6 +87,12 @@ export function createSearch({ fields, boost = {}, store = [], operators = {}, n
     clear() { index?.removeAll(); records.clear(); },
     get size() { return records.size; },
     prepare,
+    terms(q, field) {
+      // what a passage may mark: the words and phrases searched for, not a leave-out, an operator or another field's
+      return parseQuery(q, { fields: names }).groups.flat()
+        .filter(t => !t.neg && !(t.field && operators[t.field]) && (!t.field || t.field === field))
+        .map(t => ({ text: t.text, phrase: t.phrase }));
+    },
     search(q, { limit = 50 } = {}) {
       const { groups, unknown } = parseQuery(q, { fields: names });
       if (!groups.length) return { hits: [], unknown };

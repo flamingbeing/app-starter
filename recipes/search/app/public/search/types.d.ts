@@ -27,6 +27,9 @@ export type Search = {
   readonly size: number;
   /** loads MiniSearch and builds the index (call it when the search box gets focus) */
   prepare(): Promise<void>;
+  /** the searched words and phrases a hit's passage may mark (see snippetOf): no leave-outs or operators, and of the
+   * field terms only `field`'s */
+  terms(q: string, field?: string): { text: string; phrase: boolean }[];
   /** ranked hits; `unknown` lists misspelt operators with a suggestion */
   search(q: string, opts?: { limit?: number }): { hits: Hit[]; unknown: { op: string; suggest: string }[] };
 };

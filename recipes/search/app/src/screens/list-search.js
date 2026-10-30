@@ -1,10 +1,17 @@
 // The list's search box (the search recipe's glue, recipes/search.json): full-text search over the items with
 // @core/search, with the sample operators has:number and is:long. It fills the list's tools slot (#list-tools) and
-// "/" jumps to the box on a computer.
-import { createSearch } from '@core/search';
+// "/" jumps to the box on a computer. The task's notes are searched too; while the box has words, a row whose notes
+// hold one shows that passage under its text, the word marked (snippetOf).
+import { createSearch, snippetOf } from '@core/search';
 import { itemText } from '../items.js';
 
 /** @typedef {import('../items.js').Item} Item */
+
+/** the fields searched: what the record's text is to the search, and what is compared to see a change */
+const FIELDS = ['text', 'notes'];
+/** a passage comes from this field (the text itself is on the row already) */
+const PASSAGE = 'notes';
+const indexed = (/** @type {Item} */ i) => FIELDS.map(f => String(/** @type {Record<string, unknown>} */ (i)[f] ?? '')).join('\u0000');
 
 /** the box, its label and its status line */
 function drawBox(/** @type {HTMLElement} */ slot) {
@@ -25,7 +32,7 @@ function drawBox(/** @type {HTMLElement} */ slot) {
 export function listSearch({ slot, redraw }) {
   const { q, msg } = drawBox(slot);
   const search = createSearch({
-    fields: ['text'],
+    fields: FIELDS,
     operators: {
       has: (rec, v) => v === 'number' && /\d/.test(itemText(rec)),
       is: (rec, v) => v === 'long' && itemText(rec).length >= 20,
@@ -48,9 +55,9 @@ export function listSearch({ slot, redraw }) {
     feed(items) {
       const now = new Set(items.map(i => i.id));
       for (const id of known.keys()) if (!now.has(id)) { search.remove(id); known.delete(id); }
-      const stale = items.filter(i => known.get(i.id) !== itemText(i));
+      const stale = items.filter(i => known.get(i.id) !== indexed(i));
       search.feed(stale);
-      for (const i of stale) known.set(i.id, itemText(i));
+      for (const i of stale) known.set(i.id, indexed(i));
     },
     /** the items the box leaves in, in the order to show them; null with the box empty */
     pick(items) {
@@ -60,6 +67,17 @@ export function listSearch({ slot, redraw }) {
       msg.textContent = unknown.length ? `Did you mean ${unknown.map(u => u.suggest).join(', ')}?` : hits.length ? '' : 'No matches';
       const byId = new Map(items.map(i => [i.id, i]));
       return hits.map(h => byId.get(h.id)).filter(/** @returns {i is Item} */ i => !!i);
+    },
+    /** under a row's text while the box has words: the first passage of its notes with one of them, marked */
+    passage(item) {
+      const text = q.value.trim();
+      const notes = /** @type {Record<string, unknown>} */ (item)[PASSAGE];
+      if (!text || typeof notes !== 'string' || !notes) return null;
+      const snip = snippetOf(notes, search.terms(text, PASSAGE));
+      if (!snip) return null;
+      const span = Object.assign(document.createElement('span'), { className: 'search-passage' });
+      span.append(snip.before, Object.assign(document.createElement('mark'), { textContent: snip.match }), snip.after);
+      return span;
     },
   };
 }

@@ -13,7 +13,8 @@ import { modules } from '../modules.js';
 /** @typedef {import('../items.js').Item} Item */
 /**
  * The tools slot (modules.js "listFilter"; the search recipe fills it): draws into the slot and narrows the tasks.
- * @typedef {(o: { slot: HTMLElement, redraw: () => void }) => { feed: (items: Item[]) => void, pick: (items: Item[]) => Item[] | null }} ListFilter
+ * @typedef {(o: { slot: HTMLElement, redraw: () => void }) => { feed: (items: Item[]) => void, pick: (items: Item[]) => Item[] | null,
+ *   passage?: (item: Item) => HTMLElement | null }} ListFilter  passage: what a row shows under its text while filtered (a search's matched words)
  */
 /**
  * The tasks' files slot (modules.js "itemFiles"; the files recipe fills it): thumbnails on the rows, a part of the task sheet.
@@ -95,6 +96,8 @@ export function tasksScreen(app) {
     });
     main.type = 'button'; main.className = 'task-main'; main.textContent = t.text; main.disabled = !canWrite;
     main.addEventListener('click', () => sheet.open(t));
+    const passage = filter?.passage?.(t);
+    if (passage) main.append(passage);
     const thumbs = files?.thumbs(t);
     if (thumbs) main.append(thumbs);
     const sub = document.createElement('span');
