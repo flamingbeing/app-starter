@@ -12,7 +12,7 @@ const SHARE = [['circle', { cx: '18', cy: '5', r: '3' }], ['circle', { cx: '6', 
 export function shareInSettings({ app }) {
   void shareSheet(app).check();
   return {
-    title: 'Share in', icon: SHARE, sub: 'Receive text and links from other apps', group: 'This device', find: 'share target android receive links text',
+    title: 'Share in', icon: SHARE, sub: 'Receive text and links from other apps', group: 'Sharing', find: 'share target android receive links text',
     rows: [{ key: 'shareIn', label: 'Receive shares from other apps', sub: 'This device. Android, installed app only' }],
   };
 }

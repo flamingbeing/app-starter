@@ -211,7 +211,7 @@ hash, and the rules. CI runs `node tools/modules.mjs --check`.
 A recipe adds entries to registries, not code to the app's files:
 
 - `app/src/modules.js` and `app/src/data-modules.js`: one import and one slot per module (search fills the list's
-  `listFilter` slot; `#list-tools` holds its box; every recipe with a Settings page (backup, bin, feedback, share-in) adds one entry to the `settingsPages` group after `// add: settings pages`, and `shell.js` lists the group as it is, so a new recipe never edits `shell.js`;
+  `listFilter` slot; `#list-tools` holds its box; every recipe with a Settings page (backup, bin, feedback, share-in) adds one entry to the `settingsPages` group after `// add: settings pages`, and `shell.js` lists the group as it is, so a new recipe never edits `shell.js`. The Settings menu's headings are one ordered list in `shell.js` (`SETTINGS_GROUPS`: Tasks, Look, Sharing, Data, Advanced, then Other): a page's `group` picks its heading (backup and bin: Data; share-in: Sharing; feedback: Other) and a group not in the list falls under Other;
   an app wired before this change (`backup: backupSettings,` etc. as top-level entries) moves those lines inside `settingsPages: { ... }` once);
 - the marks `// add: options` (`options.js`) and `// add: service worker handlers` (`sw.js`) take a recipe's option and fetch
   handler; the manifest's entry goes after `"display"`;
