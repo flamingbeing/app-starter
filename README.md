@@ -23,7 +23,7 @@ are safe from day one. Replace this first paragraph with what the app is once it
   [app-sync](https://github.com/flamingbeing/app-sync)'s modules (`createApp` with `auth`, `sync` and `update`, in
   `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
   map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).
-  Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt`).
+  Installable, never prompted (`src/boot.js` cancels `beforeinstallprompt` and keeps it for Settings > About > Install this app).
 - **UI kit** ([decision 0011](docs/decisions/0011-ui-kit-served-from-app-ui.md)): `@core/ui` (sync chip with
   overridable state words `LABELS`, sign-in sheet, conflict sheet, update prompt, refused list) and `@core/theme`
   (custom properties; this device's look (A tinted glass, B colour band, C dense and quiet: [ui-kit.md](https://github.com/flamingbeing/app-ui/blob/main/docs/ui-kit.md),

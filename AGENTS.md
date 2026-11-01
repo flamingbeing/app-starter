@@ -42,7 +42,8 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 - New library, own-host sign-in, live smoke test, template updates: go through
   [docs/new-app-checklist.md](docs/new-app-checklist.md). Files, search, backup and share-in are modules (`node tools/add.mjs files|search|backup|share-in`). `@core/files` `url()` is a page-local `blob:` URL; hand a
   file on with `files.blob(id)`. App-sync bumps: `node tools/update-from-starter.mjs --sync <x.y.z>`.
-- Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt`). No install buttons.
+- Installable, never prompted: keep `app/src/boot.js` (cancels `beforeinstallprompt` and keeps it in
+  `globalThis.coreInstallPrompt`). The only install button is app-ui's Settings > About > Install this app (app-ui rc.78+).
 - The Content-Security-Policy is Report-Only until a live sign-in, sync and update show no reports
   ([decision 0003](docs/decisions/0003-csp-report-only-first.md)); the browser tests already fail on any report.
 
