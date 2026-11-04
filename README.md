@@ -107,6 +107,11 @@ app's `apiKey` and `appId` from `firebase apps:sdkconfig WEB` output) and sets `
 Running it again changes nothing; `--check` exits 1 when a run would change something. The emulator project becomes
 `demo-<name>`; tests never touch the live project.
 
+**Link preview** (the card WhatsApp, iMessage and others show for a shared link): `app/index.html`'s `og:` tags (fill
+sets the name and address; write the app's own one-line `description` and `og:description`) and
+`app/public/icons/og.png`, 1200x630, the icon and name: run `PW_CHROMIUM=/opt/pw-browsers/chromium node tools/og-image.mjs`
+after a change of icon or name. Chat apps cache a preview for days, so an old link may keep its old card.
+
 Then: the Worker secrets `SA_EMAIL` and `SA_KEY` (a service account that may manage Auth users and write Firestore),
 the repo secrets for the deploy (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`), the repo variables for the rules
 deploy (`FIREBASE_PROJECT`, `WIF_PROVIDER`, `RULES_DEPLOYER`), Google sign-in switched on in the Firebase console, the
