@@ -80,7 +80,6 @@
         <p class="status-line"><span id="sync-chip"></span></p>
         <!-- }cloud -->
         <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
-        <div id="signed-out" hidden></div>
         <div id="no-access" hidden>
           <p>This account has no access yet. Ask an admin to add it.</p>
           <p class="small">Account id: <code id="uid"></code></p>
@@ -135,6 +134,10 @@
         <div id="settings-host"></div>
       </section>
     </main>
+    <!-- cloud{ the signed-out page (app-ui signInScreen) covers the whole page, so it sits outside the tab pages:
+         signing out from any tab, Settings too, shows it at once -->
+    <div id="signed-out" hidden></div>
+    <!-- }cloud -->
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">
       <button type="button" class="ui-tab" data-tab-page="#today-page" data-tab-id="today" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Today</button>
