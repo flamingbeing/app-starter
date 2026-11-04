@@ -21,7 +21,7 @@ const collapsed = page => page.evaluate(() => document.querySelector('.ui-bar')?
 
 test('glass by default; Solid in the switch takes it off, kept on reload and before the modules run', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await signIn(page, 'member');   // (signed out, the sign-in screen covers the tabs)
   await openSettings(page, 'Look');
   const root = page.locator('html');
   await expect(root).toHaveClass(/\bglass\b/);
