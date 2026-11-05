@@ -12,7 +12,7 @@ import worker from '../sites.js';
 import { SITES } from '../routes.js';
 
 const HOST = Object.keys(SITES)[0];
-const FILES = { '/app/index.html': '<h1>hi</h1>', '/app/public/sw.js': '//', '/app/public/app.css': 'css', '/app/src/app.js': 'js', '/app/list/index.html': 'list', '/app/public/kit/index.html': 'kit' };
+const FILES = { '/app/index.html': '<h1>hi</h1>', '/app/public/sw.js': '//', '/app/public/app.css': 'css', '/app/src/app.js': 'js', '/app/list/index.html': 'list', '/app/public/kit/index.html': 'kit', '/app/public/icons/og.png': 'png' };
 const env = { FIREBASE_PROJECT: 'demo-x', ASSETS: { fetch: async req => {
   const p = new URL(req.url).pathname;
   return p in FILES ? new Response(FILES[p], { status: 200 }) : new Response('', { status: 404 });
@@ -27,6 +27,20 @@ test('serves the app at the root, noindex, with the security headers', async () 
   assert.equal(r.headers.get('X-Content-Type-Options'), 'nosniff');
   assert.match(r.headers.get('Strict-Transport-Security'), /max-age=31536000/);
   assert.match(r.headers.get('Content-Security-Policy-Report-Only') || r.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
+});
+
+// a chat app's link-preview fetcher (WhatsApp, Telegram) reads the page's og tags and fetches og:image, signed out and
+// with its own user agent: both answer like any visit (the sign-in is the page's, never the Worker's)
+test('link-preview bots get the page and its picture', async () => {
+  for (const ua of ['WhatsApp/2.23.20.0 A', 'TelegramBot (like TwitterBot)', 'facebookexternalhit/1.1']) {
+    for (const method of ['GET', 'HEAD']) {
+      const page = await get(`https://${HOST}/`, { method, headers: { 'User-Agent': ua } });
+      assert.equal(page.status, 200, `${ua} ${method} /`);
+      const pic = await get(`https://${HOST}/icons/og.png`, { method, headers: { 'User-Agent': ua } });
+      assert.equal(pic.status, 200, `${ua} ${method} /icons/og.png`);
+      assert.equal(pic.headers.get('Location'), null);   // no redirect: some fetchers don't follow one for og:image
+    }
+  }
 });
 
 // cloud{
