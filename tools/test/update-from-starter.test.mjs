@@ -97,6 +97,25 @@ test('brings in the template\'s changes with the app\'s values, merging with the
   assert.deepEqual(JSON.parse(read('.starter.json')).app, APP);
 });
 
+test('the link-preview picture: a new one comes in with a NEXT to draw it; the app\'s own is never replaced', () => {
+  const { tpl, app } = setup();
+  const OG = 'app/public/icons/og.png';
+  commit(tpl, { [OG]: Buffer.from([9, 1]) }, 'og picture');
+  const said = [];
+  let r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: l => said.push(l) });
+  assert.deepEqual(fs.readFileSync(path.join(app, OG)), Buffer.from([9, 1]), 'added');
+  assert.match(said.join('\n'), /NEXT: app\/public\/icons\/og\.png .*og-image\.mjs/);
+  // the app draws its own; the template's changes again: kept, no conflict, no NEXT
+  fs.writeFileSync(path.join(app, OG), Buffer.from([7, 7]));
+  commit(tpl, { [OG]: Buffer.from([9, 2]) }, 'og picture redrawn');
+  said.length = 0;
+  r = update({ dir: app, from: tpl, install: false, checkLatest: false, log: l => said.push(l) });
+  assert.deepEqual(fs.readFileSync(path.join(app, OG)), Buffer.from([7, 7]), 'the app\'s own kept');
+  assert.deepEqual(r.conflicts, []);
+  assert.deepEqual(r.changes.filter(c => c.path === OG).map(c => c.action), ['kept']);
+  assert.doesNotMatch(said.join('\n'), /NEXT: app\/public\/icons\/og/);
+});
+
 test('a file the template moved into a module\'s recipe stays in the app that has it, and the module is recorded', () => {
   const { tpl, app } = setup();
   const to = commit(tpl, {

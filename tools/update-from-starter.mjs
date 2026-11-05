@@ -38,6 +38,8 @@ import { importMapHash, manifestFrom, formatManifest, MANIFEST } from './modules
 
 // the app's own: its notes, settings and the lock (regenerated)
 // (recipes/<module>/ are the modules' sources: an app reads them from the template when it adds one, tools/add.mjs)
+// the app's link-preview picture: drawn for each app, so never taken over from the template (the update says when to draw it)
+const OG_IMAGE = 'app/public/icons/og.png';
 export const DEFAULT_IGNORE = ['.starter.json', 'app/src/config.js', 'STATUS.md', 'NOTES.md', 'package-lock.json', 'recipes/*/**'];
 const SHELL_RE = /const SHELL = \[[\s\S]*?\];/;
 const HASH_RE = /(export const IMPORT_MAP = )"'sha256-[A-Za-z0-9+/=]+'"/;
@@ -205,6 +207,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const ignore = [...DEFAULT_IGNORE.filter(g => !(unflavour && g.startsWith('recipes/'))), ...(meta.update?.ignore ?? [])].map(globRe);
     const rename = meta.update?.rename ?? {};
     const appPath = rel => rename[rel] ?? rel;
+    let ogDraw = false;   // the app's link-preview picture is the template's (brought in new, or never drawn): NEXT says to draw it
     const read = rel => { try { return fs.readFileSync(path.join(dir, rel)); } catch { return null; } };
     const write = (rel, buf) => { if (dryRun) return; fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), buf); };
     const remove = rel => { if (!dryRun) fs.rmSync(path.join(dir, rel), { force: true }); };
@@ -258,9 +261,16 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
         else note('kept', target, 'the template deleted it; the app changed it');
         continue;
       }
+      // the link-preview picture is drawn for each app (tools/og-image.mjs): an app's own is never replaced by the
+      // template's; one brought in new shows the template's card until it is drawn again (NEXT below)
+      if (rel === OG_IMAGE && ours !== null && newT) {
+        if (oldT && ours.equals(oldT)) ogDraw = true;   // still the template's own: drawn for the app next
+        if (!ours.equals(newT)) note('kept', target, 'the app\'s own link-preview picture (tools/og-image.mjs)');
+        continue;
+      }
       if (ours === null) {
         if (status === 'M' && oldT) { note('kept', target, 'the app deleted it; the template changed it'); continue; }
-        write(target, newT); note('added', target); continue;
+        write(target, newT); note('added', target); if (rel === OG_IMAGE) ogDraw = true; continue;
       }
       // .ts and the template-owned .mjs files (fill's KEEP) merge as text too; they only skip fill's swaps
       const textual = isText(rel) || /\.(m?js|ts)$/.test(rel);
@@ -311,6 +321,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       fs.writeFileSync(metaPath, JSON.stringify({ ...(unflavour ? { ...plain, app: appNew } : meta), ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
+    if (ogDraw) log(`\nNEXT: ${appPath(OG_IMAGE)} is the template's link-preview picture: draw this app's with \`PW_CHROMIUM=/opt/pw-browsers/chromium node tools/og-image.mjs\` (tools/test/og-image.test.mjs fails until then)`);
     for (const m of moved.keys()) log(`\nNEXT: ${m} is now a module and the template's screens have empty slots for it: run \`node tools/add.mjs ${m}\` (your files are kept and merged) so it stays wired in`);
     if (result.conflicts.length) log(`\n${result.conflicts.length} file(s) with conflicts to resolve by hand:\n  ${result.conflicts.join('\n  ')}`);
     return result;
