@@ -39,6 +39,15 @@ signed in paints the list as last drawn, read-only, until the real list replaces
 `<link rel="modulepreload">` each (written by `node tools/modules.mjs`). Not here: lazy sheets (the starter has none;
 an app with many gets them from its own module) and the Vite bundle (`npm run vite`, still opt-in).
 
+With network latency (5 Nov 2026: 4x CPU, 562 ms round trip, warm load through the service worker, emulator sign-in):
+the live list comes ~1.3 s after navigation on the deployed (bundled) page, ~1.6 s on the source page; the last-drawn
+rows ~0.6 s earlier. The longest wait is Firebase Auth checking the saved sign-in with the server (`accounts:lookup`,
+one round trip, two when the token has expired) before it names the user; app-sync opens the device copy only then.
+Starting the SDK from `boot.js` did not help (no measurable change: the lookup still starts at the same moment, held by
+the main thread's start-up work, and the bundle gains two startup files), so it was dropped. What would help is in
+app-sync: open the last account's device copy at start and let `watch` serve it before the sign-in is confirmed (closed
+if another account or nobody turns out signed in), so the list does not wait on that round trip.
+
 ## Later
 
 - Restore from the bin (the bin entries keep the deleted version in `data`).
