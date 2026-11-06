@@ -18,7 +18,7 @@ const ORIG = {
   'firebase-firestore.js': `import{getApp as i}from"${G}firebase-app.js";export const getFirestore=1;`,
 };
 const map = v => `<script type="importmap">\n${JSON.stringify({ imports: Object.fromEntries(FILES.map(f => [`firebase/${f.slice(9, -3)}`, `./vendor/firebase/${v}/${f}`])) })}\n</script>`;
-const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills a RAM-backed /tmp)
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function app(v = '1.2.3', edit = s => s) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vendor-'));

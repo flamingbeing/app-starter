@@ -10,7 +10,7 @@ import { shellFiles, writeShell } from '../sw-files.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CORE = 'https://core.anawj.com/sync/1.2.3/';
 const SW = `const VERSION = 'app-v1';\nconst SHELL = [\n  './',\n];\nconst MANIFEST = {};\n`;
-const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills a RAM-backed /tmp)
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function tree(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-files-'));
