@@ -2,7 +2,9 @@
    shell, ui/gestures.css and ui/shell/shell.css. */
 .status-line { margin: 0 var(--pad) var(--gap); }
 .ui-screen > :not(.ui-large-title) { max-width: 40rem; margin-inline: auto; padding-inline: var(--pad); }
-input, textarea, select { padding: .5rem; }
+input, textarea { padding: .5rem; }
+/* room on the right for the kit's caret, which a plain padding would cover */
+select { padding: .5rem 2rem .5rem .65rem; }
 #add input { flex: 1; min-width: 10rem; }
 .ui-list { padding: 0; margin: 0; }
 
@@ -30,7 +32,7 @@ input, textarea, select { padding: .5rem; }
 
 /* toasts sit above the tab bar on a phone (the page's own room under its last row is the kit's: .ui-screen::after) */
 body { margin: 0; }
-.toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }
+.toasts { bottom: calc(var(--tap) + var(--pad) * 3 + 1rem + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 600px) { .toasts { bottom: var(--pad); } }
 
 
