@@ -1,10 +1,12 @@
 # gitleaks: the default rules, except the Firebase web config (a public client id, not a secret: the Firestore rules
 # decide who sees what; the key is restricted to this app's APIs and host), the vendored Firebase hash list, and the push
 # recipe's Web Push PUBLIC key (app/src/push/vapid.js; the private half is a Worker secret, never in the repo) and the
-# published RFC 8291 appendix A example keys its tests check against (worker/test/webpush.test.mjs, push.test.mjs).
+# published RFC 8291 appendix A auth secret its tests check against (by value, not by file, so a real key pasted into a
+# test is still caught).
 [extend]
 useDefault = true
 
 [allowlist]
 description = "Firebase web config, vendored Firebase hashes, Web Push public key and published test vectors"
-paths = ['''app/(src/)?config\.js''', '''tools/firebase\.lock\.json''', '''(recipes/push/)?app/src/push/vapid\.js''', '''(recipes/push/)?worker/test/(web)?push\.test\.mjs''']
+paths = ['''app/(src/)?config\.js''', '''tools/firebase\.lock\.json''', '''(recipes/push/)?app/src/push/vapid\.js''']
+regexes = ['''^BTBZMqHH6r4Tts7J_aSIgg$''']

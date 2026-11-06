@@ -21,7 +21,7 @@
 import { unb64, sendPush } from './webpush.js';
 import { fromValue, toValue } from './claims.js';
 import { ROLES } from './members.js';
-import { itemPath, stampOf } from '../app/src/push/push-items.js';
+import { itemPath, stampOf, okId } from '../app/src/push/push-items.js';
 
 export const MAX_ITEMS = 200, MAX_DEVICES = 10, MAX_BODY = 300_000;
 export const AHEAD_MS = 8 * 24 * 3600 * 1000;
@@ -36,7 +36,8 @@ export const BUDGET = 45;
 /** a run holds the items it sends this long; a failed send is tried again after it */
 export const LEASE_MS = 2 * 60 * 1000;
 /** the push services (the only addresses the Worker will post to) */
-const SERVICES = /^https:\/\/([a-z0-9-]+\.)*(googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)\//;
+// (Chrome: fcm.googleapis.com only, not every *.googleapis.com, so a made-up endpoint can't aim the job at another Google API)
+const SERVICES = /^https:\/\/(fcm\.googleapis\.com|([a-z0-9-]+\.)*(push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com))\//;
 
 /** @param {string} s */
 export async function sha256(s) {
@@ -62,7 +63,7 @@ export function cleanItems(items, now) {
   const out = [];
   for (const i of items) {
     if (!i || typeof i !== 'object' || !text(i.key, 300) || !i.key || !text(i.title, 200) || !text(i.body, 300)) return null;
-    if (!text(i.itemId, 128) || !i.itemId || i.itemId.includes('/') || !text(i.stamp, 200) || !i.stamp || !Number.isFinite(i.at)) return null;
+    if (!okId(i.itemId) || !text(i.stamp, 200) || !i.stamp || !Number.isFinite(i.at)) return null;
     if (i.at <= now + SOON_MS || i.at > now + AHEAD_MS) continue;   // about to be sent (or sent) already: the job's, not the queue's
     out.push({ key: i.key, at: Math.round(i.at), title: i.title || 'Reminder', body: i.body, itemId: i.itemId, stamp: i.stamp });
   }

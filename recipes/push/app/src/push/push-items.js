@@ -11,6 +11,10 @@ export const MIN_AHEAD_MS = 60 * 1000;
 /** the Worker's cap */
 export const MAX_ITEMS = 200;
 
+/** an id the Worker can read as a document name (Firestore refuses '/', '.', '..' and '__…__'; one such id in a batched read
+ * would fail every run of the job) @param {unknown} id */
+export const okId = id => typeof id === 'string' && id.length > 0 && id.length <= 128 && !id.includes('/') && id !== '.' && id !== '..' && !/^__.*__$/.test(id);
+
 /** the item's document, which the Worker reads at send time (cloud.js: the single group '_') @param {string} itemId */
 export const itemPath = itemId => `spaces/_/${COLL}/${itemId}`;
 
@@ -29,7 +33,7 @@ export function pushItems(items, now) {
   const out = [];
   for (const it of items) {
     const stamp = stampOf(it);
-    if (!stamp || it.id.includes('/')) continue;
+    if (!stamp || !okId(it.id)) continue;
     const at = new Date(`${it.due}T${it.dueTime}`).getTime();
     if (!Number.isFinite(at) || at <= now + MIN_AHEAD_MS || at > now + AHEAD_MS) continue;
     out.push({ key: `${it.id}|${stamp}`, at, title: (it.text || 'Task').slice(0, 200), body: `Due at ${it.dueTime}`, itemId: it.id, stamp });

@@ -50,7 +50,8 @@ test('subscribe keeps a device under the person, once per endpoint; bad or forei
   assert.deepEqual([...s.docs.keys()].sort(), [`pushDevices/${id}`, `pushSubs/u1/devices/${id}`]);
   assert.deepEqual(s.docs.get(`pushSubs/u1/devices/${id}`), { endpoint: sub(1).endpoint, p256dh: P256DH, auth: AUTH, createdAt: NOW });
   for (const bad of [null, {}, sub(2, 'evil.example.com'), { endpoint: 'http://web.push.apple.com/x', keys: sub().keys }, { endpoint: sub().endpoint, keys: { p256dh: 'AAAA', auth: AUTH } },
-    { endpoint: sub().endpoint, keys: { p256dh: P256DH, auth: 'AAAA' } }, { endpoint: 'https://web.push.apple.com.evil.test/x', keys: sub().keys }]) {
+    { endpoint: sub().endpoint, keys: { p256dh: P256DH, auth: 'AAAA' } }, { endpoint: 'https://web.push.apple.com.evil.test/x', keys: sub().keys },
+    sub(4, 'firestore.googleapis.com'), sub(5, 'fcm.googleapis.com.evil.test')]) {
     assert.equal((await call(s, 'subscribe', { subscription: bad })).status, 400, JSON.stringify(bad));
   }
   assert.equal(cleanSubscription(sub(3, 'fcm.googleapis.com'))?.endpoint, 'https://fcm.googleapis.com/3');
@@ -113,7 +114,7 @@ test('schedule replaces the person’s queue: new in, changed updated, missing o
 test('schedule checks sizes and times: malformed is refused, out of range or about to be sent is skipped', async () => {
   const s = memory();
   const bad = [{ items: 'x' }, { items: [{ ...item(1), title: 'x'.repeat(201) }] }, { items: [{ ...item(1), body: 'x'.repeat(301) }] }, { items: [{ ...item(1), at: 'soon' }] },
-    { items: [{ ...item(1), key: '' }] }, { items: [{ ...item(1), itemId: 5 }] }, { items: [{ ...item(1), itemId: 'a/b' }] }, { items: [{ ...item(1), itemId: '' }] },
+    { items: [{ ...item(1), key: '' }] }, { items: [{ ...item(1), itemId: 5 }] }, { items: [{ ...item(1), itemId: 'a/b' }] }, { items: [{ ...item(1), itemId: '' }] }, { items: [{ ...item(1), itemId: '..' }] }, { items: [{ ...item(1), itemId: '__x__' }] },
     { items: [{ ...item(1), stamp: '' }] }, { items: [{ ...item(1), stamp: 'x'.repeat(201) }] }, { items: [{ ...item(1), stamp: undefined }] },
     { items: Array.from({ length: MAX_ITEMS + 1 }, (_, i) => item(i + 1)) }, { items: [null] }];
   for (const b of bad) assert.equal((await call(s, 'schedule', b)).status, 400, JSON.stringify(b).slice(0, 80));
