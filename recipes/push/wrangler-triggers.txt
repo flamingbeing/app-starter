@@ -1,0 +1,3 @@
+  // once a minute: the push recipe's job sends the notifications that came due (worker/push-route.js; the Worker secret
+  // VAPID_PRIVATE_KEY). One cron runs every job in worker/modules.js SCHEDULED.
+  "triggers": { "crons": ["* * * * *"] },

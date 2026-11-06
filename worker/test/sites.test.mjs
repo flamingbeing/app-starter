@@ -10,6 +10,7 @@ import { loadClaims } from '../members.js';
 import worker from '../sites.js';
 }static */
 import { SITES } from '../routes.js';
+import { SCHEDULED } from '../modules.js';
 
 const HOST = Object.keys(SITES)[0];
 const FILES = { '/app/index.html': '<h1>hi</h1>', '/app/public/sw.js': '//', '/app/public/app.css': 'css', '/app/src/app.js': 'js', '/app/list/index.html': 'list', '/app/public/kit/index.html': 'kit', '/app/public/icons/og.png': 'png' };
@@ -27,6 +28,21 @@ test('serves the app at the root, noindex, with the security headers', async () 
   assert.equal(r.headers.get('X-Content-Type-Options'), 'nosniff');
   assert.match(r.headers.get('Strict-Transport-Security'), /max-age=31536000/);
   assert.match(r.headers.get('Content-Security-Policy-Report-Only') || r.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
+});
+
+test('the cron tick runs every job in modules.js SCHEDULED, each on its own: one that throws does not stop the others', async () => {
+  const ran = [], waits = [];
+  const jobs = [async () => { ran.push('a'); }, () => { throw new Error('boom'); }, async e => { ran.push(e.FIREBASE_PROJECT); }];
+  const theirs = SCHEDULED.splice(0);   // (a recipe's own jobs are its tests')
+  SCHEDULED.push(...jobs);
+  const err = console.error;
+  console.error = () => {};
+  try {
+    await worker.scheduled({ cron: '* * * * *' }, env, { waitUntil: p => { waits.push(p); } });
+    await Promise.all(waits);
+  } finally { SCHEDULED.splice(0, SCHEDULED.length, ...theirs); console.error = err; }
+  assert.equal(waits.length, 3);
+  assert.deepEqual(ran.sort(), ['a', 'demo-x']);
 });
 
 // a chat app's link-preview fetcher (WhatsApp, Telegram) reads the page's og tags and fetches og:image, signed out and
