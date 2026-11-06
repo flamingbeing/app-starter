@@ -34,7 +34,7 @@ test('Back after signing in never shows the sign-in screen again, and Back from 
   await expect(page.getByText('Press Back again to close')).toBeVisible();
   await page.goBack({ waitUntil: 'commit' });
   await expect.poll(() => page.evaluate(() => window.__shown).catch(() => null)).toEqual([false]);   // loaded again
-  expect(new URL(page.url()).search).toBe('?emulator');
+  expect(new URL(page.url()).search).toBe(new URL(APP, 'http://x').search);
   await expect(page.locator('#list-view')).toBeVisible();
   await expect(page.locator('#signed-out')).toBeHidden();
 
