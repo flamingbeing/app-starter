@@ -4,6 +4,7 @@
 //   - every file each @core/* entry in the page's import map loads: the entry and its static imports, read from the
 //     package at the same version (node_modules/app-sync or node_modules/app-ui, the devDependencies; the version must
 //     match): core.anawj.com/sync/<v>/ is app-sync, core.anawj.com/ui/<v>/ is app-ui
+//     and the files those modules link beside them at run time (`new URL('./x.css', import.meta.url)`)
 //   - app-ui's style sheets and scripts the page links (<link rel="stylesheet">, <script src>), as they are
 //   - any other https:// address in the import map, as it is (app-update's register.js)
 // The same command lists a Vite build (dist/): the port to Vite changes only the folder this runs on.
@@ -47,6 +48,13 @@ function importsOf(src, file) {
   return out;
 }
 
+// the files one module finds beside it at run time (`new URL('./vault.css', import.meta.url)`: a style sheet a part
+// links itself), not scripts (a lazy `import()` stays out of the shell)
+export function assetsOf(src) {
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"\\])\/\/.*$/gm, '$1');
+  return [...code.matchAll(/new URL\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g)].map(m => m[1]).filter(f => !/\.m?js$/.test(f));
+}
+
 // the page's linked style sheets and classic scripts -> their addresses
 export function pageLinks(html) {
   const out = [];
@@ -63,7 +71,8 @@ function graph(pkg, root, entry, seen) {
   if (!fs.existsSync(file)) throw new Error(`${pkg} has no ${entry} (in ${root})`);
   const out = [entry];
   if (!entry.endsWith('.js')) return out;
-  for (const imp of importsOf(fs.readFileSync(file, 'utf8'), entry)) out.push(...graph(pkg, root, path.posix.join(path.posix.dirname(entry), imp), seen));
+  const src = fs.readFileSync(file, 'utf8');
+  for (const imp of [...importsOf(src, entry), ...assetsOf(src)]) out.push(...graph(pkg, root, path.posix.join(path.posix.dirname(entry), imp), seen));
   return out;
 }
 

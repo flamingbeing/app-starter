@@ -88,6 +88,17 @@ test('app-ui: the import map entries, and the style sheets and scripts the page 
   assert.throws(() => shellFiles({ dir: old, sync: engine(), ui }), /app-ui 0\.9\.0.*1\.0\.0-rc\.11/);
 });
 
+test('app-ui: a style sheet a module links beside it at run time is listed; a lazy script beside it is not', () => {
+  const UI = 'https://core.anawj.com/ui/1.0.0-rc.11/';
+  const ui = tree({
+    'package.json': JSON.stringify({ name: 'app-ui', version: '1.0.0-rc.11' }),
+    'ui/vault/index.js': "// new URL('./old.css', import.meta.url) in a comment\nexport const css = () => new URL('./vault.css', import.meta.url).href;\nconst lazy = new URL('./sheet.js', import.meta.url);\n",
+    'ui/vault/vault.css': '', 'ui/vault/sheet.js': '',
+  });
+  const dir = tree({ 'index.html': page({ '@core/ui/vault': UI + 'ui/vault/index.js' }), 'sw.js': SW });
+  assert.deepEqual(shellFiles({ dir, sync: engine(), ui }), ['./', UI + 'ui/vault/index.js', UI + 'ui/vault/vault.css']);
+});
+
 test('writes the list into sw.js, and --check fails until it is written', () => {
   const dir = tree({ 'index.html': page({}), 'src/app.js': '', 'public/sw.js': SW });
   assert.throws(() => writeShell({ dir, sync: engine(), check: true }), /out of date/);
