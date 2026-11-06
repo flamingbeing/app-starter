@@ -1,10 +1,10 @@
 // app-update: a new version takes over, but the page reloads only when nobody is typing.
-import { test, expect, uniq } from './fixtures.mjs';
+import { test, expect, uniq, APP } from './fixtures.mjs';
 
 test('a new version waits while someone types, then reloads once', async ({ phone }) => {
   const page = await phone();
   // cloud{
-  await page.goto('/app/?emulator&sw', { waitUntil: 'domcontentloaded' });
+  await page.goto(APP + '&sw', { waitUntil: 'domcontentloaded' });
   // }cloud
   /* static{
   await page.goto('/app/?test&sw', { waitUntil: 'domcontentloaded' });
