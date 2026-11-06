@@ -67,7 +67,9 @@ jobs:
           curl -fsSL -o gl.tgz "https://github.com/gitleaks/gitleaks/releases/download/v$V/gitleaks_${V}_linux_x64.tar.gz"
           echo "$SHA  gl.tgz" | sha256sum -c -
           tar -xzf gl.tgz gitleaks
-          ./gitleaks git --redact --no-banner --config .gitleaks.toml .
+          # the checked-out commit's history only: fetch-depth 0 also fetches every other branch, and an open branch's
+          # finding must fail that branch's own checks, not every PR's and main's
+          ./gitleaks git --redact --no-banner --config .gitleaks.toml --log-opts=HEAD .
 
   # cloud{
   rules:

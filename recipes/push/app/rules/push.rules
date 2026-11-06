@@ -1,0 +1,5 @@
+// Web Push (the push recipe; worker/push.js): the Worker's service account keeps the devices and the queue; no page reads
+// or writes them (a subscription's keys and another person's queue stay private).
+match /pushSubs/{document=**} { allow read, write: if false; }
+match /pushDevices/{document=**} { allow read, write: if false; }
+match /pushQueue/{document=**} { allow read, write: if false; }

@@ -112,9 +112,10 @@ function copyTemplate(to) {
     fs.copyFileSync(path.join(root, rel), path.join(to, rel));
   }
 }
-test('a static app takes the template\'s changes to its render only; add.mjs cloud makes it the cloud app', TEMPLATE_ONLY, () => {
+test('a static app takes the template\'s changes to its render only; add.mjs cloud makes it the cloud app', TEMPLATE_ONLY, t => {
   const tpl = fs.mkdtempSync(path.join(os.tmpdir(), 'tpl-'));
   const app = fs.mkdtempSync(path.join(os.tmpdir(), 'static-'));
+  t.after(() => { for (const d of [tpl, app]) fs.rmSync(d, { recursive: true, force: true }); });   // a failed run too
   copyTemplate(tpl);
   git(tpl, 'init', '-q', '-b', 'main');
   const base = commitAll(tpl, 'base');
@@ -158,6 +159,5 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   assert.match(read('app/index.html'), /"@core\/sync"/);
   assert.doesNotMatch(read('app/index.html'), /"@core\/store"/);
   assert.throws(() => toCloud({ dir: app, from: tpl, project: 'trial-notes-app', install: false, log: () => {} }), /cloud app already/);
-  for (const d of [tpl, app]) fs.rmSync(d, { recursive: true, force: true });
 });
 // }cloud

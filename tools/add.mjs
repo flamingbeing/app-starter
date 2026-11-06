@@ -49,6 +49,8 @@ const REMOTE = /^([\w.-]+\/[\w.-]+)@([\w./-]+):(.+\.json)$/;
 const MAP_RE = /(<script type="importmap">\n)([\s\S]*?)(\n\s*<\/script>)/;
 const INCLUDE_RE = /("include":\s*)(\[.*\])/;
 const CSS_MARK = '/* add: cssVars */';
+/** the modules a static app can't take until it is the cloud app, and why */
+const CLOUD_ONLY = { files: 'Worker routes and rules', bin: 'data side and rules', push: 'Worker routes, cron job and rules' };
 
 /** a source's files: { recipe, read(rel) -> Buffer | null, list(rel) -> [rel], app, done() }; `clones` shares one
  * clone per repo between sources (their done() is then the caller's: closeClones) */
@@ -225,7 +227,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     opened.push(src);
     const result = { module: src.recipe.module, changes: [], conflicts: [] };
     const { recipe } = src;
-    if (meta.flavour && !remove && ['files', 'bin'].includes(recipe.module)) throw new Error(`the ${recipe.module} module needs the cloud (its ${recipe.module === 'files' ? 'Worker routes and rules' : 'data side and rules'}): node tools/add.mjs cloud --project <id> first`);
+    if (meta.flavour && !remove && CLOUD_ONLY[recipe.module]) throw new Error(`the ${recipe.module} module needs the cloud (its ${CLOUD_ONLY[recipe.module]}): node tools/add.mjs cloud --project <id> first`);
     const was = !remove && recorded[recipe.module] ? pinned(recorded[recipe.module], meta, dir) : null;
     const prevSource = was && was !== from ? was : null;
     const prev = prevSource ? openSource(prevSource, dir, github, clones) : null;

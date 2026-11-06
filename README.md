@@ -181,7 +181,7 @@ tools/      fill.mjs, modules.mjs (everything made from modules.json), sw-files.
             (deploy stamp for sw.js), vite-check.mjs (the Vite build check; vite.config.mjs at the root),
             vite-outside-package.mjs (the same for the outside-package fixture), dev-setup.sh (a fresh machine ready
             to test), update-from-starter.mjs (brings newer template commits in; app-sync bumps), add.mjs (modules)
-recipes/    one JSON file per optional module (files, search, backup, bin, share-in) and the files each brings (README, "Modules")
+recipes/    one JSON file per optional module (files, search, backup, bin, share-in, push) and the files each brings (README, "Modules")
 docs/       decisions
 ```
 
@@ -211,11 +211,11 @@ node tools/add.mjs <owner/repo>@<tag|sha>:recipes/<module>.json   # a recipe fro
 node tools/add.mjs --remove search                 # takes it out again; a file the app changed is kept and listed
 ```
 
-The template ships four recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
+The template ships these recipes: `files` (`@core/files`, the Worker route, rules and R2 binding; needs the bucket made
 once), `search` (`@core/search`, operators `field:`, `"phrase"`, `-leave-out`, `OR`, with `insertOperator` and
 `usesOperators` for a "?" list, and `snippetOf` for the matched passage under a row) and `backup` (`@core/backup`, a
 Settings page that saves the items as `.json.gz`, CSV or Excel and restores by adding only what is missing, with a
-dry-run line first; SheetJS loads only for Excel) and `bin` (Settings > Bin: the items deleted in the last 30 days, with Restore and Delete forever; the cloud app only) and `share-in` (Android share target: text and links shared to the installed app land in a chooser, a new item or added to an item's notes; the `shareIn` option is off by default and, while off, a share says so and keeps nothing; Android only). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
+dry-run line first; SheetJS loads only for Excel) and `bin` (Settings > Bin: the items deleted in the last 30 days, with Restore and Delete forever; the cloud app only) and `share-in` (Android share target: text and links shared to the installed app land in a chooser, a new item or added to an item's notes; the `shareIn` option is off by default and, while off, a share says so and keeps nothing; Android only) and `push` (Web Push: a notification when a task is due, even with the app closed; the page sends what to notify, a once-a-minute Worker job sends it with VAPID and aes128gcm on Web Crypto after checking the task still says so; the `pushOn` option is off by default and nothing loads while off; the cloud app only; `node tools/push-keys.mjs` makes the keys once, the private half straight to the Worker secret `VAPID_PRIVATE_KEY`). A recipe (`recipes/search.json`; its fields are listed at the top of `tools/add.mjs`)
 names the module's `modules` entries, vendored folders, files, tsconfig `include`, style sheets, CSS custom properties,
 owner steps (printed as NEEDS-YOU lines) and notes.
 
@@ -233,15 +233,17 @@ A recipe adds entries to registries, not code to the app's files:
 - the marks `// add: options` (`options.js`) and `// add: service worker handlers` (`sw.js`) take a recipe's option and fetch
   handler; the manifest's entry goes after `"display"`;
 - `worker/modules.js`: one import and one route (`{ match(url), handle(request, env, ctx) }`) per module, which
-  `worker/sites.js` asks in turn after its own routes;
+  `worker/sites.js` asks in turn after its own routes, and a module's cron job in `SCHEDULED` (`(env, ctx) => Promise`,
+  after `// add: worker jobs`), which `sites.js` `scheduled()` runs on every tick of the cron trigger the recipe adds to
+  `wrangler.jsonc` (after `// add: triggers`; push's runs once a minute);
 - `app/rules/<module>.rules`: written into the generated block of `app/firestore.app.rules`, then built into
   `app/firestore.rules`; its emulator cases are `app/test/rules/<module>.mjs`;
 - `app/public/css/<module>.css`: linked from `index.html` (`data-module`), never appended to `app.css`.
 
-`wrangler.jsonc` bindings (files' R2 bucket) and the e2e server's stand-ins stay inserts after an `add:` mark. Every
+`wrangler.jsonc` bindings (files' R2 bucket), its cron trigger (push) and the e2e server's stand-ins stay inserts after an `add:` mark. Every
 edit is idempotent; re-adding from a newer source merges three-way into files the app changed. Afterwards
 `tools/modules.mjs` runs, and `.starter.json` `"modules"` records where each module came from. Full checks' `full`
-and `full-vite` jobs add both recipes to a scratch copy and run the whole suite on it; the lean app is tested on its own.
+and `full-vite` jobs add the recipes (files, search, backup, bin, push) to a scratch copy and run the whole suite on it; the lean app is tested on its own.
 
 ## Update from the template
 

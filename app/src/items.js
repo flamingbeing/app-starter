@@ -43,6 +43,10 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
  * @property {() => Task[]} items  the tasks as last heard (a backup takes them)
  * @property {(task: Task) => Promise<string>} put  a whole task under its own id (a restore); '' or the reason, as add
  * @property {BinApi} [bin]  the deleted items (the bin recipe; the cloud app only)
+ * @property {() => Promise<string | undefined>} [idToken]  the signed-in person's ID token, for the Worker's routes (the cloud app only)
+ * @property {(fn: (items: Task[]) => void) => () => void} [onItems]  fn(tasks) whenever they change -> remove (the cloud app only)
+ * @property {(fn: () => Promise<unknown>) => () => void} [onSignOut]  run fn (awaited, a few seconds at most) just before signing
+ *   out -> remove (the push recipe unsubscribes there; the cloud app only)
  * @property {() => boolean} serverCopyIn  whether the server's copy has arrived yet (a restore waits for it; always true
  *   in a static app)
  */

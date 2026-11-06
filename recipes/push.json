@@ -1,0 +1,37 @@
+{
+  "module": "push",
+  "about": "Web Push: notifications that arrive with the app closed. The page subscribes this device and sends what to notify (an open item's due time, push-items.js); a once-a-minute Worker job sends each when due (VAPID and aes128gcm on Web Crypto, worker/webpush.js), after checking the item still says so. An option (pushOn, this device, off by default) switches it on; while off nothing loads. Cloud app only.",
+  "root": "recipes/push",
+  "files": [
+    { "from": "app/src/push/push.js" },
+    { "from": "app/src/push/push-items.js" },
+    { "from": "app/src/push/push-settings.js" },
+    { "from": "app/src/push/push-wire.js" },
+    { "from": "app/src/push/vapid.js" },
+    { "from": "app/test/push.unit.test.mjs" },
+    { "from": "app/rules/push.rules" },
+    { "from": "app/test/rules/push.mjs" },
+    { "from": "worker/webpush.js" },
+    { "from": "worker/push.js" },
+    { "from": "worker/push-route.js" },
+    { "from": "worker/test/webpush.test.mjs" },
+    { "from": "worker/test/push.test.mjs" },
+    { "from": "tools/push-keys.mjs" },
+    { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { pushSettings } from './push/push-settings.js';" },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    push: pushSettings," },
+    { "to": "app/src/options.js", "after": "// add: options", "line": "  pushOn: { scope: 'device', default: false }," },
+    { "to": "app/src/options.js", "after": "// add: feature rows", "line": "  { key: 'pushOn', label: 'Notify me when a task is due', sub: 'Even with the app closed. This device; iPhone: add to Home Screen first' }," },
+    { "to": "app/public/sw.js", "after": "// add: service worker handlers", "block": "recipes/push/sw-handlers.txt" },
+    { "to": "worker/modules.js", "after": "// add: worker imports", "line": "import { pushRoute, pushJob } from './push-route.js';" },
+    { "to": "worker/modules.js", "after": "// add: worker routes", "line": "  pushRoute," },
+    { "to": "worker/modules.js", "after": "// add: worker jobs", "line": "  pushJob," },
+    { "to": "wrangler.jsonc", "after": "// add: triggers", "block": "recipes/push/wrangler-triggers.txt" }
+  ],
+  "needs": [
+    "make the Web Push keys once, signed in to Cloudflare: node tools/push-keys.mjs (the private key goes straight to the Worker secret VAPID_PRIVATE_KEY, the public key into app/src/push/vapid.js); commit vapid.js and deploy. Until then push stays off."
+  ],
+  "docs": [
+    "push: what is notified and when is app/src/push/push-items.js (pushItems; stampOf is what must still hold when the Worker sends, read again from the item's document): make both the app's own. The switch is Settings > Features (option pushOn, this device, off); turning it on asks for the notification permission.",
+    "push: the Worker side is worker/push.js (routes /api/push/subscribe|unsubscribe|schedule, signed in with a role; the once-a-minute job runDue, at most 45 outgoing requests a run as the free plan allows 50), listed in worker/modules.js ROUTES and SCHEDULED through worker/push-route.js; wrangler.jsonc gets the cron trigger. Data in pushSubs/, pushDevices/ and pushQueue/, closed to pages (app/rules/push.rules). Optional var VAPID_SUBJECT (default https://<the app's host>). A tap on a notification opens ./#item=<id>."
+  ]
+}
