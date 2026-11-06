@@ -10,8 +10,11 @@ import { fill, parseArgs } from '../fill.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKIP = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
+const made = [];   // each copy is the whole repo: take them all away at the end, or the temp folder fills up
+test.after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function copy({ deps = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));
+  made.push(dir);
   fs.cpSync(ROOT, dir, { recursive: true, filter: src => !SKIP.has(path.basename(src)) });
   if (deps) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // sw.js's list reads app-sync and app-ui
   // these tests are the starter's own: an app that took in this file (tools/update-from-starter.mjs) has modules, which a fresh render refuses
