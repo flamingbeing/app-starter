@@ -1,6 +1,6 @@
 // tools/vendor-firebase.mjs: the rewrite, and the check that the vendored files are gstatic's, byte for byte.
 // node --test tools/test/vendor-firebase.test.mjs
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,8 +18,11 @@ const ORIG = {
   'firebase-firestore.js': `import{getApp as i}from"${G}firebase-app.js";export const getFirestore=1;`,
 };
 const map = v => `<script type="importmap">\n${JSON.stringify({ imports: Object.fromEntries(FILES.map(f => [`firebase/${f.slice(9, -3)}`, `./vendor/firebase/${v}/${f}`])) })}\n</script>`;
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function app(v = '1.2.3', edit = s => s) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vendor-'));
+  made.push(dir);
   fs.mkdirSync(path.join(dir, 'public/vendor/firebase', v), { recursive: true });
   for (const f of FILES) fs.writeFileSync(path.join(dir, 'public/vendor/firebase', v, f), edit(rewrite(ORIG[f], '1.2.3')));
   fs.writeFileSync(path.join(dir, 'index.html'), map(v));
