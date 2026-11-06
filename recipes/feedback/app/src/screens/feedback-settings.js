@@ -1,7 +1,7 @@
 // Settings > Send feedback (the feedback recipe's glue, recipes/feedback.json): any member writes a private message to the
 // owner; admins also see the inbox, tick messages done and copy one as a to-do line. The dialog is built here (no
 // index.html edits). The pure parts are ../feedback.js, the data side ../feedback-data.js (app.feedback); the slot is
-// modules.js's "feedback". A static app has no app.feedback, so it gets no page.
+// modules.js's "feedback". A local-only app has no app.feedback, so it gets no page.
 import { MAX_FEEDBACK, cleanFeedback, asTask } from '../feedback.js';
 
 // Lucide "message-square" (https://lucide.dev, ISC licence)

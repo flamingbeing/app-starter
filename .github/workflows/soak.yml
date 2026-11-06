@@ -14,9 +14,9 @@ jobs:
   soak:
     uses: flamingbeing/app-devkit/.github/workflows/soak.yml@v1.16.0
     with:
-      # cloud{
+      # sync{
       emulators: firestore,auth
-      # }cloud
+      # }sync
       unit-command: node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
   full:
     uses: ./.github/workflows/full-checks.yml

@@ -1,5 +1,7 @@
 # 0013: A static app is the template rendered as a flavour, and add.mjs cloud turns it into the cloud app
 
+Renamed (2026-11-06): the static app is now the local-only app and the cloud app the offline-first app, the old names kept as aliases; see [0016](0016-offline-first-and-local-only.md).
+
 Status: accepted (2026-10-27).
 
 Decision: an app with no sign-in, whose data stays on one device, is made from the same template as the cloud app,

@@ -1,4 +1,4 @@
-// Soak specs for a static app (soak/static-soak.mjs copies this file into the generated app's e2e/). Made-up data only.
+// Soak specs for a local-only app (soak/local-only-soak.mjs copies this file into the generated app's e2e/). Made-up data only.
 // Invariants: a save the list has shown survives a reload; a lost or refused IndexedDB never crashes the page;
 // whatever the page did, a reload ends in a working list.
 import { test, expect, setOffline, uniq, signIn, add } from './fixtures.mjs';

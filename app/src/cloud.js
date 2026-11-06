@@ -36,7 +36,7 @@ import { taskOps } from './task-ops.js';
 
 export { usingEmulator, spaceOf } from './roles.js';
 export { lastSignedIn, keepList, keptList } from './hint.js';
-// (the list's shared bits live in items.js, the same in a static app; named here too for the files recipe)
+// (the list's shared bits live in items.js, the same in a local-only app; named here too for the files recipe)
 export { COLL, itemText, REFUSED } from './items.js';
 
 /** @typedef {import('./items.js').Item} Item */

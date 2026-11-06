@@ -28,9 +28,9 @@ function copy({ deps = true } = {}) {
 }
 const read = (dir, f) => fs.readFileSync(path.join(dir, f), 'utf8');
 const ARGS = { name: 'pet-log', host: 'pets.example.org', kit: 'nuhs', project: 'pet-log-app' };
-const { project: _, ...STATIC } = ARGS;   // a static app has no Firebase project
+const { project: _, ...LOCAL_ONLY } = ARGS;   // a local-only app has no Firebase project
 
-// cloud{ the cloud's own files (a static app has no live smoke test, rules or web config)
+// sync{ the offline-first app's own files (a local-only app has no live smoke test, rules or web config)
 test('the live smoke test\'s secret names follow the app name', () => {
   const dir = copy();
   fill({ dir, ...ARGS });
@@ -64,7 +64,7 @@ test('fills name, host, kit and project everywhere', () => {
   assert.deepEqual(JSON.parse(read(dir, '.starter.json')).app, { ...ARGS, title: 'Pet log' });
   for (const f of ['worker/claims.js', 'worker/custom-token.js']) assert.equal(read(dir, f), read(ROOT, f), `${f} is app-devkit's`);
 });
-// }cloud
+// }sync
 
 test('running it again changes nothing; --check says so', () => {
   const dir = copy();
@@ -73,7 +73,7 @@ test('running it again changes nothing; --check says so', () => {
   assert.deepEqual(fill({ dir, ...ARGS }).changed, []);
 });
 
-// cloud{ the web config (a static app has none)
+// sync{ the web config (a local-only app has none)
 test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   const dir = copy();
   const web = path.join(dir, 'web.json');
@@ -86,7 +86,7 @@ test('the web config adds apiKey and appId, and is kept on a re-run', () => {
   assert.match(read(dir, 'app/src/config.js'), /"apiKey": "AIzaFAKE"/);
   assert.match(read(dir, 'app/index.html'), /<title>Pets<\/title>/);
 });
-// }cloud
+// }sync
 
 test('an app\'s own APP keys (look, surface) are kept', () => {
   const dir = copy();
@@ -109,7 +109,7 @@ test("--accent sets the default look's colour, kept on a re-run; a bad one is re
   assert.deepEqual(parseArgs(['--accent', '#123456']), { accent: '#123456' });
 });
 
-// cloud{
+// sync{
 test('a web config for another project is refused', () => {
   const dir = copy();
   const web = path.join(dir, 'web.json');
@@ -117,11 +117,11 @@ test('a web config for another project is refused', () => {
   assert.throws(() => fill({ dir, ...ARGS, 'web-config': web }), /for project other-project/);
 });
 
-test('--static renders the static app, then fills it: no Firebase, sw.js and the import-map hash follow', () => {
+test('--local-only renders the local-only app, then fills it: no Firebase, sw.js and the import-map hash follow', () => {
   const dir = copy();
-  const { changed } = fill({ dir, ...STATIC, static: true });
-  assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, 'static');
-  assert.equal(JSON.parse(read(dir, '.starter.json')).app.project, '', 'no Firebase project until add cloud');
+  const { changed } = fill({ dir, ...LOCAL_ONLY, localOnly: true });
+  assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, 'local-only');
+  assert.equal(JSON.parse(read(dir, '.starter.json')).app.project, '', 'no Firebase project until add sync');
   assert.match(read(dir, 'wrangler.jsonc'), /"FIREBASE_PROJECT": ""/);
   assert.ok(changed.includes('app/src/config.js'));
   const cfg = read(dir, 'app/src/config.js');
@@ -130,22 +130,22 @@ test('--static renders the static app, then fills it: no Firebase, sw.js and the
   for (const f of ['app/src/cloud.js', 'app/firestore.rules', 'app/public/vendor/firebase', 'flavours', 'e2e/sync.spec.mjs'])
     assert.ok(!fs.existsSync(path.join(dir, f)), f);
   const html = read(dir, 'app/index.html');
-  assert.doesNotMatch(html, /firebase\/|@core\/auth|@core\/sync"|cloud\{|static\{|id="sign-out"/);
+  assert.doesNotMatch(html, /firebase\/|@core\/auth|@core\/sync"|sync\{|local-only\{|cloud\{|static\{|id="sign-out"/);
   assert.match(html, /"@core\/store": "https:\/\/core\.anawj\.com\/sync\/[^/]+\/src\/store\.js"/);
   assert.match(read(dir, 'app/public/sw.js'), /src\/store\.js/);
-  assert.doesNotMatch(read(dir, 'app/public/sw.js'), /cloud\.js|firebase/, 'sw.js lists no file the static app lacks');
+  assert.doesNotMatch(read(dir, 'app/public/sw.js'), /cloud\.js|firebase/, 'sw.js lists no file the local-only app lacks');
   const sw = spawnSync('node', ['tools/sw-files.mjs', 'app', '--check'], { cwd: dir, encoding: 'utf8' });
   assert.equal(sw.status, 0, sw.stderr);
   assert.match(read(dir, 'playwright.config.mjs'), /^(?![\s\S]*emulator)/);
   assert.equal(JSON.parse(read(dir, 'package.json')).scripts.rules, undefined);
-  assert.deepEqual(fill({ dir, ...STATIC, check: true }).changed, [], 'a re-run changes nothing');
-  assert.deepEqual(fill({ dir, ...STATIC, static: true, check: true }).changed, [], '--static again: already static');
+  assert.deepEqual(fill({ dir, ...LOCAL_ONLY, check: true }).changed, [], 'a re-run changes nothing');
+  assert.deepEqual(fill({ dir, ...LOCAL_ONLY, localOnly: true, check: true }).changed, [], '--local-only again: already local-only');
   const web = path.join(dir, 'web.json');
   fs.writeFileSync(web, JSON.stringify({ projectId: 'pet-log-app', apiKey: 'x', appId: 'y' }));
-  assert.throws(() => fill({ dir, ...STATIC, 'web-config': web }), /static app has no web config/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, 'web-config': web }), /local-only app has no web config/);
 });
 
-test('--static in a fresh clone (no node_modules) installs the packages, so sw.js\'s list is the static app\'s', () => {
+test('--local-only in a fresh clone (no node_modules) installs the packages, so sw.js\'s list is the local-only app\'s', () => {
   const dir = copy({ deps: false });
   const ran = [];
   const exec = (cmd, args, cwd) => {
@@ -153,7 +153,7 @@ test('--static in a fresh clone (no node_modules) installs the packages, so sw.j
     assert.equal(cwd, dir);
     fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'junction');   // stands for the install
   };
-  fill({ dir, ...STATIC, static: true, exec });
+  fill({ dir, ...LOCAL_ONLY, localOnly: true, exec });
   assert.deepEqual(ran, ['npm ci --no-audit --no-fund --ignore-scripts']);
   assert.doesNotMatch(read(dir, 'app/public/sw.js'), /cloud\.js|firebase/);
   assert.equal(spawnSync('node', ['tools/sw-files.mjs', 'app', '--check'], { cwd: dir }).status, 0);
@@ -176,25 +176,39 @@ test('--space person: config.js names it, the rules\' inSpace line follows (both
   assert.doesNotMatch(read(dir, 'app/src/config.js'), /"space"/);
   assert.match(line('app/firestore.rules'), /return can\(g, roles\)/);
   assert.throws(() => fill({ dir, ...ARGS, space: 'team' }), /--space 'team': shared or person/);
-  assert.throws(() => fill({ dir, ...STATIC, static: true, space: 'person' }), /has no spaces/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, space: 'person' }), /has no spaces/);
   assert.ok(fs.existsSync(path.join(dir, 'app/src/cloud.js')), 'refused before the render');
 });
 
-test('--static checks the values before it renders anything', () => {
+test('the old names: --static (static: true) renders the local-only app; an app recorded as "static" is local-only', () => {
   const dir = copy();
-  assert.throws(() => fill({ dir, ...STATIC, static: true, name: 'Bad Name' }), /--name/);
-  assert.throws(() => fill({ dir, ...STATIC, static: true, accent: 'teal' }), /--accent/);
-  assert.throws(() => fill({ dir, ...STATIC, static: true, check: true }), /--check with --static/);
-  assert.throws(() => fill({ dir, ...STATIC, static: true, title: '  ' }), /--title/);
-  assert.throws(() => fill({ dir, ...STATIC, static: true, 'web-config': 'web.json' }), /no web config/);
+  fill({ dir, ...LOCAL_ONLY, static: true });
+  const meta = JSON.parse(read(dir, '.starter.json'));
+  assert.equal(meta.flavour, 'local-only');
+  assert.ok(!fs.existsSync(path.join(dir, 'app/src/cloud.js')));
+  // an app made before the rename: .starter.json says "static"; a re-run treats it as local-only and records the new id
+  fs.writeFileSync(path.join(dir, '.starter.json'), JSON.stringify({ ...meta, flavour: 'static' }, null, 2) + '\n');
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, 'web-config': 'web.json' }), /a local-only app has no web config/);
+  assert.deepEqual(fill({ dir, ...LOCAL_ONLY, static: true }).changed, ['.starter.json']);
+  assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, 'local-only');
+  assert.doesNotMatch(read(dir, 'app/src/config.js'), /firebaseConfig/);
+});
+
+test('--local-only checks the values before it renders anything', () => {
+  const dir = copy();
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, name: 'Bad Name' }), /--name/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, accent: 'teal' }), /--accent/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, check: true }), /--check with --local-only/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, title: '  ' }), /--title/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, localOnly: true, 'web-config': 'web.json' }), /no web config/);
   assert.ok(fs.existsSync(path.join(dir, 'app/src/cloud.js')));
   assert.equal(JSON.parse(read(dir, '.starter.json')).flavour, undefined);
 });
-// }cloud
-/* static{
+// }sync
+/* local-only{
 test('fills name, host and kit everywhere; no Firebase config', () => {
   const dir = copy();
-  const { changed } = fill({ dir, ...STATIC });
+  const { changed } = fill({ dir, ...LOCAL_ONLY });
   assert.ok(changed.includes('app/src/config.js') && changed.includes('wrangler.jsonc') && changed.includes('worker/routes.js'));
   const cfg = read(dir, 'app/src/config.js');
   assert.doesNotMatch(cfg, /firebaseConfig/);
@@ -203,9 +217,9 @@ test('fills name, host and kit everywhere; no Firebase config', () => {
     assert.doesNotMatch(read(dir, f), /starter-app|app\.example\.com|design\.flamingbeing\.com/, f);
   const web = path.join(dir, 'web.json');
   fs.writeFileSync(web, JSON.stringify({ projectId: 'pet-log-app', apiKey: 'x', appId: 'y' }));
-  assert.throws(() => fill({ dir, ...STATIC, 'web-config': web }), /static app has no web config/);
+  assert.throws(() => fill({ dir, ...LOCAL_ONLY, 'web-config': web }), /local-only app has no web config/);
 });
-}static */
+}local-only */
 
 test('bad values are refused before anything changes', () => {
   const dir = copy();
@@ -219,7 +233,9 @@ test('bad values are refused before anything changes', () => {
 
 test('arguments', () => {
   assert.deepEqual(parseArgs(['--name', 'a', '--check']), { name: 'a', check: true });
-  assert.deepEqual(parseArgs(['--static']), { static: true });
+  assert.deepEqual(parseArgs(['--local-only']), { localOnly: true });
+  assert.deepEqual(parseArgs(['--static']), { localOnly: true, renamed: '--static is now --local-only' }, 'an old name');
+  assert.deepEqual(parseArgs(['--on-device']), { localOnly: true, renamed: '--on-device is now --local-only' }, 'an old name');
   assert.throws(() => parseArgs(['--nope']), /unknown argument/);
 });
 

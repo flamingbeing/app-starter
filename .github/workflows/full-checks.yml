@@ -43,11 +43,11 @@ jobs:
       ref: ${{ inputs.ref }}
       build-command: npm run vite
       app-dir: dist
-      # cloud{
+      # sync{
       emulators: firestore,auth
-      # }cloud
+      # }sync
 
-  # cloud{ the template's own jobs (a static app is made from the template, not a template)
+  # sync{ the template's own jobs (a local-only app is made from the template, not a template)
   full:
     # the template only: the lean app is what the jobs above check; here the recipes (files, search, backup, bin, push) are added to a
     # scratch copy with tools/add.mjs, and the whole app is checked: unit tests, type check, rules, browser tests, Worker
@@ -198,10 +198,10 @@ jobs:
         working-directory: ${{ runner.temp }}/new-app
         run: npx -y wrangler@4.45.0 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
 
-  static:
-    # the template only: fill a scratch copy as a static app (no sign-in, the list on the device; README, "Pick a
+  local-only:
+    # the template only: fill a scratch copy as a local-only app (no sign-in, the list on the device; README, "Pick a
     # starter"), then run its checks, unit tests, type check and browser tests there, and the same on its Vite build
-    name: ${{ matrix.mode == 'plain' && 'static' || 'static-vite' }}
+    name: ${{ matrix.mode == 'plain' && 'local-only' || 'local-only-vite' }}
     strategy:
       fail-fast: false
       matrix:
@@ -223,48 +223,48 @@ jobs:
       - if: steps.changes.outputs.app == 'true'
         uses: flamingbeing/app-devkit/setup-browser@v1.16.0
       - if: steps.changes.outputs.app == 'true'
-        name: Fill a scratch copy as a static app
+        name: Fill a scratch copy as a local-only app
         run: |
-          mkdir -p "$RUNNER_TEMP/static-app"
-          tar --exclude=.git -cf - . | tar -xf - -C "$RUNNER_TEMP/static-app"
-          cd "$RUNNER_TEMP/static-app"
-          ARGS=(--name static-check --host static-check.example.net --kit nuhs --commit "$GITHUB_SHA")
-          node tools/fill.mjs "${ARGS[@]}" --static
+          mkdir -p "$RUNNER_TEMP/local-only-app"
+          tar --exclude=.git -cf - . | tar -xf - -C "$RUNNER_TEMP/local-only-app"
+          cd "$RUNNER_TEMP/local-only-app"
+          ARGS=(--name local-only-check --host local-only-check.example.net --kit nuhs --commit "$GITHUB_SHA")
+          node tools/fill.mjs "${ARGS[@]}" --local-only
           node tools/fill.mjs "${ARGS[@]}" --check
-          jq -e '.flavour == "static" and .app.project == ""' .starter.json
+          jq -e '.flavour == "local-only" and .app.project == ""' .starter.json
           ! grep -rIl --exclude-dir=node_modules --exclude-dir=.devkit --exclude='*.log' --exclude=fill.mjs --exclude=fill.test.mjs --exclude=update-from-starter.test.mjs -e 'starter-app' -e 'app\.example\.com' .
-          ! grep -rIlE --exclude-dir=node_modules -e '^\s*(//|#|<!--) *(cloud\{|\}cloud)' app e2e worker tools .github
-      - name: Checks on the static app
+          ! grep -rIlE --exclude-dir=node_modules -e '^\s*(//|#|<!--) *(sync\{|\}sync|cloud\{|\}cloud)' app e2e worker tools .github
+      - name: Checks on the local-only app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
-        working-directory: ${{ runner.temp }}/static-app
+        working-directory: ${{ runner.temp }}/local-only-app
         run: |
           node .devkit/tools/check.mjs
           node tools/stamp-versions.mjs app --check
           node tools/modules.mjs --check
           node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
           npm run typecheck
-      - name: Browser tests on the static app
+      - name: Browser tests on the local-only app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
-        working-directory: ${{ runner.temp }}/static-app
+        working-directory: ${{ runner.temp }}/local-only-app
         run: npx playwright test
-      - name: Vite build of the static app
+      - name: Vite build of the local-only app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'vite')
-        working-directory: ${{ runner.temp }}/static-app
+        working-directory: ${{ runner.temp }}/local-only-app
         run: npm run vite
-      - name: Browser tests on the static app's Vite build
+      - name: Browser tests on the local-only app's Vite build
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'vite')
-        working-directory: ${{ runner.temp }}/static-app
+        working-directory: ${{ runner.temp }}/local-only-app
         run: npx playwright test
         env:
           APP_DIR: dist
-      - name: Worker build of the static app (wrangler dry run, no account)
+      - name: Worker build of the local-only app (wrangler dry run, no account)
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
-        working-directory: ${{ runner.temp }}/static-app
+        working-directory: ${{ runner.temp }}/local-only-app
         run: npx -y wrangler@4.45.0 deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.changes.outputs.app == 'true' && (failure())
         with:
-          name: static-results-${{ matrix.mode }}
-          path: ${{ runner.temp }}/static-app/test-results
+          name: local-only-results-${{ matrix.mode }}
+          path: ${{ runner.temp }}/local-only-app/test-results
           if-no-files-found: ignore
-  # }cloud
+  # }sync

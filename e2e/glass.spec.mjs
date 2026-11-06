@@ -103,7 +103,7 @@ for (const [name, pick] of MODES) test(`the sample in ${name}: axe on the bar, a
   await expect(page.locator('#task-sheet')).toBeHidden();
 });
 
-// cloud{ (a static app has one screen)
+// sync{ (a local-only app has one screen)
 test('a change of screen is a view transition, unless motion is reduced', async ({ phone }) => {
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const page = await phone();
@@ -121,4 +121,4 @@ test('a change of screen is a view transition, unless motion is reduced', async 
     else expect(n).toBeGreaterThan(0);
   }
 });
-// }cloud
+// }sync

@@ -13,7 +13,7 @@ import { modules } from './modules.js';
 
 /**
  * A recipe's own Settings page (modules.js `settingsPages`, one entry per recipe: backup, bin, feedback, shareIn; the recipes fill them): made once the app is there; null
- * when the page has nothing to show (the feedback page in a static app).
+ * when the page has nothing to show (the feedback page in a local-only app).
  * @typedef {(o: { app: import('./items.js').ItemsApp }) => import('app-ui/ui/settings-screen.js').SettingSection | null} SettingsSlot
  */
 

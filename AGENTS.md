@@ -13,15 +13,15 @@ repo; never copy anything from there into this repo, a PR or an issue (neutral p
 
 ## Rules that bite
 
-<!-- static{
-- A static app: the list is this device's, in IndexedDB (`app/src/local.js`, `local-store.js`); every save goes
-  through `local.js`. The rules below on Firestore, roles, claims and Firebase are the cloud app's (`node
-  tools/add.mjs cloud --project <id>`, README "Pick a starter").
-}static -->
-<!-- cloud{ the template's own rule -->
-- The template has two flavours (README, "Pick a starter"): a line only the cloud app needs, in a file both have,
-  goes between `cloud{` and `}cloud` marks; a static app's own files live in `flavours/static/`.
-<!-- }cloud -->
+<!-- local-only{
+- A local-only app: the list is this device's, in IndexedDB (`app/src/local.js`, `local-store.js`); every save goes
+  through `local.js`. The rules below on Firestore, roles, claims and Firebase are the offline-first app's (`node
+  tools/add.mjs sync --project <id>`, README "Pick a starter").
+}local-only -->
+<!-- sync{ the template's own rule -->
+- The repo holds two templates (README, "Pick a starter"): a line only the offline-first app needs, in a file both
+  have, goes between `sync{` and `}sync` marks; a local-only app's own files live in `flavours/local-only/`.
+<!-- }sync -->
 - Every save goes through the write queue (`app/src/cloud.js`); never write to Firestore around it, or sign-out can't
   tell what is unsent.
 - Roles come from claims, cached from `members/{uid}`. Bump the doc's `v` on every role change. No email in rules.
@@ -61,7 +61,7 @@ Every change keeps the app:
   screens, wording, data, its collections' rules and tests); an app-only fix says why in the PR. app-sync or app-ui:
   fix, release, then bump the pin here; app-devkit blocks: fix there, then take the new version; recipes, starter
   files, the build (Vite config, `tools/`), `sw.js`, the CSP, worker routes and CI workflows: fix in this template,
-  and the app takes it with `node tools/update-from-starter.mjs`. Never patch a shared part inside the app; an urgent
+  and the app takes it with the template update (`node tools/update-from-starter.mjs`). Never patch a shared part inside the app; an urgent
   stopgap goes in only alongside the upstream fix, linked from the PR, and is removed at the bump.
 
 ## Checks before merging

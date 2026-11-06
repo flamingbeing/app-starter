@@ -33,7 +33,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { swapsFor, fixup, isText } from './fill.mjs';
-import { render } from './flavour.mjs';
+import { flavourId, render } from './flavour.mjs';
 import { importMapHash, manifestFrom, formatManifest, MANIFEST } from './modules.mjs';
 
 // the app's own: its notes, settings and the lock (regenerated)
@@ -132,7 +132,7 @@ export function treeAt(repo, ref) {
 }
 
 // the template commit (of the last `limit` before `to`) whose files, with the app's values, match most of the app's
-// files: for an app whose .starter.json has no "commit" (a flavoured app's: rendered as its flavour)
+// files: for an app whose .starter.json has no "commit" (a local-only app's: rendered as its flavour)
 export function findBase(repo, to, meta, dir, { limit = 200 } = {}) {
   const shas = git(repo, ['rev-list', `--max-count=${limit}`, to]).trim().split('\n');
   let best = null;
@@ -160,8 +160,9 @@ export function renderedDiff(a, b) {
 }
 
 // -> { from, to, behind, changes: [{ action, path, note? }], conflicts: [paths], pins: [...] }
-// unflavour { project }: the template's cloud files instead of its flavour's (tools/add.mjs cloud: a static app made the
-// cloud app, from the static render at its commit to the cloud tree at `to`); .starter.json loses "flavour"
+// unflavour { project }: the template's offline-first files instead of its flavour's (tools/add.mjs sync: a local-only
+// app made the offline-first app, from the local-only render at its commit to the offline-first tree at `to`);
+// .starter.json loses "flavour"
 export function update({ dir = '.', from, to = 'main', base, dryRun = false, install = true, checkLatest = true, findBase: findBaseToo = false, unflavour = null, log = console.log } = {}) {
   dir = path.resolve(dir);
   const metaPath = path.join(dir, '.starter.json');
@@ -184,9 +185,10 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
     const result = { from: baseSha.slice(0, 7), to: short, behind, changes: [], conflicts: [], pins: [] };
     log(`template ${meta.template}: ${result.from} -> ${short} (${behind} commit${behind === 1 ? '' : 's'})`);
 
-    // a flavoured app (static) takes the template's commits rendered as its flavour (tools/flavour.mjs), so it gets
-    // the changes to its own files and none of the cloud's
-    const oldF = meta.flavour ?? null, newF = unflavour ? null : oldF;
+    // a flavoured app (local-only) takes the template's commits rendered as its flavour (tools/flavour.mjs), so it gets
+    // the changes to its own files and none of the offline-first app's; an old id ("static", "on-device") is the same
+    // flavour, and the render finds its spec under any of its names, so an update across the rename is an ordinary one
+    const oldF = flavourId(meta.flavour) ?? null, newF = unflavour ? null : oldF;
     const appNew = unflavour ? { ...meta.app, project: unflavour.project } : meta.app;
     const trees = new Map();
     const treeOf = (sha, f) => trees.get(`${sha}:${f}`) ?? trees.set(`${sha}:${f}`, f ? render(treeAt(repo.dir, sha), f) : treeAt(repo.dir, sha)).get(`${sha}:${f}`);
@@ -203,7 +205,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       for (const [re, v] of swaps) text = text.replace(re, v);
       return Buffer.from(fixup(rel, text, app));
     };
-    // (the move to the cloud brings the recipes' sources the static render left out: files)
+    // (the move to the offline-first app brings the recipes' sources the local-only render left out: files)
     const ignore = [...DEFAULT_IGNORE.filter(g => !(unflavour && g.startsWith('recipes/'))), ...(meta.update?.ignore ?? [])].map(globRe);
     const rename = meta.update?.rename ?? {};
     const appPath = rel => rename[rel] ?? rel;
@@ -318,7 +320,7 @@ export function update({ dir = '.', from, to = 'main', base, dryRun = false, ins
       const modules = { ...meta.modules };
       for (const [m, recipe] of moved) modules[m] ??= `${meta.template}@${short}:${recipe}`;
       const { flavour: _, ...plain } = meta;
-      fs.writeFileSync(metaPath, JSON.stringify({ ...(unflavour ? { ...plain, app: appNew } : meta), ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
+      fs.writeFileSync(metaPath, JSON.stringify({ ...(unflavour ? { ...plain, app: appNew } : { ...meta, ...(oldF ? { flavour: oldF } : {}) }), ...(moved.size ? { modules } : {}), version: tplMeta.version ?? meta.version, commit: short }, null, 2) + '\n');
       log(`.starter.json: commit ${short}`);
     }
     if (ogDraw) log(`\nNEXT: ${appPath(OG_IMAGE)} is the template's link-preview picture: draw this app's with \`PW_CHROMIUM=/opt/pw-browsers/chromium node tools/og-image.mjs\` (tools/test/og-image.test.mjs fails until then)`);

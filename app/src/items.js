@@ -1,4 +1,4 @@
-// The app's shared bits, the same whichever data side the app has (cloud.js: sign-in and sync; a static app's local.js:
+// The app's shared bits, the same whichever data side the app has (cloud.js: sign-in and sync; a local-only app's local.js:
 // this device only): the collections, a task's text, the refused-save line and the shapes the screens use.
 export const COLL = 'tasks';
 /** the lists tasks are filed under; Inbox is not stored (every account has it, and a task with no list or a deleted one is in it) */
@@ -26,7 +26,7 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
 /** @typedef {{ phase: Phase, user?: User, role?: string }} State */
 
 /**
- * What the screens use of the app (cloud.js start(); local.js in a static app). A slot or screen that needs more
+ * What the screens use of the app (cloud.js start(); local.js in a local-only app). A slot or screen that needs more
  * (the files recipe) takes cloud.js's Started.
  * @typedef {object} ItemsApp
  * @property {import('app-ui/ui/types').SyncApi} sync  for the kit's conflict sheet and refused list
@@ -42,11 +42,11 @@ export const REFUSED = 'The server refused that. A copy is kept in the refused l
  * @property {(taskId: string, cb: (task: Task | null) => void) => () => void} watchItem  cb(null) once it is gone -> stop()
  * @property {() => Task[]} items  the tasks as last heard (a backup takes them)
  * @property {(task: Task) => Promise<string>} put  a whole task under its own id (a restore); '' or the reason, as add
- * @property {BinApi} [bin]  the deleted items (the bin recipe; the cloud app only)
- * @property {() => Promise<string | undefined>} [idToken]  the signed-in person's ID token, for the Worker's routes (the cloud app only)
- * @property {(fn: (items: Task[]) => void) => () => void} [onItems]  fn(tasks) whenever they change -> remove (the cloud app only)
+ * @property {BinApi} [bin]  the deleted items (the bin recipe; the offline-first app only)
+ * @property {() => Promise<string | undefined>} [idToken]  the signed-in person's ID token, for the Worker's routes (the offline-first app only)
+ * @property {(fn: (items: Task[]) => void) => () => void} [onItems]  fn(tasks) whenever they change -> remove (the offline-first app only)
  * @property {(fn: () => Promise<unknown>) => () => void} [onSignOut]  run fn (awaited, a few seconds at most) just before signing
- *   out -> remove (the push recipe unsubscribes there; the cloud app only)
+ *   out -> remove (the push recipe unsubscribes there; the offline-first app only)
  * @property {() => boolean} serverCopyIn  whether the server's copy has arrived yet (a restore waits for it; always true
- *   in a static app)
+ *   in a local-only app)
  */

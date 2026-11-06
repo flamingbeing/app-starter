@@ -1,4 +1,4 @@
-// Browser tests: npx playwright test (README, "Tests"). A static app has no server side to start but the e2e server (the
+// Browser tests: npx playwright test (README, "Tests"). A local-only app has no server side to start but the e2e server (the
 // real Worker in Node), which starts here unless already running. The kit's base config comes from app-devkit (.devkit/,
 // put there by setup-browser in CI; copy it once locally).
 import { baseConfig } from './.devkit/playwright/base.mjs';

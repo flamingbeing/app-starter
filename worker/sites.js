@@ -9,11 +9,11 @@ import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
 import { handleCspReport } from './csp-report.js';
 import { ROUTES, SCHEDULED } from './modules.js';
-// cloud{ roles and members (a static app has neither: tools/flavour.mjs)
+// sync{ roles and members (a local-only app has neither: tools/flavour.mjs)
 import { handleClaims, verifyIdToken } from './claims.js';
 import { adminFor } from './admin.js';
 import { loadClaims, handleMembers } from './members.js';
-// }cloud
+// }sync
 
 const NOINDEX = 'noindex, nofollow';
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/;
@@ -25,22 +25,22 @@ export default {
     const project = env.FIREBASE_PROJECT || '';
     const finish = res => withHeaders(res, { project, local });
 
-    // cloud{
+    // sync{
     if (url.pathname === '/api/claims') return finish(await claims(request, env, url, local, project));
-    // }cloud
+    // }sync
     if (url.pathname === '/api/csp') return finish(await handleCspReport(request));
     // the modules' routes (worker/modules.js), each asked in turn
     for (const route of ROUTES) if (route.match(url)) return finish(await route.handle(request, env, { url, local, project }));
-    // cloud{
+    // sync{
     if (url.pathname.startsWith('/api/members/')) return finish(await members(request, env, url, local, project));
-    // }cloud
+    // }sync
     if (request.method !== 'GET' && request.method !== 'HEAD') return finish(new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } }));
-    // cloud{ Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
+    // sync{ Firebase's sign-in helper pages, from the project's own Firebase address, so sign-in never leaves this one
     if (/^\/__\/(auth|firebase)\//.test(url.pathname) && project && !local) {
       const res = await fetch(new Request(`https://${project}.firebaseapp.com${url.pathname}${url.search}`, request));
       return withHeaders(new Response(res.body, res), { project, local, framedBySelf: true, helper: true });
     }
-    // }cloud
+    // }sync
     const r = resolve(url.hostname, url.pathname);
     if (r.redirect) return finish(redirect(url, r.redirect));
     if (r.notFound) return finish(notFound());
@@ -74,7 +74,7 @@ export default {
   },
 };
 
-// cloud{
+// sync{
 function claims(request, env, url, local, project) {
   const adm = adminFor(env, local, project);
   return settledClaims(a => handleClaims(request, { admin: a, loadClaims, origin: url.origin, limit: env.CLAIMS_LIMIT, emulator: !!(local && env.EMULATOR) }), adm);
@@ -98,16 +98,16 @@ export async function settledClaims(ask, adm, tries = 3) {
   }
 }
 
-// }cloud
+// }sync
 
-// cloud{
+// sync{
 // Role changes and removals, as the service account; the same ID token check as /api/claims.
 function members(request, env, url, local, project) {
   const emulator = !!(local && env.EMULATOR);
   const verify = project ? (/** @type {string} */ idToken) => verifyIdToken(idToken, { project, emulator }) : null;
   return handleMembers(request, { admin: project ? adminFor(env, local, project) : null, verify, origin: url.origin });
 }
-// }cloud
+// }sync
 
 function withHeaders(res, opts) {
   const out = new Response(res.body, res);
