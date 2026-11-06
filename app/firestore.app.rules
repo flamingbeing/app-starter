@@ -13,11 +13,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Who may use a space (spaces/{g}/...), by APP.space in app/src/config.js (node tools/fill.mjs --space shared|person;
+    // node tools/modules.mjs writes the inSpace line from it, so edit config.js, not the line):
+    //   shared (the default)  one space '_' for everyone with a role in the app's single group '_'
+    //   person                each person's own space, spaces/{uid}/...: only its owner reads or changes it, with their
+    //                         role in '_'; admins can't read anyone else's, and nobody can use '_'
+    function mine(g, roles) { return isSignedIn() && request.auth.uid == g && g != '_' && can('_', roles); }
+    function inSpace(g, roles) { return can(g, roles); }   // space: shared
+
     // A task. due is a day (YYYY-MM-DD) and dueTime a time (HH:MM), both local; optional fields are absent or null (null
     // clears one). done tasks keep doneAt (ms).
     match /spaces/{g}/tasks/{id} {
-      allow read: if can(g, ['admin', 'member', 'viewer']);
-      allow create, update: if can(g, ['admin', 'member']) && stamped()
+      allow read: if inSpace(g, ['admin', 'member', 'viewer']);
+      allow create, update: if inSpace(g, ['admin', 'member']) && stamped()
         && request.resource.data.keys().hasOnly(['text', 'notes', 'listId', 'due', 'dueTime', 'done', 'doneAt', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
         && request.resource.data.text is string && request.resource.data.text.size() > 0
@@ -36,14 +44,14 @@ service cloud.firestore {
         && request.resource.data.updatedAt is number
         && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is number)
         && (resource == null || !('createdAt' in resource.data) || !('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
-      allow delete: if can(g, ['admin', 'member']);
+      allow delete: if inSpace(g, ['admin', 'member']);
     }
 
     // A list of tasks (Inbox is not stored: it is every task with no list, or one whose list is gone). A list's tasks keep
     // their listId when it is deleted and show under Inbox.
     match /spaces/{g}/lists/{id} {
-      allow read: if can(g, ['admin', 'member', 'viewer']);
-      allow create, update: if can(g, ['admin', 'member']) && stamped()
+      allow read: if inSpace(g, ['admin', 'member', 'viewer']);
+      allow create, update: if inSpace(g, ['admin', 'member']) && stamped()
         && request.resource.data.keys().hasOnly(['name', 'order', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
         && request.resource.data.name is string && request.resource.data.name.size() > 0
@@ -52,18 +60,19 @@ service cloud.firestore {
         && request.resource.data.updatedAt is number
         && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is number)
         && (resource == null || !('createdAt' in resource.data) || !('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
-      allow delete: if can(g, ['admin', 'member']);
+      allow delete: if inSpace(g, ['admin', 'member']);
     }
 
     // modules: rules{ written from app/rules/*.rules by node tools/modules.mjs; edit those, not this block
     // }modules
 
-    // Each person's account options (@core/settings): one doc named by their uid, writable by them alone. The group can read the
-    // docs because a list listen cannot be proven to ask for only one (rules are not filters); keep secrets out of options.
+    // Each person's account options (@core/settings): one doc named by their uid, writable by them alone. In a shared space the
+    // group can read the docs because a list listen cannot be proven to ask for only one (rules are not filters); keep
+    // secrets out of options.
     // One field per option (src/options.js); null forgets a saved value.
     match /spaces/{g}/settings/{id} {
-      allow read: if can(g, ['admin', 'member', 'viewer']);
-      allow create, update: if can(g, ['admin', 'member', 'viewer']) && request.auth.uid == id && stamped()
+      allow read: if inSpace(g, ['admin', 'member', 'viewer']);
+      allow create, update: if inSpace(g, ['admin', 'member', 'viewer']) && request.auth.uid == id && stamped()
         && request.resource.data.keys().hasOnly(['profile', 'showCounts', 'defaultList', 'updatedAt', 'serverAt', '_edits'])
         && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
         && (!('profile' in request.resource.data) || request.resource.data.profile == null || request.resource.data.profile is string)
@@ -76,8 +85,8 @@ service cloud.firestore {
 
     // A deleted item's last version, written in the delete's own transaction (cloud.js onCommit).
     match /spaces/{g}/bin/{id} {
-      allow read: if can(g, ['admin', 'member', 'viewer']);
-      allow create, update: if can(g, ['admin', 'member']) && stamped()
+      allow read: if inSpace(g, ['admin', 'member', 'viewer']);
+      allow create, update: if inSpace(g, ['admin', 'member']) && stamped()
         && request.resource.data.keys().hasOnly(['id', 'kind', 'data', 'deletedAt', 'updatedAt', 'serverAt']);
     }
   }

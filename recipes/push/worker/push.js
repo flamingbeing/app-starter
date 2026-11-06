@@ -172,10 +172,10 @@ export async function runDue({ store, vapid, now = Date.now(), send = sendPush, 
   }
   if (ready.length) {
     if (!spend(1)) return out;
-    const paths = [...new Set(ready.flatMap(q => [`revoked/${q.data.uid}`, itemPath(q.data.itemId)]))];
+    const paths = [...new Set(ready.flatMap(q => [`revoked/${q.data.uid}`, itemPath(q.data.itemId, q.data.uid)]))];
     const docs = await store.batchGet(paths);
     ready = ready.filter(q => {
-      if (!docs.get(`revoked/${q.data.uid}`) && stillDue(q.data, docs.get(itemPath(q.data.itemId)))) return true;
+      if (!docs.get(`revoked/${q.data.uid}`) && stillDue(q.data, docs.get(itemPath(q.data.itemId, q.data.uid)))) return true;
       del.push(`pushQueue/${q.id}`); out.dropped++;
       return false;
     });

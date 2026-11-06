@@ -2,6 +2,7 @@
 // with a fake browser and Worker. Run: node --test 'app/test/*.unit.test.mjs'
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { scopeFor, spaceOf } from '../src/roles.js';
 import { pushItems, stampOf, itemPath, MIN_AHEAD_MS, AHEAD_MS, MAX_ITEMS } from '../src/push/push-items.js';
 import { wirePush } from '../src/push/push-wire.js';
 
@@ -13,7 +14,9 @@ test('stampOf: a due day and time while open; nothing when done, deleted or with
   assert.equal(stampOf(task('a')), '2026-11-05 14:00');
   for (const over of [{ done: true }, { _deleted: true }, { dueTime: null }, { due: null }, { dueTime: '' }]) assert.equal(stampOf(task('a', over)), '', JSON.stringify(over));
   assert.equal(stampOf(null), '');
-  assert.equal(itemPath('a'), 'spaces/_/tasks/a');
+  assert.equal(itemPath('a', 'u1', scopeFor(false)), 'spaces/_/tasks/a', 'shared: the one space');
+  assert.equal(itemPath('a', 'u1'), `spaces/${spaceOf({ uid: 'u1' })}/tasks/a`, 'the app\'s own mode (APP.space)');
+  assert.equal(itemPath('a', 'u1', scopeFor(true)), 'spaces/u1/tasks/a', 'personal (APP.space person): the person\'s own');
 });
 
 test('pushItems: open items due later than a minute from now and within a week, soonest first, at their local due time', () => {

@@ -1,7 +1,8 @@
 // Turns a copy of this template into one app: its name, address, design kit and Firebase project.
 //
 //   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs|ntf --project <firebase-project-id>
-//                       [--title "<Title>"] [--accent '#rrggbb'] [--web-config <file.json>] [--commit <template sha>] [--dir <repo>] [--check]
+//                       [--title "<Title>"] [--accent '#rrggbb'] [--space shared|person] [--web-config <file.json>]
+//                       [--commit <template sha>] [--dir <repo>] [--check]
 //   node tools/fill.mjs --static --name <name> --host <host> --kit homedesign|nuhs|ntf [...]   a static app: no sign-in, no
 //                       Firebase project (tools/flavour.mjs renders it first; README, "Pick a starter")
 //
@@ -12,12 +13,16 @@
 // values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A static app
 // (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs cloud --project <id>`) and has
 // no web config.
+// --space: whose a space is (APP.space in config.js; kept when not given): shared, the default, is one space for every
+// member; person gives each person their own (spaces/{uid}/..., for a personal app). The rules' inSpace line follows it
+// (tools/modules.mjs writes it too). Choose it before the app has data: a switch leaves the old space's data where it is.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderDir } from './flavour.mjs';
 import { after } from './update-from-starter.mjs';
+import { SPACES, spaceRules } from './modules.mjs';
 
 export const KITS = { homedesign: 'https://design.flamingbeing.com', nuhs: 'https://design.anawj.com', ntf: 'https://design.anantf.com' };
 // a kit's own default look colour; a kit with none takes ACCENT
@@ -46,7 +51,7 @@ export function parseArgs(argv) {
     const a = argv[i];
     if (a === '--check') out.check = true;
     else if (a === '--static') out.static = true;
-    else if (/^--(name|host|kit|project|title|accent|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
+    else if (/^--(name|host|kit|project|title|accent|space|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
     else throw new Error(`unknown argument ${a}`);
   }
   return out;
@@ -104,6 +109,7 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   let meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   const render = flat && !meta.flavour;
   if (render && check) throw new Error('--check with --static: the app is not static yet, so a run would change it');
+  if ((meta.flavour || flat) && opts.space) throw new Error(`a ${meta.flavour ?? 'static'} app keeps its data on the device: it has no spaces`);
   if ((meta.flavour || flat) && opts['web-config']) throw new Error(`a ${meta.flavour ?? 'static'} app has no web config (node tools/add.mjs cloud --project <id> first)`);
   if (render) {
     // the checks below throw before anything changes; the render comes after them
@@ -130,6 +136,11 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   const keptAccent = keptApp.accent?.toLowerCase();
   // the app's own APP keys (a look, a surface) stay as they are
   const extra = Object.fromEntries(Object.entries(keptApp).filter(([k]) => !['name', 'title', 'host', 'accent'].includes(k)));
+  // whose a space is: given, else kept; 'shared' is the default, so config.js names only 'person'
+  const space = opts.space ?? extra.space ?? 'shared';
+  if (!SPACES.includes(space)) throw new Error(`--space '${space}': ${SPACES.join(' or ')}`);
+  delete extra.space;
+  if (space !== 'shared' && !meta.flavour) extra.space = space;
   const kitDefault = kit => KIT_ACCENT[kit] ?? ACCENT;
   const accent = (opts.accent ?? (keptAccent && keptAccent !== kitDefault(old.kit) ? keptAccent : kitDefault(app.kit))).toLowerCase();
   if (!/^#[0-9a-f]{6}$/.test(accent)) throw new Error(`--accent '${accent}': a colour like #3a6390`);
@@ -164,6 +175,7 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
     let text = fs.readFileSync(path.join(dir, rel), 'utf8');
     for (const [re, to] of swaps) text = text.replace(re, to);
     text = fixup(rel, text, app);
+    if (rel === 'app/firestore.app.rules' || rel === 'app/firestore.rules') text = spaceRules(text, space);
     write(rel, text);
   }
   write('app/src/config.js', meta.flavour ? staticConfigJs(app, accent, extra) : configJs(app, web, accent, extra));

@@ -5,7 +5,8 @@
 
 // The files recipe's data side (recipes/files.json, files-data.js): the collection the file records sync in, the
 // module for createApp, every item's files whenever one changes (-> stop), and the delete that takes an item's files.
-/** @typedef {{ coll: string, engine: (space: string) => any,
+// engine's scope: the space a file goes to, fixed or by the signed-in person (cloud.js spaceOf: their own in a personal app).
+/** @typedef {{ coll: string, engine: (scope: string | ((user: { uid: string }) => string)) => any,
  *   watch: (app: any, space: string, onFiles: (byItem: Map<string, any[]>) => void) => () => void,
  *   removeAll: (app: any, attached: any[]) => Promise<void> }} FilesData */
 
@@ -15,8 +16,9 @@
  *   send: (text: string) => Promise<void>, list: () => Promise<FeedbackDoc[]>, setDone: (id: string, done: boolean) => Promise<void> } }} FeedbackData */
 
 // The bin recipe's data side (recipes/bin.json, bin-data.js): api({ sdk, space, items, put }) -> the BinApi (items.js) that
-// cloud.js hands the screens as app.bin; coll is the collection the delete writes its entries to.
-/** @typedef {{ coll: string, api: (o: { sdk: () => Promise<any>, space: string, items: () => import('./items.js').Item[],
+// cloud.js hands the screens as app.bin; coll is the collection the delete writes its entries to. space: the space's id,
+// or a function asked at each call (a personal app's is the signed-in person's; '' when signed out).
+/** @typedef {{ coll: string, api: (o: { sdk: () => Promise<any>, space: string | (() => string), items: () => import('./items.js').Item[],
  *   put: (item: import('./items.js').Item) => Promise<string> }) => import('./items.js').BinApi }} BinData */
 
 /** @type {{ files?: FilesData, bin?: BinData, feedback?: FeedbackData }} */

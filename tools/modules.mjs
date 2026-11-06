@@ -18,7 +18,8 @@
 // It writes: app/index.html's import map, its core addresses (<link>, <script src>) at the pinned versions and the
 // styles' <link>s; tsconfig.json's "paths"; vite.config.mjs's SOURCE_ALIAS; then sw.js's SHELL (tools/sw-files.mjs),
 // the import map's CSP hash in worker/headers.js, and the rules: app/firestore.app.rules's modules block from
-// app/rules/*.rules (one file per module), built into app/firestore.rules when .devkit/ is there.
+// app/rules/*.rules (one file per module) and its inSpace line from APP.space in app/src/config.js (shared or person),
+// built into app/firestore.rules when .devkit/ is there.
 // An app made before modules.json gets one, read from those places, the first time this runs.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,6 +35,9 @@ const HASH_RE = /(export const IMPORT_MAP = )"'sha256-[A-Za-z0-9+/=]+'"/;
 const STYLE_LINE = /^[ \t]*<link rel="stylesheet" href="[^"]*" data-module>\n/gm;
 const PRELOAD_LINE = /^[ \t]*<link rel="modulepreload" href="[^"]*" data-module>\n/gm;
 const RULES_RE = /^([ \t]*)(\/\/ modules: rules\{[^\n]*\n)([\s\S]*?)(^[ \t]*\/\/ \}modules[^\n]*)$/m;
+// the rules' space switch (app/firestore.app.rules), written from APP.space in app/src/config.js
+const SPACE_RE = /^([ \t]*)function inSpace\(g, roles\) \{[^\n]*$/m;
+const APP_RE = /export const APP = (\{.*\});/;
 const VERSION = /^(?:github:[^#]+#v|[\^~]?)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/;
 const CORE = { 'app-sync': 'https://core.anawj.com/sync/', 'app-ui': 'https://core.anawj.com/ui/' };
 
@@ -192,6 +196,21 @@ export function rulesBlock(appRules, fragments) {
   return appRules.replace(RULES_RE, (_, p, open, _old, close) => p + open + body + close);
 }
 
+// Whose a space is (APP.space in app/src/config.js; tools/fill.mjs --space): 'shared' (the default, one space '_' for
+// every member) or 'person' (each person's own, spaces/{uid}/...).
+export const SPACES = ['shared', 'person'];
+/** APP.space from config.js's text: 'shared' when it names none @param {string | null} config */
+export const spaceOfConfig = config => JSON.parse(config?.match(APP_RE)?.[1] || '{}').space ?? 'shared';
+/** the rules (firestore.app.rules, or the built firestore.rules) with their inSpace line for `space` */
+export function spaceRules(rules, space = 'shared') {
+  if (!SPACES.includes(space)) throw new Error(`app/src/config.js: APP.space '${space}' is not ${SPACES.join(' or ')}`);
+  if (!SPACE_RE.test(rules)) {
+    if (space === 'shared') return rules;
+    throw new Error('app/firestore.app.rules has no "function inSpace(g, roles)" line for APP.space person (update from the starter first)');
+  }
+  return rules.replace(SPACE_RE, (_, pad) => `${pad}function inSpace(g, roles) { return ${space === 'person' ? 'mine' : 'can'}(g, roles); }   // space: ${space}`);
+}
+
 // -> { manifest, files: { rel: text } } every generated file as it should be (the manifest's own text too)
 async function plan(dir, log) {
   let text = read(dir, MANIFEST), manifest;
@@ -210,7 +229,7 @@ async function plan(dir, log) {
   if (appRules !== null) {
     const rd = path.join(dir, 'app/rules');
     const fragments = fs.existsSync(rd) ? Object.fromEntries(fs.readdirSync(rd).filter(f => f.endsWith('.rules')).map(f => [f, fs.readFileSync(path.join(rd, f), 'utf8')])) : {};
-    files['app/firestore.app.rules'] = rulesBlock(appRules, fragments);
+    files['app/firestore.app.rules'] = rulesBlock(spaceRules(appRules, spaceOfConfig(read(dir, 'app/src/config.js'))), fragments);
     const kit = path.join(dir, '.devkit/tools/build-rules.mjs'), common = path.join(dir, '.devkit/rules/common.rules');
     if (fs.existsSync(kit) && fs.existsSync(common)) {
       const { buildRules } = await import(pathToFileURL(kit).href);

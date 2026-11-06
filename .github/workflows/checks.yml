@@ -87,6 +87,9 @@ jobs:
           devkit-dir: .devkit
       - name: Rules in the emulator
         working-directory: app
+        env:
+          # the template tests both space modes (shared, and each person's own: tools/fill.mjs --space); an app its own
+          RULES_SPACES: ${{ github.repository == 'flamingbeing/app-starter' && 'shared,person' || '' }}
         run: npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-starter-app "node --test test/rules.test.mjs"
   # }cloud
 

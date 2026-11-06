@@ -1,8 +1,8 @@
 // cloud.js's pure parts (src/roles.js): roles from claims, and when new claims are needed. node --test app/test/cloud.unit.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { roleOf, versionOf, needsClaims, configured } from '../src/roles.js';
-import { firebaseConfig } from '../src/config.js';
+import { roleOf, versionOf, needsClaims, configured, scopeFor, spaceOf, personal } from '../src/roles.js';
+import { firebaseConfig, APP } from '../src/config.js';
 
 test('role and version from the token claims', () => {
   assert.equal(roleOf({ g: { _: 'member' }, v: 2 }), 'member');
@@ -22,4 +22,13 @@ test('new claims when the token has none, or the role doc moved on', () => {
 
 test('connected to a project only once the web config has an apiKey (the unfilled template has none)', () => {
   assert.equal(configured, !!firebaseConfig.apiKey);
+});
+
+test('whose a space is: the one shared space, or each person\'s own by uid (APP.space person)', () => {
+  assert.equal(scopeFor(false)({ uid: 'u1' }), '_');
+  assert.equal(scopeFor(false)(null), '_', 'shared: the same signed out');
+  assert.equal(scopeFor(true)({ uid: 'u1' }), 'u1');
+  assert.equal(scopeFor(true)(null), '', 'personal, signed out: no space');
+  assert.equal(personal, /** @type {{ space?: string }} */ (APP).space === 'person');
+  assert.equal(spaceOf({ uid: 'u1' }), personal ? 'u1' : '_');
 });
