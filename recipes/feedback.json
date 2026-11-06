@@ -1,6 +1,6 @@
 {
   "module": "feedback",
-  "about": "Send feedback: any member writes a private message (1-2000 characters) to the owner; admins see the inbox, mark messages done and copy one as a to-do line. Plain documents in feedback/{id}, not synced. Cloud app only.",
+  "about": "Send feedback: any member writes a private message (1-2000 characters) to the owner; admins see the inbox, mark messages done and copy one as a to-do line. Plain documents in feedback/{id}, not synced. Offline-first app only.",
   "root": "recipes/feedback",
   "files": [
     { "from": "app/src/feedback.js" },
@@ -17,6 +17,6 @@
     { "to": "app/src/data-modules.js", "after": "// add: slots", "line": "  feedback: feedbackData," }
   ],
   "docs": [
-    "feedback: Settings → Send feedback (app/src/screens/feedback-settings.js, the dialog is built there). Messages are feedback/{id}; rules in app/rules/feedback.rules. Cloud app only: a static app has no app.feedback and gets no page."
+    "feedback: Settings → Send feedback (app/src/screens/feedback-settings.js, the dialog is built there). Messages are feedback/{id}; rules in app/rules/feedback.rules. Offline-first app only: a local-only app has no app.feedback and gets no page."
   ]
 }

@@ -63,11 +63,13 @@ outside package":
 An app made with "Use this template" shares no history with it, so the update is a three-way merge per file from the
 template commit in `.starter.json`, not a `git merge`; the app's history is never rewritten.
 
-- [ ] `node tools/update-from-starter.mjs --dry-run` lists what would change (`--find-base` when `.starter.json` names no
+- [ ] The template update: `node tools/update-from-starter.mjs --dry-run` lists what would change (`--find-base` when `.starter.json` names no
   `commit`: it picks the template commit closest to the app); without `--dry-run` it brings it in,
   leaves conflicts as `<<<<<<<` markers (listed at the end, exit code 1), regenerates the lock, `sw.js`'s list and the
   import-map hash, and moves `.starter.json`'s `commit`. An app without the script runs the template's copy:
-  `node <template checkout>/tools/update-from-starter.mjs --dir . --from <template checkout>`.
+  `node <template checkout>/tools/update-from-starter.mjs --dir . --from <template checkout>`. So does a local-only
+  app whose script is from before the rename to offline-first and local-only (its `tools/flavour.mjs` reads only the
+  old marks; [decision 0016](decisions/0016-offline-first-and-local-only.md)), once; an offline-first app's own script is fine.
 - [ ] Files the app owns: list them in `.starter.json` as `"update": { "ignore": ["<glob>"] }`; a file the app moved:
   `"rename": { "<template path>": "<app path>" }`. `STATUS.md`, `NOTES.md`, `app/src/config.js` and the lock are
   never touched.

@@ -1,4 +1,4 @@
-// The page's wiring: the shell and Settings page (shell.js) and the list. A static app has no sign-in:
+// The page's wiring: the shell and Settings page (shell.js) and the list. A local-only app has no sign-in:
 // the tasks are this device's (local.js). The screens (screens/) are the three task tabs; a new app
 // replaces them and keeps this wiring, local.js and the kit (@core/ui, @core/theme).
 import { toaster } from '@core/ui';

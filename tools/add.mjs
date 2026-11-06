@@ -2,7 +2,8 @@
 //
 //   node tools/add.mjs <source> [--dir <app>] [--dry-run]
 //   node tools/add.mjs --remove <module> [--dir <app>] [--dry-run]
-//   node tools/add.mjs cloud --project <firebase-project-id> [--dir <app>] [--dry-run]   a static app made the cloud app
+//   node tools/add.mjs sync --project <firebase-project-id> [--dir <app>] [--dry-run]   a local-only app made the
+//                                                                     offline-first app (`cloud` and `synced`: old names)
 //
 // <source> is a recipe: a local path (`recipes/search.json`), `<owner/repo>@<tag|sha>:recipes/<module>.json`, or a
 // bare module name, which means the template's recipe at the commit the app was made from (.starter.json "template"
@@ -49,7 +50,7 @@ const REMOTE = /^([\w.-]+\/[\w.-]+)@([\w./-]+):(.+\.json)$/;
 const MAP_RE = /(<script type="importmap">\n)([\s\S]*?)(\n\s*<\/script>)/;
 const INCLUDE_RE = /("include":\s*)(\[.*\])/;
 const CSS_MARK = '/* add: cssVars */';
-/** the modules a static app can't take until it is the cloud app, and why */
+/** the modules a local-only app can't take until it is the offline-first app, and why */
 const CLOUD_ONLY = { files: 'Worker routes and rules', bin: 'data side and rules', push: 'Worker routes, cron job and rules' };
 
 /** a source's files: { recipe, read(rel) -> Buffer | null, list(rel) -> [rel], app, done() }; `clones` shares one
@@ -227,7 +228,7 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
     opened.push(src);
     const result = { module: src.recipe.module, changes: [], conflicts: [] };
     const { recipe } = src;
-    if (meta.flavour && !remove && CLOUD_ONLY[recipe.module]) throw new Error(`the ${recipe.module} module needs the cloud (its ${CLOUD_ONLY[recipe.module]}): node tools/add.mjs cloud --project <id> first`);
+    if (meta.flavour && !remove && CLOUD_ONLY[recipe.module]) throw new Error(`the ${recipe.module} module needs the offline-first app (its ${CLOUD_ONLY[recipe.module]}): node tools/add.mjs sync --project <id> first`);
     const was = !remove && recorded[recipe.module] ? pinned(recorded[recipe.module], meta, dir) : null;
     const prevSource = was && was !== from ? was : null;
     const prev = prevSource ? openSource(prevSource, dir, github, clones) : null;
@@ -342,12 +343,12 @@ export function add({ source, dir = '.', dryRun = false, remove = false, log = c
   } finally { for (const s of opened) s.done(); closeClones(clones); }
 }
 
-// A static app (.starter.json "flavour") made the cloud app: the template's cloud files at the app's commit come in as an
-// update from the static render to the cloud tree (the app's own changes merged, the static files it never changed
-// taken out), then fill.mjs sets the Firebase project and writes config.js with its web config. -> update's result
-export function toCloud({ dir = '.', project, from, to, dryRun = false, install = true, log = console.log } = {}) {
+// A local-only app (.starter.json "flavour") made the offline-first app: the template's offline-first files at the app's
+// commit come in as a template update from the local-only render to the offline-first tree (the app's own changes
+// merged, the local-only files it never changed taken out), then fill.mjs sets the Firebase project and writes config.js with its web config. -> update's result
+export function toOfflineFirst({ dir = '.', project, from, to, dryRun = false, install = true, log = console.log } = {}) {
   const meta = JSON.parse(fs.readFileSync(path.join(dir, '.starter.json'), 'utf8'));
-  if (!meta.flavour) throw new Error('this app is the cloud app already (.starter.json has no "flavour")');
+  if (!meta.flavour) throw new Error('this app is the offline-first app already (.starter.json has no "flavour")');
   if (!RULES.project[0].test(project ?? '')) throw new Error(`--project <id>: ${RULES.project[1]}`);
   if (!meta.commit && !to) throw new Error('.starter.json has no "commit" (the template commit the app started from)');
   const r = update({ dir, from, to: to ?? meta.commit, dryRun, install, checkLatest: false, unflavour: { project }, log });
@@ -360,6 +361,10 @@ export function toCloud({ dir = '.', project, from, to, dryRun = false, install 
   }
   return r;
 }
+/** toOfflineFirst's old name */
+export const toCloud = toOfflineFirst;
+/** the command names that make a local-only app the offline-first app (`synced`, `cloud`: old names) */
+export const TO_SYNC = ['sync', 'synced', 'cloud'];
 
 export function parseArgs(argv) {
   const out = {};
@@ -379,8 +384,10 @@ export function parseArgs(argv) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const o = parseArgs(process.argv.slice(2));
-    if (o.project && o.source !== 'cloud') throw new Error('--project is for `add.mjs cloud`');
-    const r = o.source === 'cloud' && !o.remove ? toCloud(o) : add(o);
+    const toSync = TO_SYNC.includes(o.source) && !o.remove;
+    if (o.project && !toSync) throw new Error('--project is for `add.mjs sync`');
+    if (toSync && o.source !== 'sync') console.log(`add.mjs ${o.source} is now add.mjs sync`);
+    const r = toSync ? toOfflineFirst(o) : add(o);
     if (r.conflicts.length) process.exit(1);
   } catch (e) {
     console.error(`add: ${e.message}`);

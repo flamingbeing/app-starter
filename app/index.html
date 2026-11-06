@@ -69,9 +69,9 @@
       <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
       <h2 class="ui-bar-title" aria-hidden="true">Starter app</h2>
       <span class="ui-bar-side ui-bar-end">
-        <!-- cloud{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now -->
+        <!-- sync{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now -->
         <button type="button" id="sync-btn" aria-label="Connecting…" title="Connecting…"></button>
-        <!-- }cloud -->
+        <!-- }sync -->
         <button type="button" class="ui-primary" id="new-task" hidden>New</button>
       </span>
     </header>
@@ -87,10 +87,10 @@
     <main class="ui-screens">
       <section class="ui-screen" id="today-page" aria-labelledby="today-title">
         <h1 class="ui-large-title" id="today-title">Today</h1>
-        <!-- cloud{ the sync chip: a static app's list is never unsent -->
+        <!-- sync{ the sync chip: a local-only app's list is never unsent -->
         <p class="status-line"><span id="sync-chip"></span></p>
-        <!-- }cloud -->
-        <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
+        <!-- }sync -->
+        <!-- sync{ sign-in, access and set-up: a local-only app has none (tools/flavour.mjs) -->
         <div id="no-access" hidden>
           <p>This account has no access yet. Ask an admin to add it.</p>
           <p class="small">Account id: <code id="uid"></code></p>
@@ -98,7 +98,7 @@
         <div id="not-set-up" hidden>
           <p>This app isn't connected to its Firebase project yet (see README, "Fill").</p>
         </div>
-        <!-- }cloud -->
+        <!-- }sync -->
         <div id="list-view" hidden>
           <div id="conflict-sheet"></div>
           <div id="refused-list"></div>
@@ -135,20 +135,20 @@
 
       <section class="ui-screen ui-tab-page" id="settings-page" aria-labelledby="settings-title" hidden>
         <h1 class="ui-large-title" id="settings-title">Settings</h1>
-        <!-- cloud{ -->
+        <!-- sync{ -->
         <div id="account" class="status-line">
           <span id="who"></span>
           <button id="sign-out" type="button" hidden>Sign out</button>
           <p id="sign-out-msg" class="error" role="alert"></p>
         </div>
-        <!-- }cloud -->
+        <!-- }sync -->
         <div id="settings-host"></div>
       </section>
     </main>
-    <!-- cloud{ the signed-out page (app-ui signInScreen) covers the whole page, so it sits outside the tab pages:
+    <!-- sync{ the signed-out page (app-ui signInScreen) covers the whole page, so it sits outside the tab pages:
          signing out from any tab, Settings too, shows it at once -->
     <div id="signed-out" hidden></div>
-    <!-- }cloud -->
+    <!-- }sync -->
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">
       <button type="button" class="ui-tab" data-tab-page="#today-page" data-tab-id="today" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Today</button>

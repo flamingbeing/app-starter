@@ -1,8 +1,8 @@
-// Soak of the static starter (README, "Pick a starter"): per seed, generate a throwaway app from this checkout with
-// `tools/fill.mjs --static` (the step `new-app.mjs --static` runs, minus GitHub), then run the app's own checks and
+// Soak of the local-only starter (README, "Pick a starter"): per seed, generate a throwaway app from this checkout with
+// `tools/fill.mjs --local-only` (the step `new-app.mjs --local-only` runs, minus GitHub), then run the app's own checks and
 // the soak specs. Made-up data only; no Firebase, no secrets, no deploy.
 //
-//   node soak/static-soak.mjs [--loops 3] [--seed 1] [--browsers chromium[,firefox,webkit]] [--workers 4]
+//   node soak/local-only-soak.mjs [--loops 3] [--seed 1] [--browsers chromium[,firefox,webkit]] [--workers 4]
 //        [--repeat 3] [--throttle 4] [--work <dir>] [--skip check,sw,unit,tsc,vite,e2e,dist,soak] [--keep] [--starter <dir>]
 //
 // One summary line per loop; at the end `PASS n/N`, or the first failing seed and its log folder. Needs network once
@@ -25,7 +25,7 @@ const WORKERS = opt('workers', String(Math.max(1, Math.min(4, os.cpus().length))
 const REPEAT = +opt('repeat', 3);
 const THROTTLE = +opt('throttle', 1);
 if (!(THROTTLE >= 1)) { console.log('FAIL --throttle wants a number >= 1'); process.exit(2); }   // Chromium CPU slowdown factor (CDP Emulation.setCPUThrottlingRate); 1 = off
-const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'static-soak')));
+const WORK = path.resolve(opt('work', path.join(os.tmpdir(), 'local-only-soak')));
 const SKIP = new Set(opt('skip', '').split(',').filter(Boolean));
 const KEEP = argv.includes('--keep');
 const KITS = ['homedesign', 'nuhs', 'ntf'];
@@ -93,14 +93,14 @@ function generate(seed, dir, logs) {
   const g = run('git', ['init', '-q'], o);
   run('git', ['add', '-A'], o);
   run('git', ['-c', 'user.email=soak@example.com', '-c', 'user.name=soak', 'commit', '-qm', 'starter'], o);
-  const f = run('node', ['tools/fill.mjs', '--static', '--name', name, '--host', `${name}.example.com`, '--kit', kit], o);
+  const f = run('node', ['tools/fill.mjs', '--local-only', '--name', name, '--host', `${name}.example.com`, '--kit', kit], o);
   // like new-app: fill runs in a fresh clone (no node_modules, no .devkit); they come after
   const base = path.join(WORK, '_base');
   fs.cpSync(path.join(base, '.devkit'), path.join(dir, '.devkit'), { recursive: true });
   if (!fs.existsSync(path.join(dir, 'node_modules'))) fs.cpSync(path.join(base, 'node_modules'), path.join(dir, 'node_modules'), { recursive: true, verbatimSymlinks: true });   // (fill installs them itself in a fresh clone)
   fs.mkdirSync(path.join(dir, 'e2e'), { recursive: true });
-  const second = run('node', ['tools/fill.mjs', '--static', '--name', name, '--host', `${name}.example.com`, '--kit', kit, '--check'], { ...o, log: path.join(logs, 'gen-again.log') });
-  const spec = fs.readFileSync(path.join(HERE, 'static-e2e/soak.spec.mjs'));
+  const second = run('node', ['tools/fill.mjs', '--local-only', '--name', name, '--host', `${name}.example.com`, '--kit', kit, '--check'], { ...o, log: path.join(logs, 'gen-again.log') });
+  const spec = fs.readFileSync(path.join(HERE, 'local-only-e2e/soak.spec.mjs'));
   fs.writeFileSync(path.join(dir, 'e2e/soak.spec.mjs'), spec);
   return { kit, ok: g.status === 0 && f.status === 0, idem: second.status === 0 };
 }

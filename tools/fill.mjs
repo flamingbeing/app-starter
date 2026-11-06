@@ -3,16 +3,17 @@
 //   node tools/fill.mjs --name <name> --host <host> --kit homedesign|nuhs|ntf --project <firebase-project-id>
 //                       [--title "<Title>"] [--accent '#rrggbb'] [--space shared|person] [--web-config <file.json>]
 //                       [--commit <template sha>] [--dir <repo>] [--check]
-//   node tools/fill.mjs --static --name <name> --host <host> --kit homedesign|nuhs|ntf [...]   a static app: no sign-in, no
-//                       Firebase project (tools/flavour.mjs renders it first; README, "Pick a starter")
+//   node tools/fill.mjs --local-only --name <name> --host <host> --kit homedesign|nuhs|ntf [...]   a local-only app: no
+//                       sign-in, no Firebase project (tools/flavour.mjs renders it first; README, "Pick a starter");
+//                       --static and --on-device are its old names and do the same
 //
 // The values in use now are in .starter.json ("app"); each is replaced by the new one in every text file (the emulator
 // project demo-<name>, the kit's address, the host, the name, the title), app/src/config.js is written afresh (with the
 // default look's colour from --accent, else kept (a kit's own default follows the kit: ntf's wine), and the web app's apiKey and appId from --web-config: the JSON
 // `firebase apps:sdkconfig WEB` prints), and wrangler.jsonc's FIREBASE_PROJECT is set. Running it again with the same
-// values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A static app
-// (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs cloud --project <id>`) and has
-// no web config.
+// values changes nothing. --check changes nothing and exits 1 when a run would. Prints the files it changed. A local-only
+// app (.starter.json "flavour") keeps its project as it is (unused until `node tools/add.mjs sync --project <id>`) and
+// has no web config.
 // --space: whose a space is (APP.space in config.js; kept when not given): shared, the default, is one space for every
 // member; person gives each person their own (spaces/{uid}/..., for a personal app). The rules' inSpace line follows it
 // (tools/modules.mjs writes it too). Choose it before the app has data: a switch leaves the old space's data where it is.
@@ -20,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderDir } from './flavour.mjs';
+import { flavourId, renderDir } from './flavour.mjs';
 import { after } from './update-from-starter.mjs';
 import { SPACES, spaceRules } from './modules.mjs';
 
@@ -50,7 +51,8 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--check') out.check = true;
-    else if (a === '--static') out.static = true;
+    else if (a === '--local-only') out.localOnly = true;
+    else if (a === '--static' || a === '--on-device') { out.localOnly = true; out.renamed = `${a} is now --local-only`; }
     else if (/^--(name|host|kit|project|title|accent|space|web-config|commit|dir)$/.test(a)) out[a.slice(2)] = argv[++i];
     else throw new Error(`unknown argument ${a}`);
   }
@@ -96,32 +98,34 @@ export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: ap
 export const KIT = '${KITS[app.kit]}/v1/';
 export const firebaseConfig = ${JSON.stringify(web, null, 2)};
 `;
-const staticConfigJs = (app, accent, extra = {}) => `// The app's settings. tools/fill.mjs writes the name, title, host and kit here. A static app has no Firebase project:
-// its data stays on the device (local.js); \`node tools/add.mjs cloud --project <id>\` adds one.
+const localOnlyConfigJs = (app, accent, extra = {}) => `// The app's settings. tools/fill.mjs writes the name, title, host and kit here. A local-only app has no Firebase
+// project: its data stays on the device (local.js); \`node tools/add.mjs sync --project <id>\` adds one.
 // accent: the default look's colour (@core/theme; boot.js), set with --accent.
 export const APP = ${JSON.stringify({ name: app.name, title: app.title, host: app.host, accent, ...extra })};
 export const KIT = '${KITS[app.kit]}/v1/';
 `;
 
-// -> { changed: [files], app } ; throws on bad input
-export function fill({ dir = '.', check = false, static: flat = false, log = () => {}, exec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' }), ...opts } = {}) {
+// -> { changed: [files], app } ; throws on bad input (static: localOnly's old name)
+export function fill({ dir = '.', check = false, localOnly = false, static: oldName = false, renamed: _, log = () => {}, exec = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' }), ...opts } = {}) {
   const metaPath = path.join(dir, '.starter.json');
   let meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  const flat = localOnly || oldName;
   const render = flat && !meta.flavour;
-  if (render && check) throw new Error('--check with --static: the app is not static yet, so a run would change it');
-  if ((meta.flavour || flat) && opts.space) throw new Error(`a ${meta.flavour ?? 'static'} app keeps its data on the device: it has no spaces`);
-  if ((meta.flavour || flat) && opts['web-config']) throw new Error(`a ${meta.flavour ?? 'static'} app has no web config (node tools/add.mjs cloud --project <id> first)`);
+  if (render && check) throw new Error('--check with --local-only: the app is not local-only yet, so a run would change it');
+  if ((meta.flavour || flat) && opts.space) throw new Error(`a ${flavourId(meta.flavour) ?? 'local-only'} app keeps its data on the device: it has no spaces`);
+  if ((meta.flavour || flat) && opts['web-config']) throw new Error(`a ${flavourId(meta.flavour) ?? 'local-only'} app has no web config (node tools/add.mjs sync --project <id> first)`);
   if (render) {
     // the checks below throw before anything changes; the render comes after them
     validate(meta, opts, true);
     // sw.js's list is read from the app-sync and app-ui packages, so a fresh clone (new-app: no node_modules) installs them
-    // first; without them sw.js would keep the cloud app's list, naming files the static app no longer has (the worker
+    // first; without them sw.js would keep the offline-first app's list, naming files the local-only app no longer has (the
+    // worker
     // install fails: no offline start). Before the render, so a failed install leaves the app as it was and a re-run retries.
     if (!['app-sync', 'app-ui'].every(p => fs.existsSync(path.join(dir, 'node_modules', p, 'package.json')))) {
       log('npm ci (app-sync and app-ui, for sw.js\'s list)');
       exec('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], dir);
     }
-    renderDir({ dir, flavour: 'static', log });
+    renderDir({ dir, flavour: 'local-only', log });
     meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
   }
   const old = meta.app;
@@ -178,12 +182,13 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
     if (rel === 'app/firestore.app.rules' || rel === 'app/firestore.rules') text = spaceRules(text, space);
     write(rel, text);
   }
-  write('app/src/config.js', meta.flavour ? staticConfigJs(app, accent, extra) : configJs(app, web, accent, extra));
+  write('app/src/config.js', meta.flavour ? localOnlyConfigJs(app, accent, extra) : configJs(app, web, accent, extra));
   const commit = opts.commit ?? meta.commit;   // the template commit this app started from (the new-app job passes it)
   // the template's own module recipes become the template's at that commit, so add.mjs has a pristine copy to compare
   const modules = meta.modules && commit ? Object.fromEntries(Object.entries(meta.modules).map(([m, s]) =>
     [m, /^recipes\/[\w.-]+\.json$/.test(s) ? `${meta.template}@${commit}:${s}` : s])) : meta.modules;
-  write('.starter.json', JSON.stringify({ ...meta, commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
+  // an old flavour id ("static") is written as it is now ("local-only")
+  write('.starter.json', JSON.stringify({ ...meta, ...(meta.flavour ? { flavour: flavourId(meta.flavour) } : {}), commit, app, ...(modules ? { modules } : {}) }, null, 2) + '\n');
   // the render changed the import map: sw.js's list and the import-map hash follow (the packages are installed above)
   if (render) {
     after(dir, { install: false, log });
@@ -191,9 +196,9 @@ export function fill({ dir = '.', check = false, static: flat = false, log = () 
   return { changed, app };
 }
 
-// the new values' checks, on their own: --static runs them before it renders
-// -> { name, host, kit, project, title } (a static app's project is '' until it is given one)
-// fresh: the app is being made static now (its template project goes)
+// the new values' checks, on their own: --local-only runs them before it renders
+// -> { name, host, kit, project, title } (a local-only app's project is '' until it is given one)
+// fresh: the app is being made local-only now (its template project goes)
 function validate(meta, opts, fresh = false) {
   const old = meta.app;
   const app = { name: opts.name ?? old.name, host: opts.host ?? old.host, kit: opts.kit ?? old.kit,
@@ -211,6 +216,7 @@ const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k]).map(k => [k,
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = parseArgs(process.argv.slice(2));
+    if (args.renamed) console.log(args.renamed);
     const { changed, app } = fill({ ...args, log: console.log });
     console.log(changed.length ? `${args.check ? 'would change' : 'changed'}:\n  ${changed.join('\n  ')}` : 'nothing to change');
     console.log(`app: ${JSON.stringify(app)}`);

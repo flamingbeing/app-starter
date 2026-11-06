@@ -1,4 +1,4 @@
-// A static app's list: this device only, no sign-in (app/src/local.js). It is kept in IndexedDB, so a reload and a
+// A local-only app's list: this device only, no sign-in (app/src/local.js). It is kept in IndexedDB, so a reload and a
 // start with no network (the service worker) show it again; other tabs hear each change.
 import { test, expect, setOffline, uniq, signIn, add, clickOpens, openSettings, openToday } from './fixtures.mjs';
 

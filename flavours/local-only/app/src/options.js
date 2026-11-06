@@ -1,5 +1,5 @@
 // The options this app allows (@core/settings): a name here is the only way a value reaches the device. New options
-// are off. A static app has no account, so every option is this device's (a cloud app can also keep one per account).
+// are off. A local-only app has no account, so every option is this device's (an offline-first app can also keep one per account).
 // A new app replaces these with its own.
 import { cleanTabs } from '@core/ui';
 import { ICONS } from './icons.js';

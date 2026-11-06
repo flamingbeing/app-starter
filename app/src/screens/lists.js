@@ -1,6 +1,6 @@
 // The lists: the picker under each tab's title (All, Inbox, then the person's lists, with open counts when that option is
 // on) and the sheet that adds, renames and deletes them. The list picked is the settings' defaultList, so it follows the
-// person between devices (a cloud app) and new tasks go into it.
+// person between devices (an offline-first app) and new tasks go into it.
 import { confirmModal } from '@core/ui';
 import { INBOX, REFUSED } from '../items.js';
 import { orderedLists, openCounts } from '../tasks.js';

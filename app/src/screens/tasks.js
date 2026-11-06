@@ -23,7 +23,7 @@ import { modules } from '../modules.js';
  * @property {(itemId: string) => unknown[]} of  a task's files as this device has them
  * @property {(item: Item) => HTMLElement | null} thumbs  the row's thumbnails
  * @property {(slot: HTMLElement, editing: () => Item | null) => () => void} mount  fills the sheet's slot -> redraw it
- * (app: cloud.js's Started, which the files module needs; any here, as a static app has no cloud.js)
+ * (app: cloud.js's Started, which the files module needs; any here, as a local-only app has no cloud.js)
  * @typedef {(o: { app: any, toast: (message: string) => unknown }) => ItemFiles} ItemFilesSlot
  */
 

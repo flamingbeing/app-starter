@@ -31,7 +31,7 @@ hand-written in `app.css`; `adaptiveShell` needs a `.ui-pane-detail` even in an 
 placeholder here); the kit's current-tab colour is 4.1:1 in the navy look (`app.css` overrides it with `--link`); the
 kit's bar is clear until the page scrolls, so the glass tests set `.is-collapsed`.
 
-## Startup (cloud app)
+## Startup (offline-first app)
 
 What the page does before the list is there, measured at 4x CPU slowdown on a signed-in reload (hermetic core files, so
 network latency is not in it): the shell starts first (tabs and menu work at once); the sign-in screen is shown only once

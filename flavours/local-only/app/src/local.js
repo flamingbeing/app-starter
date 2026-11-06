@@ -1,11 +1,12 @@
-// The app's data on this device only, no sign-in (a static app; `node tools/add.mjs cloud` turns it into the cloud app,
-// cloud.js): createApp({ config, modules: [localStore(), settings(), update()] }) from app-sync, the same runner the cloud
-// app uses, so the screens and the kit's parts take this app as they take the cloud one (items.js, ItemsApp).
+// The app's data on this device only, no sign-in (a local-only app; `node tools/add.mjs sync` turns it into the
+// offline-first app, cloud.js): createApp({ config, modules: [localStore(), settings(), update()] }) from app-sync, the same
+// runner the offline-first app uses, so the screens and the kit's parts take this app as they take the offline-first one (items.js,
+// ItemsApp).
 //
 // IndexedDB layout (app-sync's local store, @core/store): one database, <name>:_ , with a store per collection
 //   tasks      { id, text, notes?, listId?, due?, dueTime?, done, doneAt?, createdAt, updatedAt }   the tasks
 //   lists      { id, name, order, createdAt, updatedAt }   the lists (Inbox is not stored)
-//   settings   (kept for the account options a cloud app has; a static app's options are this device's, in localStorage)
+//   settings   (kept for the account options an offline-first app has; a local-only app's options are this device's, in localStorage)
 // Nothing leaves the device: clearing the site's data in the browser clears the list.
 import { createApp } from '@core/app';
 import { createStores } from '@core/store';

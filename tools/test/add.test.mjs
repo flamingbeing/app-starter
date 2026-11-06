@@ -74,13 +74,13 @@ test('resolveSource: a bare name is the template\'s recipe at the app\'s commit,
 for (const [module, gone, grep] of [
   ['search', ['app/public/search/index.js', 'app/src/screens/list-search.js', 'e2e/search.spec.mjs', 'app/public/vendor/minisearch'], /search/i],
   ['backup', ['app/public/backup/index.js', 'app/src/screens/backup-settings.js', 'e2e/backup.spec.mjs', 'app/public/vendor/xlsx'], /@core\/backup|backupSettings/],
-  // cloud{ the bin module needs the cloud (its data side and rules; a static app has no recipes/bin)
+  // sync{ the bin module needs the offline-first app (its data side and rules; a local-only app has no recipes/bin)
   ['bin', ['app/src/bin.js', 'app/src/bin-data.js', 'app/src/screens/bin-settings.js', 'app/rules/bin.rules'], /binSettings|binData/],
-  // the files module too (a static app has no recipes/files)
+  // the files module too (a local-only app has no recipes/files)
   ['files', ['app/public/files/index.js', 'app/src/files-data.js', 'worker/files.js', 'app/public/vendor/exifr', 'e2e/memory-bucket.mjs'], /@core\/files|memoryBucket|filesData/],
-  // and push (Worker routes, the cron job and rules; a static app has no recipes/push)
+  // and push (Worker routes, the cron job and rules; a local-only app has no recipes/push)
   ['push', ['app/src/push/push-wire.js', 'worker/push.js', 'worker/webpush.js', 'app/rules/push.rules', 'tools/push-keys.mjs'], /pushSettings|pushRoute|pushJob|pushOn|"crons"/],
-  // }cloud
+  // }sync
 ]) {
   test(`${module}: add brings it in, --remove leaves the lean app with no trace of it; a second add changes nothing`, () => {
     const dir = copyRepo();

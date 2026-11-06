@@ -1,14 +1,14 @@
 // worker/sites.js with a stand-in for the static assets. Run: node --test 'worker/test/*.test.mjs'
 import test from 'node:test';
 import assert from 'node:assert/strict';
-// cloud{ roles and members (a static app has neither: tools/flavour.mjs)
+// sync{ roles and members (a local-only app has neither: tools/flavour.mjs)
 import worker, { settledClaims } from '../sites.js';
 import { handleClaims } from '../claims.js';
 import { loadClaims } from '../members.js';
-// }cloud
-/* static{
+// }sync
+/* local-only{
 import worker from '../sites.js';
-}static */
+}local-only */
 import { SITES } from '../routes.js';
 import { SCHEDULED } from '../modules.js';
 
@@ -59,7 +59,7 @@ test('link-preview bots get the page and its picture', async () => {
   }
 });
 
-// cloud{
+// sync{
 test('the sign-in helper pages may be framed by this address (Firebase auth iframe), nothing else may', async () => {
   const fetched = globalThis.fetch;
   globalThis.fetch = async () => new Response('<html>helper</html>', { status: 200 });
@@ -83,7 +83,7 @@ test('the sign-in helper pages get no script policy (their inline script would b
   } finally { globalThis.fetch = fetched; }
 });
 
-// }cloud
+// }sync
 
 test('/api/csp takes CSP reports (both formats), logs one short line each without query strings, answers 204', async () => {
   const logged = [], log = console.log;
@@ -139,7 +139,7 @@ test('only GET and HEAD for files', async () => {
   assert.equal((await get(`https://${HOST}/`, { method: 'POST' })).status, 405);
 });
 
-// cloud{
+// sync{
 test('/api/claims: 503 until the service account is set, 405 on GET', async () => {
   assert.equal((await get(`https://${HOST}/api/claims`, { method: 'POST' })).status, 503);
   assert.equal((await get(`https://${HOST}/api/claims`)).status, 405);
@@ -186,4 +186,4 @@ test('/api/claims: of two asks at once, the one that read the doc before it exis
   assert.equal((await a).status, 200);
   assert.equal(written.at(-1)?.g?._, 'member');
 });
-// }cloud
+// }sync

@@ -1,9 +1,11 @@
-// The template's flavours (README, "Pick a starter"): the cloud app is the template as it is; a flavour is the same
-// template with the cloud parts taken out and a few files of its own put in, rendered from a spec in flavours/.
+// The two templates (README, "Pick a starter"): the offline-first app is the template as it is; the local-only app is
+// the same template rendered as a flavour, its offline-first parts taken out and a few files of its own put in, from a
+// spec in flavours/.
 //
-//   node tools/flavour.mjs static [--dir <app>] [--dry-run]   render the app in place (tools/fill.mjs --static runs it)
+//   node tools/flavour.mjs local-only [--dir <app>] [--dry-run]   render the app in place (tools/fill.mjs --local-only
+//                                                                runs it; `static` and `on-device` are old names)
 //
-// A spec (flavours/static.json, the only one) is JSON with these fields, every one optional but "flavour":
+// A spec (flavours/local-only.json, the only one) is JSON with these fields, every one optional but "flavour":
 //   flavour     the name .starter.json "flavour" records
 //   remove      paths taken out (a folder takes everything under it)
 //   root        a folder that mirrors the app: every file under it is put at the same path (replacing the template's)
@@ -11,42 +13,60 @@
 //               import map, tsconfig paths and Vite alias written from it (a tree from before modules.json reads
 //               importMap { name: url | null } and tsconfigPaths { name: [path] } and edits those places itself)
 //   json        { file: [dotted keys] } taken out of a JSON file (package.json scripts)
-// and in every text file the lines from a `cloud{` mark to its `}cloud` mark (a comment of the file's kind:
-// `// cloud{`, `# cloud{`, `<!-- cloud{ -->`; the rest of the line is free) are taken out, marks included, and the
-// lines of a static block, a comment in the template (`/* static{` ... `}static */`, `<!-- static{` ... `}static -->`),
-// are put in without its marks. The marks stay in a cloud app, where they show what a static app does differently.
+// and in every text file the lines from a `sync{` mark to its `}sync` mark (a comment of the file's kind:
+// `// sync{`, `# sync{`, `<!-- sync{ -->`; the rest of the line is free) are taken out, marks included, and the
+// lines of a local-only block, a comment in the template (`/* local-only{` ... `}local-only */`, `<!-- local-only{`
+// ... `}local-only -->`), are put in without its marks. The marks stay in an offline-first app, where they show what a
+// local-only app does differently.
 //
-// Rendering is pure (files in, files out), so tools/update-from-starter.mjs renders both template commits the same way
-// and a static app keeps taking the template's changes; `node tools/add.mjs cloud` merges the static render into the
-// cloud one, which turns a static app into a cloud app.
+// Old names (docs/decisions/0016-offline-first-and-local-only.md): the flavour `static` (and `on-device`) is
+// `local-only`, and the marks `cloud{`/`}cloud` and `static{`/`}static` are read as `sync{`/`}sync` and
+// `local-only{`/`}local-only`, so template commits from before the rename render the same way and an app made then
+// takes a template update across it.
+//
+// Rendering is pure (files in, files out), so tools/update-from-starter.mjs (the template update) renders both template
+// commits the same way and a local-only app keeps taking the template's changes; `node tools/add.mjs sync` merges the
+// local-only render into the offline-first one, which turns a local-only app into an offline-first app.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { editImportMap, putLine } from './add.mjs';
 import { MANIFEST, applyEdits, formatManifest, generate } from './modules.mjs';
 
-export const FLAVOURS = ['static'];
-const OPEN = /^\s*(?:\/\/|#|<!--)\s*cloud\{/;
-const CLOSE = /^\s*(?:\/\/|#|<!--)\s*\}cloud/;
-const OPEN_STATIC = /^\s*(?:\/\*|<!--)\s*static\{/;
-const CLOSE_STATIC = /^\s*\}static\s*(?:\*\/|-->)/;
+export const FLAVOURS = ['local-only'];
+/** old flavour ids -> the current ones (.starter.json "flavour", the command line) */
+export const ALIASES = { static: 'local-only', 'on-device': 'local-only' };
+/** a flavour id as it is now (an old one mapped; an unknown one as it is) */
+export const flavourId = f => (f && Object.hasOwn(ALIASES, f) ? ALIASES[f] : f);
+// the marks, old names too (a mark's kind is the new name)
+const OPEN = /^\s*(?:\/\/|#|<!--)\s*(?:sync|cloud)\{/;
+const CLOSE = /^\s*(?:\/\/|#|<!--)\s*\}(?:sync|cloud)\b/;
+const OPEN_LOCAL = /^\s*(?:\/\*|<!--)\s*(?:local-only|static)\{/;
+const CLOSE_LOCAL = /^\s*\}(?:local-only|static)\s*(?:\*\/|-->)/;
 const TEXT = /\.(m?js|json|jsonc|html|css|md|webmanifest|rules|ya?ml|svg|txt|sh|toml)$|^\.[a-z]+ignore$/;
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report', 'dist']);
 export const specPath = flavour => `flavours/${flavour}.json`;
+/** the spec's path in a tree: the flavour's own name first, then its other names (a commit from before or after the
+ * rename has only one of them) -> rel | null */
+export function specIn(files, flavour) {
+  const id = flavourId(flavour);
+  const names = [flavour, id, ...Object.keys(ALIASES).filter(a => ALIASES[a] === id)];
+  return names.map(specPath).find(rel => files[rel]) ?? null;
+}
 
-/** text without its cloud{ ... }cloud regions and with its static blocks put in; throws on a mark without its pair
- * (rel: for the message) */
+/** text without its sync{ ... }sync regions and with its local-only blocks put in (old marks read the same way);
+ * throws on a mark without its pair (rel: for the message) */
 export function strip(text, rel = '') {
-  if (!/cloud|static/.test(text)) return text;
+  if (!/sync|cloud|local-only|static/.test(text)) return text;
   const out = [];
   /** @type {{ kind: string, at: number } | null} */
   let open = null;
   text.split('\n').forEach((line, i) => {
-    const kind = OPEN.test(line) ? 'cloud' : OPEN_STATIC.test(line) ? 'static' : null;
+    const kind = OPEN.test(line) ? 'sync' : OPEN_LOCAL.test(line) ? 'local-only' : null;
     if (kind) { if (open) throw new Error(`${rel}:${i + 1}: ${kind}{ inside ${open.kind}{`); open = { kind, at: i + 1 }; return; }
-    const end = CLOSE.test(line) ? 'cloud' : CLOSE_STATIC.test(line) ? 'static' : null;
+    const end = CLOSE.test(line) ? 'sync' : CLOSE_LOCAL.test(line) ? 'local-only' : null;
     if (end) { if (open?.kind !== end) throw new Error(`${rel}:${i + 1}: }${end} without ${end}{`); open = null; return; }
-    if (open?.kind !== 'cloud') out.push(line);
+    if (open?.kind !== 'sync') out.push(line);
   });
   if (open) throw new Error(`${rel}:${open.at}: ${open.kind}{ without }${open.kind}`);
   return out.join('\n');
@@ -63,13 +83,15 @@ function dropKey(obj, key) {
 
 /**
  * The template's files rendered as a flavour: { rel: Buffer } -> { rel: Buffer } (the input is not changed). The spec
- * is the tree's own flavours/<flavour>.json; a tree without it (a template commit from before flavours) throws.
+ * is the tree's own flavours/<flavour>.json (under the flavour's old or new name: specIn); a tree without it (a
+ * template commit from before flavours) throws.
  * @param {Record<string, Buffer>} files
  * @param {string} flavour
  */
 export function render(files, flavour) {
-  const specBuf = files[specPath(flavour)];
-  if (!specBuf) throw new Error(`no ${specPath(flavour)} in this template commit`);
+  const specRel = specIn(files, flavour);
+  if (!specRel) throw new Error(`no ${specPath(flavourId(flavour))} in this template commit`);
+  const specBuf = files[specRel];
   const spec = JSON.parse(specBuf.toString('utf8'));
   const root = spec.root ? spec.root.replace(/\/?$/, '/') : null;
   /** @type {Record<string, Buffer>} */
@@ -114,12 +136,13 @@ export function readTree(dir, rel = '', out = {}) {
 
 /** renders the app folder in place and records the flavour in .starter.json -> { removed, written } */
 export function renderDir({ dir = '.', flavour, dryRun = false, log = () => {} } = {}) {
+  if (flavourId(flavour) !== flavour) { log(`${flavour} is now ${flavourId(flavour)}`); flavour = flavourId(flavour); }
   if (!FLAVOURS.includes(flavour)) throw new Error(`no flavour ${flavour} (${FLAVOURS.join(', ')})`);
   dir = path.resolve(dir);
   const metaPath = path.join(dir, '.starter.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-  if (meta.flavour) throw new Error(`this app is already ${meta.flavour}`);
-  if (meta.modules?.files) throw new Error('the files module needs the cloud (its Worker routes and rules): take it out first (node tools/add.mjs --remove files)');
+  if (meta.flavour) throw new Error(`this app is already ${flavourId(meta.flavour)}`);
+  if (meta.modules?.files) throw new Error('the files module needs the offline-first app (its Worker routes and rules): take it out first (node tools/add.mjs --remove files)');
   const before = readTree(dir);
   const after = render(before, flavour);
   const removed = Object.keys(before).filter(rel => !(rel in after));

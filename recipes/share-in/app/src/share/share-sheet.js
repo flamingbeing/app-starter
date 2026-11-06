@@ -71,7 +71,7 @@ export function shareSheet(app) {
     });
   });
 
-  /** the items are in once the server's copy has arrived (always, in a static app) */
+  /** the items are in once the server's copy has arrived (always, in a local-only app) */
   const ready = async () => {
     for (const t0 = Date.now(); !app.serverCopyIn(); await new Promise(r => setTimeout(r, 250))) if (Date.now() - t0 > WAIT_MS) return false;
     return true;

@@ -1,6 +1,6 @@
 // This device's list, kept in IndexedDB (app-sync's local store, @core/store; in memory where there is none): a
 // module named sync for createApp, so @core/settings and the kit's parts (conflict sheet, refused list) take it as they
-// take the cloud engine. There is no server, so nothing is ever unsent, in conflict or refused. Other tabs of the app
+// take the sync engine. There is no server, so nothing is ever unsent, in conflict or refused. Other tabs of the app
 // hear each save (BroadcastChannel).
 //
 //   localStore({ createStores, prefix, colls, scope }) -> { name: 'sync', needs: [], start(ctx) -> api, stop }
@@ -79,7 +79,7 @@ export function localStore({ createStores, prefix, colls, scope: only = '_' }) {
           cb(listOf(coll), { changed: [] });
           return () => { watchers.get(coll)?.delete(cb); };
         },
-        // one record: path [..., coll, id] (the cloud's Firestore path works too); cb(null) once it is gone
+        // one record: path [..., coll, id] (the offline-first app's Firestore path works too); cb(null) once it is gone
         /** @param {string[]} path @param {(doc: Doc | null) => void} cb */
         watchDoc(path, cb) {
           const [coll, id] = path.slice(-2);
