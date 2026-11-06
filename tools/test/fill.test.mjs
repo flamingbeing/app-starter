@@ -10,7 +10,7 @@ import { fill, parseArgs } from '../fill.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SKIP = new Set(['.git', 'node_modules', '.devkit', 'test-results', 'playwright-report']);
-const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills a RAM-backed /tmp)
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function copy({ deps = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fill-'));

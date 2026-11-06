@@ -32,7 +32,7 @@ function commit(dir, files, msg) {
 }
 const swap = text => text.replaceAll('app.example.com', APP.host).replaceAll('starter-app', APP.name);
 
-const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills a RAM-backed /tmp)
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 // a template with one commit, and an app made from it (the template's files with the app's values)
 function setup() {
