@@ -77,7 +77,7 @@ An offline-first app's data is in one shared space (`spaces/_/...`) that everyon
 changes it, with their role (admins can't read anyone else's), and nobody can use the shared one
 ([decision 0015](docs/decisions/0015-one-space-per-person.md)). `APP.space` in `src/config.js` records it; the sync
 scope (`roles.js` `spaceOf`) and the rules' `inSpace` line (`mine(g, roles)` in place of `can(g, roles)`, written by
-`tools/modules.mjs`) follow it, and the files and bin recipes go with it. Choose it before the app has data: a switch
+`tools/modules.mjs`) follow it, and the files and bin recipes go with it (the files Worker takes only your own uid, never `_`). Choose it before the app has data: a switch
 leaves the old space's data where it is.
 
 The local-only template is the offline-first one rendered by `tools/flavour.mjs` from `flavours/local-only.json`: the
