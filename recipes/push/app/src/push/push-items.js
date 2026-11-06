@@ -3,6 +3,7 @@
 // The template's rule: an open item with a due day and a due time is notified at that time. An app makes these its own
 // (reminders some minutes before, a daily summary): pushItems decides what and when, stampOf what must still hold at send time.
 import { COLL } from '../items.js';
+import { spaceOf } from '../roles.js';
 
 /** how far ahead the Worker's queue is filled (it takes up to 8 days) */
 export const AHEAD_MS = 7 * 24 * 3600 * 1000;
@@ -15,8 +16,10 @@ export const MAX_ITEMS = 200;
  * would fail every run of the job) @param {unknown} id */
 export const okId = id => typeof id === 'string' && id.length > 0 && id.length <= 128 && !id.includes('/') && id !== '.' && id !== '..' && !/^__.*__$/.test(id);
 
-/** the item's document, which the Worker reads at send time (cloud.js: the single group '_') @param {string} itemId */
-export const itemPath = itemId => `spaces/_/${COLL}/${itemId}`;
+/** the item's document, which the Worker reads at send time: in its person's space (roles.js spaceOf: the shared '_', or in a
+ * personal app, APP.space 'person', their own uid, so a person's queue only ever reads their own items)
+ * @param {string} itemId @param {string} uid the queued notification's person @param {(u: { uid: string }) => string} [space] */
+export const itemPath = (itemId, uid, space = spaceOf) => `spaces/${space({ uid })}/${COLL}/${itemId}`;
 
 /** what a notification depends on: '' when there is nothing to notify (done, deleted, no due time); a queued one goes out only
  * while its item's stamp is unchanged @param {any} item @returns {string} */

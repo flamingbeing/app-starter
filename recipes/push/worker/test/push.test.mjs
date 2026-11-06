@@ -27,7 +27,7 @@ const call = (store, route, body, { token = 'u1', method = 'POST', extra = {}, r
 const item = (n, over = {}) => ({ key: `t${n}|2026-11-05 14:00`, at: NOW + (n + 1) * 60000, title: `Task ${n}`, body: 'Due at 14:00', itemId: `t${n}`, stamp: '2026-11-05 14:00', ...over });
 /** the item doc a notification was made from (what the job reads) */
 const itemOf = (it, over = {}) => ({ id: it.itemId, text: it.title, done: false, due: '2026-11-05', dueTime: '14:00', ...over });
-const seedItem = (s, it, over) => s.docs.set(itemPath(it.itemId), itemOf(it, over));
+const seedItem = (s, it, over, uid = 'u1') => s.docs.set(itemPath(it.itemId, uid), itemOf(it, over));
 
 test('only a signed-in person with a role, from the app’s own origin, by POST', async () => {
   const s = memory();
