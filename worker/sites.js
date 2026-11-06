@@ -2,13 +2,13 @@
 // decides which folder an address may see (routes.js), adds the security headers (headers.js), answers /api/claims
 // (claims.js from app-devkit, roles from members.js), /api/members/ (admins set and remove roles, members.js) and
 // the optional modules' routes (modules.js: each module's route, e.g. the files recipe's /api/files/), and passes
-// Firebase's sign-in helper pages on to the project.
+// Firebase's sign-in helper pages on to the project. The cron trigger, when a recipe adds one, runs modules.js SCHEDULED.
 // wrangler.jsonc: "run_worker_first" sends every request here; FIREBASE_PROJECT is a var there, the service account
 // (SA_EMAIL, SA_KEY) are Worker secrets.
 import { resolve, publicFile } from './routes.js';
 import { securityHeaders } from './headers.js';
 import { handleCspReport } from './csp-report.js';
-import { ROUTES } from './modules.js';
+import { ROUTES, SCHEDULED } from './modules.js';
 // cloud{ roles and members (a static app has neither: tools/flavour.mjs)
 import { handleClaims, verifyIdToken } from './claims.js';
 import { adminFor } from './admin.js';
@@ -65,6 +65,12 @@ export default {
     // service workers must always be checked fresh, or phones keep an old app for a day
     if (/(^|\/)sw\.js$/.test(file)) res.headers.set('Cache-Control', 'no-cache');
     return finish(res);
+  },
+
+  // the modules' cron jobs (worker/modules.js SCHEDULED; wrangler.jsonc "triggers"), each on its own
+  /** @param {any} event @param {any} env @param {{ waitUntil(p: Promise<unknown>): void }} ctx */
+  async scheduled(event, env, ctx) {
+    for (const job of SCHEDULED) ctx.waitUntil(Promise.resolve().then(() => job(env, ctx)).catch(e => console.error('scheduled job failed', e?.message)));
   },
 };
 

@@ -163,6 +163,12 @@ export async function start({ canReload = null }) {
   let offFiles = null;
   /** @type {Item[]} the tasks as last heard (items()) */
   let latest = [];
+  // the parts that follow the tasks (onItems) and those that must act while the person is still signed in (onSignOut),
+  // e.g. the push recipe; none in the lean app
+  /** @type {Set<(items: Item[]) => void>} */
+  const itemHooks = new Set();
+  /** @type {Set<() => Promise<unknown>>} */
+  const outHooks = new Set();
   let seq = 0;
   // the token Firestore has been told about: its own token listener (added when the SDK started, so before this one)
   // runs in the same notification and restarts its connection with the new token. A list listen sent before that goes
@@ -205,6 +211,7 @@ export async function start({ canReload = null }) {
     offList ??= app.sync.watch(SPACE, COLL, (/** @type {Item[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
       latest = list.filter(x => !x._deleted);
       onList(latest, new Set(first ? [] : meta?.changed || []));
+      for (const fn of itemHooks) fn(latest);
       first = false;
     });
     offLists ??= app.sync.watch(SPACE, LISTS, (/** @type {TaskList[]} */ list) => { onLists(list.filter(x => !x._deleted)); });
@@ -265,7 +272,19 @@ export async function start({ canReload = null }) {
       /** @param {string} uid */
       remove: uid => membersCall('DELETE', uid),
     },
+    // the signed-in person's ID token, for the Worker's routes (undefined when signed out)
+    idToken: async () => (await fa.currentUser?.getIdToken().catch(() => '')) || undefined,
+    // fn(tasks) whenever the tasks change -> remove
+    /** @param {(items: Item[]) => void} fn */
+    onItems: fn => { itemHooks.add(fn); return () => { itemHooks.delete(fn); }; },
+    // fn() just before signing out (awaited, a few seconds at most) -> remove
+    /** @param {() => Promise<unknown>} fn */
+    onSignOut: fn => { outHooks.add(fn); return () => { outHooks.delete(fn); }; },
     // Sign-out keeps this device's copy and unsent saves. -> how many are still unsent (they send at the next sign-in)
-    async signOut() { await app.auth.signOut(); return unsent; },
+    async signOut() {
+      await Promise.race([Promise.all([...outHooks].map(f => f().catch(() => {}))), new Promise(r => setTimeout(r, 4000))]);
+      await app.auth.signOut();
+      return unsent;
+    },
   };
 }

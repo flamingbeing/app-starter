@@ -23,6 +23,7 @@
   "observability": { "enabled": true },
   "vars": { "FIREBASE_PROJECT": "demo-starter-app" },
   // add: r2
+  // add: triggers
   // the real address, as in worker/routes.js SITES; the first deploy adds the custom domain
   "routes": [{ "pattern": "app.example.com", "custom_domain": true }]
 }
