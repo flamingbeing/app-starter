@@ -71,6 +71,14 @@ One template, two flavours, with the same Worker, PWA, offline start, kit, tests
   (app-sync's local store), works offline and installs, and other open tabs follow along. For one person's tool on
   one device, or a first version.
 
+A cloud app's data is in one shared space (`spaces/_/...`) that everyone with a role works in. A **personal app**
+(`fill.mjs ... --space person`) gives each person their own space instead (`spaces/<uid>/...`): only its owner reads or
+changes it, with their role (admins can't read anyone else's), and nobody can use the shared one
+([decision 0015](docs/decisions/0015-one-space-per-person.md)). `APP.space` in `src/config.js` records it; the sync
+scope (`roles.js` `spaceOf`) and the rules' `inSpace` line (`mine(g, roles)` in place of `can(g, roles)`, written by
+`tools/modules.mjs`) follow it, and the files and bin recipes go with it. Choose it before the app has data: a switch
+leaves the old space's data where it is.
+
 A static app is the template rendered by `tools/flavour.mjs` from `flavours/static.json`: the cloud-only files go,
 lines between `cloud{` and `}cloud` marks go, and `flavours/static/` puts in its own files (`app/src/local.js`,
 `local-store.js`, its `app.js`, `options.js`, e2e spec and Playwright config). `.starter.json` records `"flavour":
@@ -98,7 +106,7 @@ goes inside marks; the `static` jobs in Full checks fill a scratch copy as a sta
 
 ```bash
 node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs|ntf --project <firebase-project-id> \
-  [--title "<Title>"] [--web-config sdkconfig.json] [--commit <template sha>]
+  [--title "<Title>"] [--space shared|person] [--web-config sdkconfig.json] [--commit <template sha>]
 node tools/fill.mjs --name <name> --host <app.example.org> --kit homedesign|nuhs|ntf --static   # a static app (above)
 ```
 

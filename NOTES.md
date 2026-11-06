@@ -5,7 +5,9 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 ## How to test
 
 See README, "Tests". The browser tests use one shared list (`spaces/_/tasks`), so each test uses its own made-up
-accounts and task texts and checks only those; they run side by side.
+accounts and task texts and checks only those; they run side by side. They run the shared space only; a personal
+app's space (`--space person`) is covered by the rules tests (`RULES_SPACES=shared,person node --test
+test/rules.test.mjs` from `app/` tests both modes; Checks and the full app in Full checks do) and the unit tests.
 
 ## UI kit gestures and the `/kit/` gallery (app-ui)
 
@@ -78,7 +80,7 @@ be saved. Where values live (change these only with a migration; `settings.unit.
 
 - Device values: `ctx.storage('settings')` key `device` = `{ v: 1, values: { <key>: value } }` (stored as
   `settings:settings/device` in localStorage). Kept at sign-out, wiped on an account switch or forget.
-- Account values: one sync record per person in the `settings` collection (`spaces/_/settings/<uid>`): one field per
+- Account values: one sync record per person in the `settings` collection (`spaces/_/settings/<uid>`; a personal app's `spaces/<uid>/settings/<uid>`): one field per
   account option plus `profile`; `null` forgets a value. The local copy is `settings/account` = `{ uid, rec }`, used
   only while `uid` is the signed-in account.
 - Rules: only the person writes their own doc (field list in `firestore.app.rules`: add each new account option there
