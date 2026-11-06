@@ -1,5 +1,5 @@
 // tools/sw-files.mjs on made-up app folders and a made-up app-sync and app-ui. node --test tools/test/sw-files.test.mjs
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,8 +10,11 @@ import { shellFiles, writeShell } from '../sw-files.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CORE = 'https://core.anawj.com/sync/1.2.3/';
 const SW = `const VERSION = 'app-v1';\nconst SHELL = [\n  './',\n];\nconst MANIFEST = {};\n`;
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 function tree(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-files-'));
+  made.push(dir);
   for (const [f, body] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
     fs.writeFileSync(path.join(dir, f), body);

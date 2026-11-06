@@ -1,5 +1,5 @@
 // tools/update-from-starter.mjs on a scratch template repo and an app made from it. node --test tools/test/update-from-starter.test.mjs
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,9 +32,12 @@ function commit(dir, files, msg) {
 }
 const swap = text => text.replaceAll('app.example.com', APP.host).replaceAll('starter-app', APP.name);
 
+const made = [];   // temp folders, removed when the file's tests end (a leftover fills swift's RAM-backed /tmp)
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 // a template with one commit, and an app made from it (the template's files with the app's values)
 function setup() {
   const tpl = fs.mkdtempSync(path.join(os.tmpdir(), 'tpl-'));
+  made.push(tpl);
   run(tpl, 'init', '-q', '-b', 'main');
   const files = {
     '.starter.json': JSON.stringify({ template: 'x/app-starter', version: '0.2.0', commit: '', app: TPL_APP }, null, 2),
@@ -51,6 +54,7 @@ function setup() {
   };
   const base = commit(tpl, files, 'base');
   const app = fs.mkdtempSync(path.join(os.tmpdir(), 'app-'));
+  made.push(app);
   for (const [rel, v] of Object.entries(files)) writeAll(app, { [rel]: typeof v === 'string' ? swap(v) : v });
   writeAll(app, {
     '.starter.json': JSON.stringify({ template: 'x/app-starter', version: '0.2.0', commit: base.slice(0, 7), app: APP }, null, 2) + '\n',
