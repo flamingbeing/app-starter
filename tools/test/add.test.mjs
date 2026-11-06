@@ -78,6 +78,8 @@ for (const [module, gone, grep] of [
   ['bin', ['app/src/bin.js', 'app/src/bin-data.js', 'app/src/screens/bin-settings.js', 'app/rules/bin.rules'], /binSettings|binData/],
   // the files module too (a static app has no recipes/files)
   ['files', ['app/public/files/index.js', 'app/src/files-data.js', 'worker/files.js', 'app/public/vendor/exifr', 'e2e/memory-bucket.mjs'], /@core\/files|memoryBucket|filesData/],
+  // and push (Worker routes, the cron job and rules; a static app has no recipes/push)
+  ['push', ['app/src/push/push-wire.js', 'worker/push.js', 'worker/webpush.js', 'app/rules/push.rules', 'tools/push-keys.mjs'], /pushSettings|pushRoute|pushJob|pushOn|"crons"/],
   // }cloud
 ]) {
   test(`${module}: add brings it in, --remove leaves the lean app with no trace of it; a second add changes nothing`, () => {
@@ -97,7 +99,7 @@ for (const [module, gone, grep] of [
       const back = tree(dir);
       assert.deepEqual(Object.keys(back).sort(), Object.keys(lean).sort());
       for (const rel of Object.keys(lean)) if (rel !== '.starter.json') assert.ok(back[rel].equals(lean[rel]), rel);
-      for (const rel of ['app/index.html', 'app/src/modules.js', 'tsconfig.json', 'vite.config.mjs'])
+      for (const rel of ['app/index.html', 'app/src/modules.js', 'tsconfig.json', 'vite.config.mjs', 'worker/modules.js', 'wrangler.jsonc', 'app/src/options.js'])
         assert.doesNotMatch(read(dir, rel), grep, rel);
       assert.equal(JSON.parse(read(dir, '.starter.json')).modules, undefined);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
