@@ -10,13 +10,19 @@ const BIN = 'bin';
 export const binData = {
   coll: BIN,
   api: ({ sdk, space, items, put }) => {
+    /** the space asked now (a personal app's follows the signed-in person) */
+    const at = () => {
+      const s = typeof space === 'function' ? space() : space;
+      if (!s) throw new Error('Sign in first.');
+      return s;
+    };
     /** the entry's document in the bin @param {{ docId: string }} e */
-    const ref = async e => { const { F, db } = await sdk(); return F.doc(db, 'spaces', space, BIN, e.docId); };
+    const ref = async e => { const { F, db } = await sdk(); return F.doc(db, 'spaces', at(), BIN, e.docId); };
     const api = {
       /** every entry, with its docId */
       async list() {
         const { F, db } = await sdk();
-        return (await F.getDocs(F.collection(db, 'spaces', space, BIN))).docs.map(/** @param {any} d */ d => ({ ...d.data(), docId: d.id }));
+        return (await F.getDocs(F.collection(db, 'spaces', at(), BIN))).docs.map(/** @param {any} d */ d => ({ ...d.data(), docId: d.id }));
       },
       /** the item comes back with its own id and its entry goes; '' or why not */
       async restore(/** @type {import('./items.js').BinEntry} */ entry) {

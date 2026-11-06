@@ -9,9 +9,9 @@ const FILES = 'files';
 /** @type {import('./data-modules.js').FilesData} */
 export const filesData = {
   coll: FILES,
-  // the records sync in FILES, the bytes go to /api/files (shared by the space, like the items); the date a photo was
-  // taken is kept, its place is not
-  engine: space => files({ collection: FILES, scope: () => space, exif: true }),
+  // the records sync in FILES, the bytes go to /api/files (shared by the space, like the items: one space '_', or each
+  // person's own uid in a personal app); the date a photo was taken is kept, its place is not
+  engine: space => files({ collection: FILES, scope: typeof space === 'function' ? space : () => space, exif: true }),
   watch: (app, space, onFiles) => app.sync.watch(space, FILES, (/** @type {Attachment[]} */ list) => {
     /** @type {Map<string, Attachment[]>} */
     const by = new Map();
