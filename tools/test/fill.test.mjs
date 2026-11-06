@@ -156,6 +156,27 @@ test('--static in a fresh clone (no node_modules) installs the packages, so sw.j
   assert.equal(spawnSync('node', ['tools/sw-files.mjs', 'app', '--check'], { cwd: dir }).status, 0);
 });
 
+test('--space person: config.js names it, the rules\' inSpace line follows (both files); kept on a re-run; shared undoes it', () => {
+  const dir = copy();
+  const line = f => read(dir, f).match(/function inSpace\(g, roles\) \{[^\n]*/)?.[0];
+  fill({ dir, ...ARGS });
+  assert.doesNotMatch(read(dir, 'app/src/config.js'), /"space"/, 'shared is the default: not named');
+  assert.match(line('app/firestore.app.rules'), /return can\(g, roles\); \}   \/\/ space: shared$/);
+  const r = fill({ dir, ...ARGS, space: 'person' });
+  assert.deepEqual(r.changed.sort(), ['app/firestore.app.rules', 'app/firestore.rules', 'app/src/config.js']);
+  assert.match(read(dir, 'app/src/config.js'), /"space":"person"/);
+  for (const f of ['app/firestore.app.rules', 'app/firestore.rules']) assert.match(line(f), /return mine\(g, roles\); \}   \/\/ space: person$/, f);
+  fill({ dir, ...ARGS, title: 'Pets' });   // no --space: kept
+  assert.match(read(dir, 'app/src/config.js'), /"title":"Pets".*"space":"person"/);
+  assert.match(line('app/firestore.rules'), /mine/);
+  fill({ dir, ...ARGS, space: 'shared' });
+  assert.doesNotMatch(read(dir, 'app/src/config.js'), /"space"/);
+  assert.match(line('app/firestore.rules'), /return can\(g, roles\)/);
+  assert.throws(() => fill({ dir, ...ARGS, space: 'team' }), /--space 'team': shared or person/);
+  assert.throws(() => fill({ dir, ...STATIC, static: true, space: 'person' }), /has no spaces/);
+  assert.ok(fs.existsSync(path.join(dir, 'app/src/cloud.js')), 'refused before the render');
+});
+
 test('--static checks the values before it renders anything', () => {
   const dir = copy();
   assert.throws(() => fill({ dir, ...STATIC, static: true, name: 'Bad Name' }), /--name/);

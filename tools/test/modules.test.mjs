@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { applyEdits, coreVersions, formatManifest, generate, manifestFrom, moduleEdits, rulesBlock, run } from '../modules.mjs';
+import { applyEdits, coreVersions, formatManifest, generate, manifestFrom, moduleEdits, rulesBlock, run, spaceOfConfig, spaceRules } from '../modules.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -52,6 +52,23 @@ test('the rules block: fragments in file order at the mark\'s indent; empty when
   assert.equal(two, 'rules {\n  a;\n  // modules: rules{ generated\n  match /a {}\n\n  match /z {\n    allow read;\n  }\n  // }modules\n  b;\n}\n');
   assert.equal(rulesBlock(two, {}), app);
   assert.throws(() => rulesBlock('rules {}\n', { 'a.rules': 'x' }), /no "\/\/ modules: rules\{"/);
+});
+
+test('the space line: APP.space in config.js (shared when none) picks can or mine; refused when unknown or the line is missing', () => {
+  assert.equal(spaceOfConfig('export const APP = {"name":"a"};\n'), 'shared');
+  assert.equal(spaceOfConfig('export const APP = {"name":"a","space":"person"};\n'), 'person');
+  assert.equal(spaceOfConfig(null), 'shared');
+  const rules = 'x {\n    function inSpace(g, roles) { return can(g, roles); }   // space: shared\n}\n';
+  const person = spaceRules(rules, 'person');
+  assert.equal(person, 'x {\n    function inSpace(g, roles) { return mine(g, roles); }   // space: person\n}\n');
+  assert.equal(spaceRules(person, 'shared'), rules);
+  assert.equal(spaceRules(rules, 'shared'), rules);
+  assert.equal(spaceRules('x {}\n', 'shared'), 'x {}\n', 'an older app with no line: shared as it was');
+  assert.throws(() => spaceRules('x {}\n', 'person'), /no "function inSpace/);
+  assert.throws(() => spaceRules(rules, 'team'), /APP.space 'team'/);
+  const app = fs.readFileSync(path.join(ROOT, 'app/firestore.app.rules'), 'utf8');
+  assert.match(app, /function mine\(g, roles\) \{ return isSignedIn\(\) && request\.auth\.uid == g && g != '_' && can\('_', roles\); \}/, 'the starter\'s own rules define mine()');
+  assert.equal(spaceRules(app, spaceOfConfig(fs.readFileSync(path.join(ROOT, 'app/src/config.js'), 'utf8'))), app, 'and their line matches config.js');
 });
 
 test('run --check fails on a stale place and passes once written', async () => {

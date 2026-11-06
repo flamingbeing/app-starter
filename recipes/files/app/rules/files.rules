@@ -1,7 +1,7 @@
 // A photo or file on an item (@core/files): the record only; the bytes are in the Worker's R2 bucket.
 match /spaces/{g}/files/{id} {
-  allow read: if can(g, ['admin', 'member', 'viewer']);
-  allow create, update: if can(g, ['admin', 'member']) && stamped()
+  allow read: if inSpace(g, ['admin', 'member', 'viewer']);
+  allow create, update: if inSpace(g, ['admin', 'member']) && stamped()
     && request.resource.data.keys().hasOnly(['name', 'type', 'size', 'w', 'h', 'thumb', 'taken', 'state', 'item',
       'updatedAt', 'serverAt', '_edits'])
     && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
@@ -17,5 +17,5 @@ match /spaces/{g}/files/{id} {
     && request.resource.data.state in ['local', 'stored']
     && request.resource.data.item is string && request.resource.data.item.size() > 0
     && request.resource.data.updatedAt is number;
-  allow delete: if can(g, ['admin', 'member']);
+  allow delete: if inSpace(g, ['admin', 'member']);
 }

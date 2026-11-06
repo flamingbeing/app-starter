@@ -97,6 +97,8 @@ jobs:
       - name: Rules on the full app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
         working-directory: ${{ runner.temp }}/app/app
+        env:
+          RULES_SPACES: shared,person   # the recipes' rules in both space modes (tools/fill.mjs --space)
         run: npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-starter-app "node --test test/rules.test.mjs"
       - name: Browser tests on the full app
         if: steps.changes.outputs.app == 'true' && (matrix.mode == 'plain')
