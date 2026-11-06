@@ -21,7 +21,7 @@ const RULES = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8
 const asked = (process.env.RULES_SPACES || '').split(',').map(m => m.trim()).filter(Boolean);
 const MODES = asked.length ? asked : [spaceOfConfig(readFileSync(new URL('../src/config.js', import.meta.url), 'utf8'))];
 const ROLES = ['admin', 'member', 'viewer'];
-// the kit's rows, in the shared space '_' (a personal app's are each owner's own: ownerCases below)
+// the kit's rows, in the shared space '_' (a personal app's are each owner's own: sharedClosed and the suite's {uid} paths below)
 const ROWS = [
   { path: 'spaces/_/tasks/t1', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
     data: { text: 'hello', done: false, updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
@@ -31,38 +31,16 @@ const ROWS = [
 ];
 const at = { serverAt: true };
 
-/** A personal app: every row's collection is its owner's alone. Each role reads (and, if it writes, writes) in its own
- * space; anyone else, admins included, is refused there; so are no role, signed out, ended access, a revoked account and
- * an unstamped write; nobody reads or writes the shared space '_'. */
-function ownerCases(test, emu, as) {
+/** A personal app: every row's collection is its owner's alone. The rules suite runs each row at `spaces/{uid}/…`
+ * (app-devkit 1.18: each role in its own space; anyone else's, admins included, refused; no role, signed out, ended
+ * access, revoked and unstamped as for a shared row). One more case here: nobody reads or writes the shared space '_'. */
+const owned = row => ({ ...row, path: row.path.replace(/^spaces\/_\//, 'spaces/{uid}/') });
+function sharedClosed(test, emu, as) {
   for (const row of ROWS) {
-    const [, , coll, id] = row.path.split('/');
+    const [, , coll] = row.path.split('/');
     const data = uid => (typeof row.data === 'function' ? row.data(uid) : row.data);
     const opts = row.stamp && row.stamp !== 'none' ? at : {};
-    test(`${coll}: each space is its owner's alone`, async () => {
-      for (const role of ROLES) {
-        await emu.clear();
-        const p = `spaces/u-${role}/${coll}/${id}`, c = `spaces/u-${role}/${coll}`;
-        const writes = row.write.includes(role), reads = row.read.includes(role);
-        assert.equal((await as(role).set(p, data(`u-${role}`), opts)).ok, writes, `${coll}: ${role} writes own`);
-        if (!writes) await emu.seed(p, data(`u-${role}`));
-        assert.equal((await as(role).get(p)).ok, reads, `${coll}: ${role} reads own`);
-        assert.equal((await as(role).list(c)).ok, reads, `${coll}: ${role} lists own`);
-        for (const other of ROLES) {
-          const o = emu.as(`u-other-${other}`, { g: { _: other }, v: 1 });
-          assert.equal((await o.get(p)).ok, false, `${coll}: an ${other} reads ${role}'s`);
-          assert.equal((await o.list(c)).ok, false, `${coll}: an ${other} lists ${role}'s`);
-          assert.equal((await o.set(`${c}/x2`, data(`u-other-${other}`), opts)).ok, false, `${coll}: an ${other} writes ${role}'s`);
-          assert.equal((await o.delete(p)).ok, false, `${coll}: an ${other} deletes ${role}'s`);
-        }
-        assert.equal((await emu.as(`u-${role}`, { v: 1 }).get(p)).ok, false, `${coll}: ${role} with no role now`);
-        assert.equal((await emu.anon().get(p)).ok, false, `${coll}: signed out`);
-        const ended = emu.as(`u-${role}`, { g: { _: role }, v: 1, x: Math.floor(Date.now() / 1000) - 60 });
-        assert.equal((await ended.get(p)).ok, false, `${coll}: ${role}'s access ended`);
-        if (writes && opts.serverAt) assert.equal((await as(role).set(`${c}/s`, data(`u-${role}`))).ok, false, `${coll}: unstamped`);
-        await emu.seed(`revoked/u-${role}`, { at: 1 });
-        assert.equal((await as(role).get(p)).ok, false, `${coll}: ${role} revoked`);
-      }
+    test(`${coll}: nobody reads or writes the shared space`, async () => {
       await emu.clear();
       await emu.seed(`spaces/_/${coll}/old`, data('u-old'));
       for (const role of ROLES) {
@@ -84,11 +62,11 @@ for (const mode of MODES) {
     project: 'demo-starter-app',
     rules: spaceRules(RULES, mode),
     roles: ROLES,
-    collections: person ? [] : ROWS,
+    collections: person ? ROWS.map(owned) : ROWS,
   });
 
   const as = role => emu.as(`u-${role}`, { g: { _: role }, v: 1 });
-  if (person) ownerCases(test, emu, as);
+  if (person) sharedClosed(test, emu, as);
 
   test('people read their own role doc, not others’; nobody writes or deletes one from a page (the Worker does)', async () => {
     await emu.clear();

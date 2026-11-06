@@ -12,7 +12,7 @@ permissions:
   issues: write
 jobs:
   soak:
-    uses: flamingbeing/app-devkit/.github/workflows/soak.yml@v1.16.0
+    uses: flamingbeing/app-devkit/.github/workflows/soak.yml@v1.18.0
     with:
       # sync{
       emulators: firestore,auth

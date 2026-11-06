@@ -31,6 +31,9 @@ export const LATE_MS = 15 * 60 * 1000;
 export const SOON_MS = 30 * 1000;
 /** at most this many notifications per run */
 export const PER_RUN = 10;
+/** the due rows read per query, and at most this many queries a run: sent ones (tombstones) and leased ones are read
+ * past, so a busy minute's unsent items behind them are still found */
+export const PAGE = PER_RUN * 4, MAX_PAGES = 5;
 /** the Workers free plan allows 50 outgoing requests (subrequests) per run: a run counts its own and stops short of this */
 export const BUDGET = 45;
 /** a run holds the items it sends this long; a failed send is tried again after it */
@@ -147,7 +150,7 @@ export async function handlePush(request, { store, verify, revoked = null, origi
 /**
  * The once-a-minute job. Sends what is due (or due within SOON_MS) to each of its person's devices, in these steps, all
  * within BUDGET outgoing requests (the free plan's 50 per run; what does not fit waits for the next minute):
- *  1. the due items (one query); too-late ones (after LATE_MS), old sent ones, and those of a removed person or whose item
+ *  1. the due items (a query a page of PAGE rows, more pages while too few are ready to send); too-late ones (after LATE_MS), old sent ones, and those of a removed person or whose item
  *     is gone or changed (stillDue) are dropped (one batched read of revoked/ and the items);
  *  2. the rest are leased (a run in progress, or a slow one, will not send them too);
  *  3. each one: its person's devices, a send to each, then one commit: a sent item stays as a tombstone (sentAt), a device the
@@ -160,15 +163,22 @@ export async function runDue({ store, vapid, now = Date.now(), send = sendPush, 
   const out = { sent: 0, dropped: 0, gone: 0, retry: 0, deferred: 0 };
   let left = budget - 1;   // (the access token)
   const spend = (/** @type {number} */ n, keep = 1) => left >= n + keep ? (left -= n, true) : false;   // keep: for the final release commit
-  if (!spend(1)) return out;
-  const rows = await store.dueItems(now + SOON_MS, PER_RUN * 4);
   const del = /** @type {string[]} */ ([]);
   let ready = /** @type {{ id: string, data: any }[]} */ ([]);
-  for (const q of rows) {
-    const d = q.data, over = now - d.at > LATE_MS;
-    if (d.sentAt) { if (over) del.push(`pushQueue/${q.id}`); }   // (else it waits to be forgotten)
-    else if (over) { del.push(`pushQueue/${q.id}`); out.dropped++; }
-    else if (!(d.leaseUntil > now) && ready.length < PER_RUN) ready.push(q);
+  /** @type {{ at: number, id: string } | undefined} */
+  let after;
+  for (let page = 0; page < MAX_PAGES && ready.length < PER_RUN; page++) {
+    if (!spend(1, page ? 4 : 1)) { if (!page) return out; break; }   // (a later page keeps room to send what it found)
+    const rows = await store.dueItems(now + SOON_MS, PAGE, after);
+    for (const q of rows) {
+      const d = q.data, over = now - d.at > LATE_MS;
+      if (d.sentAt) { if (over) del.push(`pushQueue/${q.id}`); }   // (else it waits to be forgotten)
+      else if (over) { del.push(`pushQueue/${q.id}`); out.dropped++; }
+      else if (!(d.leaseUntil > now) && ready.length < PER_RUN) ready.push(q);
+    }
+    if (rows.length < PAGE) break;
+    const last = rows[rows.length - 1];
+    after = { at: last.data.at, id: last.id };
   }
   if (ready.length) {
     if (!spend(1)) return out;
@@ -236,7 +246,11 @@ export function firestoreStore(adm, base = 'https://firestore.googleapis.com') {
   return {
     devices: (/** @type {string} */ uid) => run(`/pushSubs/${encodeURIComponent(uid)}`, { from: [{ collectionId: 'devices' }], limit: 50 }),
     queueOf: (/** @type {string} */ uid) => run('', { from: [{ collectionId: 'pushQueue' }], where: field('uid', 'EQUAL', uid), limit: MAX_ITEMS * 2 }),
-    dueItems: (/** @type {number} */ until, /** @type {number} */ limit) => run('', { from: [{ collectionId: 'pushQueue' }], where: field('at', 'LESS_THAN_OR_EQUAL', until), orderBy: [{ field: { fieldPath: 'at' } }], limit }),
+    /** due rows by time, then id; after: the last row of the page before (the next page starts past it) */
+    dueItems: (/** @type {number} */ until, /** @type {number} */ limit, /** @type {{ at: number, id: string } | undefined} */ after) => run('', {
+      from: [{ collectionId: 'pushQueue' }], where: field('at', 'LESS_THAN_OR_EQUAL', until),
+      orderBy: [{ field: { fieldPath: 'at' } }, { field: { fieldPath: '__name__' } }], limit,
+      ...(after ? { startAt: { values: [toValue(after.at), { referenceValue: `${root}/pushQueue/${after.id}` }], before: false } } : {}) }),
     /** several docs in one request -> Map of path to its fields (null: not there) @param {string[]} paths @returns {Promise<Map<string, any>>} */
     async batchGet(paths) {
       const res = await call(`${root}:batchGet`, { documents: paths.map(p => `${root}/${p}`) });

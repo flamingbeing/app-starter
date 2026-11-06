@@ -1,7 +1,7 @@
 // worker/files.js on an in-memory bucket, and its route in sites.js. Run: node --test 'worker/test/*.test.mjs'
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleFiles, defaultAccess, MAX_BYTES } from '../files.js';
+import { handleFiles, defaultAccess, personAccess, MAX_BYTES } from '../files.js';
 import worker from '../sites.js';
 import { memoryBucket } from '../../e2e/memory-bucket.mjs';
 
@@ -169,3 +169,15 @@ test('sites.js: one service-account token for many /api/files calls, not an exch
     assert.equal(exchanges, 1);
   } finally { globalThis.fetch = real; }
 });
+
+test('a personal app (APP.space person): only your own scope, never the shared one, whatever your role there', () => {
+  const token = { sub: 'u1', g: { _: 'admin' } };
+  assert.equal(personAccess({ token, scope: 'u1', write: true }), true);
+  assert.equal(personAccess({ token, scope: 'u1', write: false }), true);
+  assert.equal(personAccess({ token, scope: '_', write: false }), false, 'the shared scope, as an admin there');
+  assert.equal(personAccess({ token, scope: '_', write: true }), false);
+  assert.equal(personAccess({ token, scope: 'u2', write: false }), false, 'someone else');
+  assert.equal(personAccess({ token: { sub: 'u1', g: { _: 'viewer' } }, scope: 'u1', write: true }), false, 'a viewer still writes nothing');
+  assert.equal(personAccess({ token: { ...token, x: 1 }, scope: 'u1', write: false }), false, 'access ended');
+});
+

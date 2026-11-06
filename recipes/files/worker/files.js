@@ -30,6 +30,12 @@ export function defaultAccess({ token, scope, write, now = Date.now() }) {
   return (write ? WRITERS : READERS).includes(g[scope]);
 }
 
+/** A personal app's rule (APP.space 'person', one space per person): only your own uid, by defaultAccess's rule; no
+ * shared scope (not '_'), whatever role the token carries, as the rules' mine(). */
+export function personAccess(o) {
+  return o.scope === o.token.sub && defaultAccess(o);
+}
+
 export async function handleFiles(request, { bucket, verify, maxBytes = MAX_BYTES, access = defaultAccess, origin, revoked = null, now = Date.now } = {}) {
   const m = new URL(request.url).pathname.match(PATH);
   if (!m) return json({ error: 'Not found.' }, 404);

@@ -1,7 +1,7 @@
 // worker/push.js (the push recipe) with an in-memory store and a fake sender. Run: node --test 'worker/test/*.test.mjs'
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handlePush, runDue, cleanItems, cleanSubscription, stillDue, sha256, firestoreStore, MAX_ITEMS, PER_RUN, LEASE_MS } from '../push.js';
+import { handlePush, runDue, cleanItems, cleanSubscription, stillDue, sha256, firestoreStore, MAX_ITEMS, PER_RUN, PAGE, LEASE_MS } from '../push.js';
 import { itemPath } from '../../app/src/push/push-items.js';
 
 const NOW = Date.UTC(2026, 10, 5, 3, 0, 0);
@@ -16,7 +16,9 @@ function memory() {
   return { docs,
     devices: async uid => under(`pushSubs/${uid}/devices/`),
     queueOf: async uid => under('pushQueue/').filter(d => d.data.uid === uid),
-    dueItems: async (until, limit) => under('pushQueue/').filter(d => d.data.at <= until).sort((a, b) => a.data.at - b.data.at).slice(0, limit),
+    dueItems: async (until, limit, after) => under('pushQueue/').filter(d => d.data.at <= until)
+      .sort((a, b) => a.data.at - b.data.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .filter(d => !after || d.data.at > after.at || (d.data.at === after.at && d.id > after.id)).slice(0, limit),
     batchGet: async paths => new Map(paths.map(p => [p, docs.get(p) ?? null])),
     write: async ({ set = [], del = [] }) => { for (const [p, d] of set) docs.set(p, d); for (const p of del) docs.delete(p); } };
 }
@@ -260,6 +262,16 @@ test('the job counts its outgoing requests and stops short of the budget; what d
   const next = await runDue({ store: s, vapid, now: NOW + 1000, send: sender(), budget: 45 });
   assert.equal(next.deferred, 0);
   assert.equal(next.sent / 2, PER_RUN - r.sent / 2);
+});
+
+test('a busy minute: unsent items behind a page of sent ones (tombstones) are still found and sent, not left to go late', async () => {
+  const s = await setup(1);
+  // more sent ones than a page, all due before the unsent ones
+  for (let n = 1; n <= PAGE + 5; n++) { queue(s, n, { at: NOW - 60000 + n }); }
+  for (const [p, d] of [...s.docs]) if (p.startsWith('pushQueue/')) s.docs.set(p, { ...d, sentAt: NOW - 30000 });
+  for (let n = 100; n < 103; n++) queue(s, n, { at: NOW - 1000 + n });
+  const r = await run(s, { send: sender(201) });
+  assert.deepEqual(r, { sent: 3, dropped: 0, gone: 0, retry: 0, deferred: 0 });
 });
 
 test('a failing device lookup leaves the item for later; the run goes on', async () => {
