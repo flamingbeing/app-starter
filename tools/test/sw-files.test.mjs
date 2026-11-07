@@ -99,6 +99,20 @@ test('app-ui: a style sheet a module links beside it at run time is listed; a la
   assert.deepEqual(shellFiles({ dir, sync: engine(), ui }), ['./', UI + 'ui/vault/index.js', UI + 'ui/vault/vault.css']);
 });
 
+test('app-roster: its entry in the import map with what it imports; an app without it lists none', () => {
+  const R = 'https://core.anawj.com/roster/0.1.0/';
+  const roster = tree({
+    'package.json': JSON.stringify({ name: 'app-roster', version: '0.1.0' }),
+    'index.js': "export * from './src/slot/engine.js';\n", 'src/slot/engine.js': "import { a } from '../levels.js';\n", 'src/levels.js': '', 'grid.js': '',
+  });
+  const dir = tree({ 'index.html': page({ '@core/roster': R + 'index.js' }), 'sw.js': SW });
+  assert.deepEqual(shellFiles({ dir, sync: engine(), roster }), ['./', R + 'index.js', R + 'src/slot/engine.js', R + 'src/levels.js']);
+  const none = tree({ 'index.html': page({}), 'sw.js': SW });
+  assert.deepEqual(shellFiles({ dir: none, sync: engine(), roster: path.join(none, 'no-such-package') }), ['./']);
+  const old = tree({ 'index.html': page({ '@core/roster': 'https://core.anawj.com/roster/0.0.9/index.js' }), 'sw.js': SW });
+  assert.throws(() => shellFiles({ dir: old, sync: engine(), roster }), /app-roster 0\.0\.9.*0\.1\.0/);
+});
+
 test('writes the list into sw.js, and --check fails until it is written', () => {
   const dir = tree({ 'index.html': page({}), 'src/app.js': '', 'public/sw.js': SW });
   assert.throws(() => writeShell({ dir, sync: engine(), check: true }), /out of date/);
